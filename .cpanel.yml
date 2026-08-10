@@ -1,0 +1,8 @@
+---
+deployment:
+  tasks:
+    - cd /home/fuevorco/fuevor && /usr/bin/env composer install --no-dev --optimize-autoloader --no-interaction
+    - cd /home/fuevorco/fuevor && /usr/bin/env php artisan migrate --force
+    - cd /home/fuevorco/fuevor && /usr/bin/env php artisan optimize:clear
+    - cd /home/fuevorco/fuevor && /usr/bin/env php artisan config:cache
+    - cd /home/fuevorco/fuevor && /usr/bin/env php artisan view:cache
