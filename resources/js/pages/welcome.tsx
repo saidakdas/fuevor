@@ -344,14 +344,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                 <div className="pointer-events-none absolute -top-32 right-[4%] h-80 w-80 rounded-full bg-cyan-300/10 blur-3xl" />
                 <div className="pointer-events-none absolute bottom-[-12rem] left-[24%] h-96 w-96 rounded-full bg-black/10 blur-3xl" />
 
-                <header className="relative z-10 flex items-start justify-end px-5 pt-5 sm:px-9 sm:pt-7">
-                    <div className="text-right" aria-label={`En iyi skor ${formatScore(bestScoreMs)}`}>
-                        <p className="text-[0.62rem] font-semibold tracking-[0.28em] text-white/55 uppercase">Best skor</p>
-                        <p className="mt-1 text-lg font-semibold tracking-tight tabular-nums sm:text-xl">{formatScore(bestScoreMs)}</p>
-                    </div>
-                </header>
-
-                <main className="relative z-10 flex min-h-0 flex-1 flex-col">
+                <main className="relative z-10 flex min-h-0 flex-1 flex-col pt-5 sm:pt-7">
                     <section className="flex flex-col items-center px-5 pt-2 text-center sm:pt-0">
                         <img
                             src="/fuevor-white-logo.svg"
@@ -451,9 +444,19 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                     >
                         <canvas ref={canvasRef} className="pointer-events-none absolute inset-0" aria-hidden="true" />
 
-                        <div className="pointer-events-none absolute top-[7%] left-1/2 -translate-x-1/2 text-center" aria-live="polite">
-                            <p className="text-[0.6rem] font-semibold tracking-[0.3em] text-white/48 uppercase">Skor</p>
-                            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{formatScore(scoreMs)}</p>
+                        <div
+                            className="pointer-events-none absolute top-[7%] left-1/2 flex -translate-x-1/2 items-center justify-center gap-5 text-center sm:gap-7"
+                            aria-live="polite"
+                        >
+                            <div>
+                                <p className="text-[0.6rem] font-semibold tracking-[0.3em] text-white/48 uppercase">Skor</p>
+                                <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{formatScore(scoreMs)}</p>
+                            </div>
+                            <span className="h-10 w-px bg-white/20" aria-hidden="true" />
+                            <div aria-label={`En iyi skor ${formatScore(bestScoreMs)}`}>
+                                <p className="text-[0.6rem] font-semibold tracking-[0.24em] whitespace-nowrap text-white/48 uppercase">Best skor</p>
+                                <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{formatScore(bestScoreMs)}</p>
+                            </div>
                         </div>
 
                         {status === 'ready' && (
