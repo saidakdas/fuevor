@@ -1,1 +1,0 @@
-import{j as o}from"./app-TCJq2PGa.js";function r(s){return o.jsx("svg",{...s,viewBox:"0 0 40 40",xmlns:"http://www.w3.org/2000/svg",children:o.jsx("path",{d:"M8 7h24v7H16v5h13v7H16v9H8V7Z"})})}export{r as A};

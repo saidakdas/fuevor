@@ -1,15 +1,23 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GameScoreController;
 use App\Http\Controllers\GoalController;
 use App\Http\Controllers\MilestoneController;
 use App\Http\Controllers\TaskController;
+use App\Models\GameScore;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('welcome');
+    return Inertia::render('welcome', [
+        'bestScoreMs' => GameScore::query()->max('duration_ms') ?? 0,
+    ]);
 })->name('home');
+
+Route::post('game-scores', [GameScoreController::class, 'store'])
+    ->middleware('throttle:20,1')
+    ->name('game-scores.store');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
