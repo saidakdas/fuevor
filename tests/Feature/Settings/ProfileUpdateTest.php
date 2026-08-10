@@ -10,6 +10,13 @@ class ProfileUpdateTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['app.user_panel_enabled' => true]);
+    }
+
     public function test_profile_page_is_displayed()
     {
         $user = User::factory()->create();

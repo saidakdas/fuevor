@@ -12,6 +12,13 @@ class GoalApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['app.user_panel_enabled' => true]);
+    }
+
     public function test_user_can_create_read_update_and_delete_own_goal(): void
     {
         Sanctum::actingAs($user = User::factory()->create());

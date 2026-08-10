@@ -11,6 +11,13 @@ class PasswordUpdateTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['app.user_panel_enabled' => true]);
+    }
+
     public function test_password_can_be_updated()
     {
         $user = User::factory()->create();

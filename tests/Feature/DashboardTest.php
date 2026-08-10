@@ -20,6 +20,7 @@ class DashboardTest extends TestCase
         $this->actingAs($user = User::factory()->create());
 
         $this->get('/dashboard')->assertNotFound();
+        $this->get('/settings/profile')->assertNotFound();
     }
 
     public function test_dashboard_can_be_reenabled_later_with_the_feature_flag()

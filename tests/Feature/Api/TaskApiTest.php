@@ -14,6 +14,13 @@ class TaskApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['app.user_panel_enabled' => true]);
+    }
+
     public function test_user_can_manage_tasks_of_own_milestone(): void
     {
         Sanctum::actingAs($user = User::factory()->create());

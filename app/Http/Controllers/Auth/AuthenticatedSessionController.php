@@ -36,7 +36,7 @@ class AuthenticatedSessionController extends Controller
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return to_route('home');
+            return to_route('home')->with('registration_success', RegisteredUserController::SUCCESS_MESSAGE);
         }
 
         $request->session()->regenerate();

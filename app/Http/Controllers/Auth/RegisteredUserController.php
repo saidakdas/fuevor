@@ -16,7 +16,7 @@ use Inertia\Response;
 
 class RegisteredUserController extends Controller
 {
-    private const SUCCESS_MESSAGE = 'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.';
+    public const SUCCESS_MESSAGE = 'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.';
 
     /**
      * Show the registration page.

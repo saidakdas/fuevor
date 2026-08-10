@@ -27,7 +27,12 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertGuest();
-        $response->assertRedirect(route('home', absolute: false));
+        $response
+            ->assertRedirect(route('home', absolute: false))
+            ->assertSessionHas(
+                'registration_success',
+                'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.',
+            );
     }
 
     public function test_users_can_not_authenticate_with_invalid_password()
