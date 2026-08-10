@@ -312,7 +312,7 @@ export default function Welcome({ bestScoreMs: initialBestScore }: WelcomeProps)
 
     return (
         <>
-            <Head title="Sonuçlar hedeflerden daha yakınında!">
+            <Head title="Build Your Future Self">
                 <meta name="description" content="Fuevor çizgi koşu oyununda boşlukların üzerinden atla ve en iyi süreyi yakala." />
             </Head>
 
@@ -336,12 +336,7 @@ export default function Welcome({ bestScoreMs: initialBestScore }: WelcomeProps)
                             className="h-auto w-[min(64vw,350px)] drop-shadow-[0_8px_28px_rgba(0,0,0,0.12)]"
                             draggable={false}
                         />
-                        <h1 className="-mt-2 text-base font-medium tracking-[0.01em] text-white/88 sm:text-xl">
-                            Sonuçlar hedeflerden daha yakınında!
-                        </h1>
-                        <p className="mt-2 text-[0.62rem] font-semibold tracking-[0.3em] text-white/48 uppercase sm:text-xs">
-                            Build Your Future Self
-                        </p>
+                        <h1 className="-mt-2 text-xs font-semibold tracking-[0.18em] text-white/60 sm:text-sm">Build Your Future Self</h1>
                     </section>
 
                     <section
