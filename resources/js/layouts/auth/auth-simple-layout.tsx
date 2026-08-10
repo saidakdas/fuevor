@@ -1,4 +1,4 @@
-import AppLogoIcon from '@/components/app-logo-icon';
+import BrandLogo from '@/components/brand-logo';
 import { Link } from '@inertiajs/react';
 
 interface AuthLayoutProps {
@@ -16,10 +16,7 @@ export default function AuthSimpleLayout({ children, title, description }: AuthL
                 <div className="flex flex-col gap-8">
                     <div className="flex flex-col items-center gap-4">
                         <Link href={route('home')} className="flex flex-col items-center gap-2 font-medium">
-                            <div className="mb-1 grid size-11 place-items-center rounded-xl bg-violet-600 shadow-lg shadow-violet-200 dark:shadow-none">
-                                <AppLogoIcon className="size-7 fill-current text-white" />
-                            </div>
-                            <span className="text-lg font-bold tracking-tight">Fuevor</span>
+                            <BrandLogo className="h-16 w-44" />
                             <span className="sr-only">{title}</span>
                         </Link>
 

@@ -331,7 +331,7 @@ export default function Welcome({ bestScoreMs: initialBestScore }: WelcomeProps)
                 <main className="relative z-10 flex min-h-0 flex-1 flex-col">
                     <section className="flex flex-col items-center px-5 pt-2 text-center sm:pt-0">
                         <img
-                            src="/fuevor-first-logo.svg"
+                            src="/fuevor-white-logo.svg"
                             alt="Fuevor"
                             className="h-auto w-[min(64vw,350px)] drop-shadow-[0_8px_28px_rgba(0,0,0,0.12)]"
                             draggable={false}
