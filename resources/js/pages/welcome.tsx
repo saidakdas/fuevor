@@ -1,5 +1,7 @@
-import { Head } from '@inertiajs/react';
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import InputError from '@/components/input-error';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { LoaderCircle } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type FormEventHandler, type KeyboardEvent, type PointerEvent } from 'react';
 
 type GameStatus = 'ready' | 'running' | 'falling' | 'game-over';
 
@@ -16,6 +18,13 @@ type Player = {
 
 type WelcomeProps = {
     bestScoreMs: number;
+};
+
+type RegistrationForm = {
+    name: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
 };
 
 const GRAVITY = 1_800;
@@ -42,6 +51,19 @@ export default function Welcome({ bestScoreMs: initialBestScore }: WelcomeProps)
     const [status, setStatus] = useState<GameStatus>('ready');
     const [scoreMs, setScoreMs] = useState(0);
     const [bestScoreMs, setBestScoreMs] = useState(initialBestScore);
+    const registration = useForm<RegistrationForm>({
+        name: '',
+        email: '',
+        password: '',
+        password_confirmation: '',
+    });
+
+    const submitRegistration: FormEventHandler<HTMLFormElement> = (event) => {
+        event.preventDefault();
+        registration.post(route('register'), {
+            onFinish: () => registration.reset('password', 'password_confirmation'),
+        });
+    };
 
     const changeStatus = useCallback((nextStatus: GameStatus) => {
         statusRef.current = nextStatus;
@@ -316,7 +338,7 @@ export default function Welcome({ bestScoreMs: initialBestScore }: WelcomeProps)
                 <meta name="description" content="Fuevor çizgi koşu oyununda boşlukların üzerinden atla ve en iyi süreyi yakala." />
             </Head>
 
-            <div className="relative flex min-h-[100svh] flex-col overflow-hidden bg-[#00464d] text-white select-none">
+            <div className="relative flex min-h-[100svh] flex-col overflow-x-hidden bg-[#00464d] text-white">
                 <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(106deg,#002b2f_0%,#004b53_42%,#08a5bf_100%)]" />
                 <div className="pointer-events-none absolute -top-32 right-[4%] h-80 w-80 rounded-full bg-cyan-300/10 blur-3xl" />
                 <div className="pointer-events-none absolute bottom-[-12rem] left-[24%] h-96 w-96 rounded-full bg-black/10 blur-3xl" />
@@ -339,9 +361,94 @@ export default function Welcome({ bestScoreMs: initialBestScore }: WelcomeProps)
                         <h1 className="-mt-2 text-xs font-semibold tracking-[0.18em] text-white/60 sm:text-sm">Build Your Future Self</h1>
                     </section>
 
+                    <section className="mx-auto mt-7 w-full max-w-5xl px-5 text-center sm:mt-9 sm:px-9">
+                        <p className="mx-auto max-w-3xl text-xl leading-tight font-medium tracking-[-0.025em] text-balance sm:text-3xl lg:text-4xl">
+                            Turn your goals into milestones, milestones into action, and action into your future self.
+                        </p>
+
+                        <div className="mx-auto mt-7 max-w-3xl rounded-2xl border border-white/15 bg-white/[0.08] p-4 shadow-2xl shadow-black/10 backdrop-blur-sm sm:p-6">
+                            <p className="text-sm font-semibold tracking-[0.08em] text-white/75">erkenden yerini al;</p>
+
+                            <form className="mt-4 grid gap-3 text-left sm:grid-cols-3" onSubmit={submitRegistration}>
+                                <div>
+                                    <label className="sr-only" htmlFor="welcome-name">
+                                        Ad soyad
+                                    </label>
+                                    <input
+                                        id="welcome-name"
+                                        type="text"
+                                        required
+                                        autoComplete="name"
+                                        value={registration.data.name}
+                                        onChange={(event) => registration.setData('name', event.target.value)}
+                                        disabled={registration.processing}
+                                        placeholder="Ad soyad"
+                                        className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
+                                    />
+                                    <InputError message={registration.errors.name} className="mt-1.5 text-xs text-red-200" />
+                                </div>
+
+                                <div>
+                                    <label className="sr-only" htmlFor="welcome-email">
+                                        E-posta adresi
+                                    </label>
+                                    <input
+                                        id="welcome-email"
+                                        type="email"
+                                        required
+                                        autoComplete="email"
+                                        value={registration.data.email}
+                                        onChange={(event) => registration.setData('email', event.target.value)}
+                                        disabled={registration.processing}
+                                        placeholder="E-posta adresi"
+                                        className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
+                                    />
+                                    <InputError message={registration.errors.email} className="mt-1.5 text-xs text-red-200" />
+                                </div>
+
+                                <div>
+                                    <label className="sr-only" htmlFor="welcome-password">
+                                        Şifre
+                                    </label>
+                                    <input
+                                        id="welcome-password"
+                                        type="password"
+                                        required
+                                        autoComplete="new-password"
+                                        value={registration.data.password}
+                                        onChange={(event) => {
+                                            registration.setData('password', event.target.value);
+                                            registration.setData('password_confirmation', event.target.value);
+                                        }}
+                                        disabled={registration.processing}
+                                        placeholder="Şifreni belirle"
+                                        className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
+                                    />
+                                    <InputError message={registration.errors.password} className="mt-1.5 text-xs text-red-200" />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={registration.processing}
+                                    className="flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-[#00464d] transition hover:bg-cyan-50 focus:ring-2 focus:ring-white/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-3"
+                                >
+                                    {registration.processing && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
+                                    Kaydol
+                                </button>
+                            </form>
+
+                            <p className="mt-4 text-xs text-white/55">
+                                Zaten hesabın var mı?{' '}
+                                <Link href={route('login')} className="font-semibold text-white underline underline-offset-4 hover:text-cyan-100">
+                                    Giriş yap
+                                </Link>
+                            </p>
+                        </div>
+                    </section>
+
                     <section
                         ref={gameAreaRef}
-                        className="relative mt-4 min-h-[300px] flex-1 cursor-pointer touch-none outline-none sm:mt-7 sm:min-h-[350px]"
+                        className="relative mt-4 min-h-[300px] flex-1 cursor-pointer touch-none outline-none select-none sm:mt-7 sm:min-h-[350px]"
                         role="button"
                         tabIndex={0}
                         aria-label="Fuevor koşu oyunu. Başlamak ve zıplamak için dokun."
