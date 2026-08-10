@@ -339,6 +339,9 @@ export default function Welcome({ bestScoreMs: initialBestScore }: WelcomeProps)
                         <h1 className="-mt-2 text-base font-medium tracking-[0.01em] text-white/88 sm:text-xl">
                             Sonuçlar hedeflerden daha yakınında!
                         </h1>
+                        <p className="mt-2 text-[0.62rem] font-semibold tracking-[0.3em] text-white/48 uppercase sm:text-xs">
+                            Build Your Future Self
+                        </p>
                     </section>
 
                     <section
