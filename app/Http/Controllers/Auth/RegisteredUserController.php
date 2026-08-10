@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +16,8 @@ use Inertia\Response;
 
 class RegisteredUserController extends Controller
 {
+    private const SUCCESS_MESSAGE = 'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.';
+
     /**
      * Show the registration page.
      */
@@ -30,6 +33,18 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        if ($request->user()?->isAdmin()) {
+            return to_route('admin.index');
+        }
+
+        if ($request->user()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return $this->registeredRedirect();
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
@@ -44,9 +59,11 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        return to_route('home')->with(
-            'registration_success',
-            'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.',
-        );
+        return $this->registeredRedirect();
+    }
+
+    private function registeredRedirect(): RedirectResponse
+    {
+        return to_route('home')->with('registration_success', self::SUCCESS_MESSAGE);
     }
 }
