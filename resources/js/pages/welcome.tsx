@@ -1,5 +1,5 @@
 import InputError from '@/components/input-error';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEventHandler, type KeyboardEvent, type PointerEvent } from 'react';
 
@@ -18,6 +18,7 @@ type Player = {
 
 type WelcomeProps = {
     bestScoreMs: number;
+    registrationSuccess: string | null;
 };
 
 type RegistrationForm = {
@@ -35,7 +36,7 @@ function formatScore(milliseconds: number): string {
     return `${(milliseconds / 1_000).toFixed(1)} sn`;
 }
 
-export default function Welcome({ bestScoreMs: initialBestScore }: WelcomeProps) {
+export default function Welcome({ bestScoreMs: initialBestScore, registrationSuccess }: WelcomeProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const gameAreaRef = useRef<HTMLDivElement>(null);
     const statusRef = useRef<GameStatus>('ready');
@@ -367,82 +368,83 @@ export default function Welcome({ bestScoreMs: initialBestScore }: WelcomeProps)
                         </p>
 
                         <div className="mx-auto mt-7 max-w-3xl rounded-2xl border border-white/15 bg-white/[0.08] p-4 shadow-2xl shadow-black/10 backdrop-blur-sm sm:p-6">
-                            <p className="text-sm font-semibold tracking-[0.08em] text-white/75">erkenden yerini al;</p>
+                            {registrationSuccess ? (
+                                <p className="mx-auto max-w-2xl py-4 text-lg leading-relaxed font-semibold text-white sm:text-xl" role="status">
+                                    {registrationSuccess}
+                                </p>
+                            ) : (
+                                <>
+                                    <p className="text-sm font-semibold tracking-[0.08em] text-white/75">Erkenden Yerini Al</p>
 
-                            <form className="mt-4 grid gap-3 text-left sm:grid-cols-3" onSubmit={submitRegistration}>
-                                <div>
-                                    <label className="sr-only" htmlFor="welcome-name">
-                                        Ad soyad
-                                    </label>
-                                    <input
-                                        id="welcome-name"
-                                        type="text"
-                                        required
-                                        autoComplete="name"
-                                        value={registration.data.name}
-                                        onChange={(event) => registration.setData('name', event.target.value)}
-                                        disabled={registration.processing}
-                                        placeholder="Ad soyad"
-                                        className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
-                                    />
-                                    <InputError message={registration.errors.name} className="mt-1.5 text-xs text-red-200" />
-                                </div>
+                                    <form className="mt-4 grid gap-3 text-left sm:grid-cols-3" onSubmit={submitRegistration}>
+                                        <div>
+                                            <label className="sr-only" htmlFor="welcome-name">
+                                                Ad soyad
+                                            </label>
+                                            <input
+                                                id="welcome-name"
+                                                type="text"
+                                                required
+                                                autoComplete="name"
+                                                value={registration.data.name}
+                                                onChange={(event) => registration.setData('name', event.target.value)}
+                                                disabled={registration.processing}
+                                                placeholder="Ad soyad"
+                                                className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
+                                            />
+                                            <InputError message={registration.errors.name} className="mt-1.5 text-xs text-red-200" />
+                                        </div>
 
-                                <div>
-                                    <label className="sr-only" htmlFor="welcome-email">
-                                        E-posta adresi
-                                    </label>
-                                    <input
-                                        id="welcome-email"
-                                        type="email"
-                                        required
-                                        autoComplete="email"
-                                        value={registration.data.email}
-                                        onChange={(event) => registration.setData('email', event.target.value)}
-                                        disabled={registration.processing}
-                                        placeholder="E-posta adresi"
-                                        className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
-                                    />
-                                    <InputError message={registration.errors.email} className="mt-1.5 text-xs text-red-200" />
-                                </div>
+                                        <div>
+                                            <label className="sr-only" htmlFor="welcome-email">
+                                                E-posta adresi
+                                            </label>
+                                            <input
+                                                id="welcome-email"
+                                                type="email"
+                                                required
+                                                autoComplete="email"
+                                                value={registration.data.email}
+                                                onChange={(event) => registration.setData('email', event.target.value)}
+                                                disabled={registration.processing}
+                                                placeholder="E-posta adresi"
+                                                className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
+                                            />
+                                            <InputError message={registration.errors.email} className="mt-1.5 text-xs text-red-200" />
+                                        </div>
 
-                                <div>
-                                    <label className="sr-only" htmlFor="welcome-password">
-                                        Şifre
-                                    </label>
-                                    <input
-                                        id="welcome-password"
-                                        type="password"
-                                        required
-                                        autoComplete="new-password"
-                                        value={registration.data.password}
-                                        onChange={(event) => {
-                                            registration.setData('password', event.target.value);
-                                            registration.setData('password_confirmation', event.target.value);
-                                        }}
-                                        disabled={registration.processing}
-                                        placeholder="Şifreni belirle"
-                                        className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
-                                    />
-                                    <InputError message={registration.errors.password} className="mt-1.5 text-xs text-red-200" />
-                                </div>
+                                        <div>
+                                            <label className="sr-only" htmlFor="welcome-password">
+                                                Şifre
+                                            </label>
+                                            <input
+                                                id="welcome-password"
+                                                type="password"
+                                                required
+                                                autoComplete="new-password"
+                                                value={registration.data.password}
+                                                onChange={(event) => {
+                                                    registration.setData('password', event.target.value);
+                                                    registration.setData('password_confirmation', event.target.value);
+                                                }}
+                                                disabled={registration.processing}
+                                                placeholder="Şifreni belirle"
+                                                className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
+                                            />
+                                            <InputError message={registration.errors.password} className="mt-1.5 text-xs text-red-200" />
+                                        </div>
 
-                                <button
-                                    type="submit"
-                                    disabled={registration.processing}
-                                    className="flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-[#00464d] transition hover:bg-cyan-50 focus:ring-2 focus:ring-white/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-3"
-                                >
-                                    {registration.processing && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
-                                    Kaydol
-                                </button>
-                            </form>
-
-                            <p className="mt-4 text-xs text-white/55">
-                                Zaten hesabın var mı?{' '}
-                                <Link href={route('login')} className="font-semibold text-white underline underline-offset-4 hover:text-cyan-100">
-                                    Giriş yap
-                                </Link>
-                            </p>
+                                        <button
+                                            type="submit"
+                                            disabled={registration.processing}
+                                            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-[#00464d] transition hover:bg-cyan-50 focus:ring-2 focus:ring-white/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-3"
+                                        >
+                                            {registration.processing && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
+                                            Kaydol
+                                        </button>
+                                    </form>
+                                </>
+                            )}
                         </div>
                     </section>
 

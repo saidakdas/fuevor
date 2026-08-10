@@ -15,8 +15,16 @@ class DashboardTest extends TestCase
         $this->get('/dashboard')->assertRedirect('/login');
     }
 
-    public function test_authenticated_users_can_visit_the_dashboard()
+    public function test_authenticated_users_cannot_visit_the_hidden_dashboard()
     {
+        $this->actingAs($user = User::factory()->create());
+
+        $this->get('/dashboard')->assertNotFound();
+    }
+
+    public function test_dashboard_can_be_reenabled_later_with_the_feature_flag()
+    {
+        config(['app.user_panel_enabled' => true]);
         $this->actingAs($user = User::factory()->create());
 
         $this->get('/dashboard')->assertOk();

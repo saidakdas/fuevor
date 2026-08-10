@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
@@ -23,8 +24,19 @@ class RegistrationTest extends TestCase
             'password_confirmation' => 'password',
         ]);
 
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertGuest();
+        $response
+            ->assertRedirect(route('home', absolute: false))
+            ->assertSessionHas(
+                'registration_success',
+                'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.',
+            );
+        $this->get('/')->assertInertia(fn (Assert $page) => $page
+            ->component('welcome')
+            ->where(
+                'registrationSuccess',
+                'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.',
+            ));
         $this->assertDatabaseHas('users', [
             'name' => 'Test User',
             'email' => 'test@example.com',

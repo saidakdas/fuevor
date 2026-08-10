@@ -7,12 +7,14 @@ use App\Http\Controllers\GoalController;
 use App\Http\Controllers\MilestoneController;
 use App\Http\Controllers\TaskController;
 use App\Models\GameScore;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
+Route::get('/', function (Request $request) {
     return Inertia::render('welcome', [
         'bestScoreMs' => GameScore::query()->max('duration_ms') ?? 0,
+        'registrationSuccess' => $request->session()->get('registration_success'),
     ]);
 })->name('home');
 
@@ -20,7 +22,7 @@ Route::post('game-scores', [GameScoreController::class, 'store'])
     ->middleware('throttle:20,1')
     ->name('game-scores.store');
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'user-panel'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::resource('goals', GoalController::class);
     Route::post('goals/{goal}/milestones', [MilestoneController::class, 'store'])->name('milestones.store');
