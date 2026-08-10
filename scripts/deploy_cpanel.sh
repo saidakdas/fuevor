@@ -31,8 +31,16 @@ api_call() {
             "$@"
     )"
 
-    if ! jq -e '.result.status == 1' >/dev/null <<<"$response"; then
-        jq -r '.result.errors // ["Bilinmeyen cPanel API hatası"] | join("; ")' <<<"$response" >&2
+    if ! jq -e '(.result.status // .status) == 1' >/dev/null <<<"$response"; then
+        jq -r '
+            [
+                (.result.errors // .errors // [] | if type == "array" then .[] else . end),
+                (.result.messages // .messages // [] | if type == "array" then .[] else . end),
+                (.result.warnings // .warnings // [] | if type == "array" then .[] else . end)
+            ]
+            | map(select(. != null and . != ""))
+            | if length > 0 then join("; ") else "Bilinmeyen cPanel API hatası" end
+        ' <<<"$response" >&2
         return 1
     fi
 }
