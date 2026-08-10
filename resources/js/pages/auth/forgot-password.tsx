@@ -8,9 +8,11 @@ import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useLocale } from '@/hooks/use-locale';
 import AuthLayout from '@/layouts/auth-layout';
 
 export default function ForgotPassword({ status }: { status?: string }) {
+    const { t } = useLocale();
     const { data, setData, post, processing, errors } = useForm({
         email: '',
     });
@@ -22,15 +24,18 @@ export default function ForgotPassword({ status }: { status?: string }) {
     };
 
     return (
-        <AuthLayout title="Forgot password" description="Enter your email to receive a password reset link">
-            <Head title="Forgot password" />
+        <AuthLayout
+            title={t('Şifremi unuttum', 'Forgot password')}
+            description={t('Şifre sıfırlama bağlantısını almak için e-posta adresini gir.', 'Enter your email to receive a password reset link.')}
+        >
+            <Head title={t('Şifremi Unuttum', 'Forgot Password')} />
 
             {status && <div className="mb-4 text-center text-sm font-medium text-green-600">{status}</div>}
 
             <div className="space-y-6">
                 <form onSubmit={submit}>
                     <div className="grid gap-2">
-                        <Label htmlFor="email">Email address</Label>
+                        <Label htmlFor="email">{t('E-posta adresi', 'Email address')}</Label>
                         <Input
                             id="email"
                             type="email"
@@ -48,14 +53,14 @@ export default function ForgotPassword({ status }: { status?: string }) {
                     <div className="my-6 flex items-center justify-start">
                         <Button className="w-full" disabled={processing}>
                             {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                            Email password reset link
+                            {t('Şifre sıfırlama bağlantısını gönder', 'Email password reset link')}
                         </Button>
                     </div>
                 </form>
 
                 <div className="text-muted-foreground space-x-1 text-center text-sm">
-                    <span>Or, return to</span>
-                    <TextLink href={route('login')}>log in</TextLink>
+                    <span>{t('Ya da', 'Or, return to')}</span>
+                    <TextLink href={route('login')}>{t('giriş yap', 'log in')}</TextLink>
                 </div>
             </div>
         </AuthLayout>

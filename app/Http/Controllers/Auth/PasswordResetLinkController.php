@@ -37,6 +37,11 @@ class PasswordResetLinkController extends Controller
             $request->only('email')
         );
 
-        return back()->with('status', __('A reset link will be sent if the account exists.'));
+        return back()->with(
+            'status',
+            app()->getLocale() === 'tr'
+                ? 'Hesap mevcutsa şifre sıfırlama bağlantısı e-posta adresinize gönderilecektir.'
+                : 'A reset link will be sent if the account exists.',
+        );
     }
 }

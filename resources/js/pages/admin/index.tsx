@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { useLocale } from '@/hooks/use-locale';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link } from '@inertiajs/react';
 import { Activity, CalendarDays, CheckCircle2, Mail, Phone, Search, ShieldCheck, Target, Users } from 'lucide-react';
@@ -51,13 +52,6 @@ type AdminPageProps = {
     };
 };
 
-const statusLabels: Record<AdminGoal['status'], string> = {
-    active: 'Aktif',
-    paused: 'Duraklatıldı',
-    completed: 'Tamamlandı',
-    archived: 'Arşivlendi',
-};
-
 const statusStyles: Record<AdminGoal['status'], string> = {
     active: 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-300',
     paused: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
@@ -66,29 +60,34 @@ const statusStyles: Record<AdminGoal['status'], string> = {
 };
 
 export default function AdminIndex({ filters, stats, users }: AdminPageProps) {
+    const { t } = useLocale();
+
     return (
-        <AppLayout breadcrumbs={[{ title: 'Admin Paneli', href: '/admin' }]}>
-            <Head title="Admin Paneli" />
+        <AppLayout breadcrumbs={[{ title: t('Admin Paneli', 'Admin Panel'), href: '/admin' }]}>
+            <Head title={t('Admin Paneli', 'Admin Panel')} />
 
             <main className="space-y-6 p-4 md:p-6 lg:p-8">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-cyan-700 dark:text-cyan-400">
                             <ShieldCheck className="size-4" />
-                            Yetkili görünüm
+                            {t('Yetkili görünüm', 'Authorized view')}
                         </div>
-                        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Kullanıcılar ve hedefler</h1>
+                        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('Kullanıcılar ve hedefler', 'Users and goals')}</h1>
                         <p className="text-muted-foreground mt-2 text-sm">
-                            Kullanıcı iletişim bilgilerini ve hedef ilerlemelerini tek ekrandan izleyin.
+                            {t(
+                                'Kullanıcı iletişim bilgilerini ve hedef ilerlemelerini tek ekrandan izleyin.',
+                                'Review user contact details and goal progress in one place.',
+                            )}
                         </p>
                     </div>
                 </div>
 
                 <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatCard icon={Users} label="Kullanıcı" value={stats.total_users} tone="cyan" />
-                    <StatCard icon={Target} label="Toplam hedef" value={stats.total_goals} tone="violet" />
-                    <StatCard icon={Activity} label="Aktif hedef" value={stats.active_goals} tone="amber" />
-                    <StatCard icon={CheckCircle2} label="Tamamlanan" value={stats.completed_goals} tone="emerald" />
+                    <StatCard icon={Users} label={t('Kullanıcı', 'Users')} value={stats.total_users} tone="cyan" />
+                    <StatCard icon={Target} label={t('Toplam hedef', 'Total goals')} value={stats.total_goals} tone="violet" />
+                    <StatCard icon={Activity} label={t('Aktif hedef', 'Active goals')} value={stats.active_goals} tone="amber" />
+                    <StatCard icon={CheckCircle2} label={t('Tamamlanan', 'Completed')} value={stats.completed_goals} tone="emerald" />
                 </section>
 
                 <Card className="border-0 shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-800">
@@ -96,12 +95,17 @@ export default function AdminIndex({ filters, stats, users }: AdminPageProps) {
                         <form method="get" action="/admin" className="flex flex-col gap-3 sm:flex-row">
                             <div className="relative flex-1">
                                 <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-                                <Input name="q" defaultValue={filters.q} className="pl-9" placeholder="Ad, e-posta veya telefon ara" />
+                                <Input
+                                    name="q"
+                                    defaultValue={filters.q}
+                                    className="pl-9"
+                                    placeholder={t('Ad, e-posta veya telefon ara', 'Search name, email, or phone')}
+                                />
                             </div>
-                            <Button type="submit">Ara</Button>
+                            <Button type="submit">{t('Ara', 'Search')}</Button>
                             {filters.q && (
                                 <Button variant="outline" asChild>
-                                    <Link href="/admin">Temizle</Link>
+                                    <Link href="/admin">{t('Temizle', 'Clear')}</Link>
                                 </Button>
                             )}
                         </form>
@@ -111,7 +115,7 @@ export default function AdminIndex({ filters, stats, users }: AdminPageProps) {
                 <section className="space-y-4">
                     {users.data.length === 0 ? (
                         <div className="text-muted-foreground rounded-2xl border border-dashed p-12 text-center text-sm">
-                            Aramanızla eşleşen kullanıcı bulunamadı.
+                            {t('Aramanızla eşleşen kullanıcı bulunamadı.', 'No users matched your search.')}
                         </div>
                     ) : (
                         users.data.map((user) => <UserCard key={user.id} user={user} />)
@@ -119,21 +123,21 @@ export default function AdminIndex({ filters, stats, users }: AdminPageProps) {
                 </section>
 
                 {users.links.length > 3 && (
-                    <nav className="flex flex-col items-center justify-between gap-3 sm:flex-row" aria-label="Sayfalama">
+                    <nav className="flex flex-col items-center justify-between gap-3 sm:flex-row" aria-label={t('Sayfalama', 'Pagination')}>
                         <p className="text-muted-foreground text-sm">
-                            {users.total} kayıttan {users.from}–{users.to} arası
+                            {t(`${users.total} kayıttan ${users.from}–${users.to} arası`, `Showing ${users.from}–${users.to} of ${users.total}`)}
                         </p>
                         <div className="flex flex-wrap justify-center gap-1">
                             {users.links.map((link, index) =>
                                 link.url ? (
                                     <Button key={`${link.label}-${index}`} variant={link.active ? 'default' : 'outline'} size="sm" asChild>
                                         <Link href={link.url} preserveScroll>
-                                            {formatPaginationLabel(link.label)}
+                                            {formatPaginationLabel(link.label, t)}
                                         </Link>
                                     </Button>
                                 ) : (
                                     <Button key={`${link.label}-${index}`} variant="outline" size="sm" disabled>
-                                        {formatPaginationLabel(link.label)}
+                                        {formatPaginationLabel(link.label, t)}
                                     </Button>
                                 ),
                             )}
@@ -146,6 +150,14 @@ export default function AdminIndex({ filters, stats, users }: AdminPageProps) {
 }
 
 function UserCard({ user }: { user: AdminUser }) {
+    const { locale, t } = useLocale();
+    const statusLabels: Record<AdminGoal['status'], string> = {
+        active: t('Aktif', 'Active'),
+        paused: t('Duraklatıldı', 'Paused'),
+        completed: t('Tamamlandı', 'Completed'),
+        archived: t('Arşivlendi', 'Archived'),
+    };
+
     return (
         <Card className="overflow-hidden border-0 shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-800">
             <CardContent className="p-0">
@@ -166,25 +178,25 @@ function UserCard({ user }: { user: AdminUser }) {
                                 </a>
                                 <span className="flex items-center gap-2">
                                     <Phone className="size-4 shrink-0" />
-                                    {user.phone || 'Telefon eklenmemiş'}
+                                    {user.phone || t('Telefon eklenmemiş', 'No phone added')}
                                 </span>
                                 <span className="flex items-center gap-2">
                                     <CalendarDays className="size-4 shrink-0" />
-                                    {formatDate(user.created_at)} tarihinde katıldı
+                                    {t(`${formatDate(user.created_at, locale)} tarihinde katıldı`, `Joined ${formatDate(user.created_at, locale)}`)}
                                 </span>
                             </div>
                         </div>
                     </div>
                     <div className="shrink-0 text-left sm:text-right">
                         <p className="text-2xl font-bold">{user.goals_count}</p>
-                        <p className="text-muted-foreground text-xs">hedef</p>
+                        <p className="text-muted-foreground text-xs">{t('hedef', 'goals')}</p>
                     </div>
                 </div>
 
                 <div className="bg-slate-50/70 p-4 sm:p-5 dark:bg-slate-900/40">
                     {user.goals.length === 0 ? (
                         <p className="text-muted-foreground rounded-xl border border-dashed bg-white p-5 text-center text-sm dark:bg-slate-950">
-                            Bu kullanıcının henüz hedefi yok.
+                            {t('Bu kullanıcının henüz hedefi yok.', 'This user has no goals yet.')}
                         </p>
                     ) : (
                         <div className="grid gap-3 lg:grid-cols-2">
@@ -193,7 +205,9 @@ function UserCard({ user }: { user: AdminUser }) {
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
                                             <h3 className="truncate font-semibold">{goal.title}</h3>
-                                            <p className="text-muted-foreground mt-1 text-xs">Hedef tarihi: {formatGoalDate(goal.target_date)}</p>
+                                            <p className="text-muted-foreground mt-1 text-xs">
+                                                {t('Hedef tarihi', 'Target date')}: {formatGoalDate(goal.target_date, locale, t)}
+                                            </p>
                                         </div>
                                         <Badge variant="outline" className={statusStyles[goal.status]}>
                                             {statusLabels[goal.status]}
@@ -255,15 +269,18 @@ const getInitials = (name: string) =>
         .join('')
         .toLocaleUpperCase('tr-TR');
 
-const formatDate = (date: string) => new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(date));
+const formatDate = (date: string, locale: 'tr' | 'en') =>
+    new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(date));
 
-const formatGoalDate = (date: string | null) =>
+const formatGoalDate = (date: string | null, locale: 'tr' | 'en', t: (turkish: string, english: string) => string) =>
     date
-        ? new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`))
-        : 'Belirtilmedi';
+        ? new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' }).format(
+              new Date(`${date}T00:00:00`),
+          )
+        : t('Belirtilmedi', 'Not specified');
 
-const formatPaginationLabel = (label: string) => {
-    if (label.includes('Previous')) return 'Önceki';
-    if (label.includes('Next')) return 'Sonraki';
+const formatPaginationLabel = (label: string, t: (turkish: string, english: string) => string) => {
+    if (label.includes('Previous')) return t('Önceki', 'Previous');
+    if (label.includes('Next')) return t('Sonraki', 'Next');
     return label;
 };

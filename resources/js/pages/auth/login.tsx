@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useLocale } from '@/hooks/use-locale';
 import AuthLayout from '@/layouts/auth-layout';
 
 interface LoginForm {
@@ -22,6 +23,7 @@ interface LoginProps {
 }
 
 export default function Login({ status, canResetPassword }: LoginProps) {
+    const { t } = useLocale();
     const { data, setData, post, processing, errors, reset } = useForm<LoginForm>({
         email: '',
         password: '',
@@ -36,13 +38,16 @@ export default function Login({ status, canResetPassword }: LoginProps) {
     };
 
     return (
-        <AuthLayout title="Tekrar hoş geldin" description="Hedeflerine kaldığın yerden devam et.">
-            <Head title="Giriş Yap" />
+        <AuthLayout
+            title={t('Tekrar hoş geldin', 'Welcome back')}
+            description={t('Hedeflerine kaldığın yerden devam et.', 'Continue where you left off with your goals.')}
+        >
+            <Head title={t('Giriş Yap', 'Log in')} />
 
             <form className="flex flex-col gap-6" onSubmit={submit}>
                 <div className="grid gap-6">
                     <div className="grid gap-2">
-                        <Label htmlFor="email">E-posta adresi</Label>
+                        <Label htmlFor="email">{t('E-posta adresi', 'Email address')}</Label>
                         <Input
                             id="email"
                             type="email"
@@ -52,17 +57,17 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             autoComplete="email"
                             value={data.email}
                             onChange={(e) => setData('email', e.target.value)}
-                            placeholder="sen@ornek.com"
+                            placeholder={t('sen@ornek.com', 'you@example.com')}
                         />
                         <InputError message={errors.email} />
                     </div>
 
                     <div className="grid gap-2">
                         <div className="flex items-center">
-                            <Label htmlFor="password">Şifre</Label>
+                            <Label htmlFor="password">{t('Şifre', 'Password')}</Label>
                             {canResetPassword && (
                                 <TextLink href={route('password.request')} className="ml-auto text-sm" tabIndex={5}>
-                                    Şifremi unuttum
+                                    {t('Şifremi unuttum', 'Forgot password?')}
                                 </TextLink>
                             )}
                         </div>
@@ -74,19 +79,19 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             autoComplete="current-password"
                             value={data.password}
                             onChange={(e) => setData('password', e.target.value)}
-                            placeholder="Şifren"
+                            placeholder={t('Şifren', 'Your password')}
                         />
                         <InputError message={errors.password} />
                     </div>
 
                     <div className="flex items-center space-x-3">
                         <Checkbox id="remember" name="remember" tabIndex={3} />
-                        <Label htmlFor="remember">Beni hatırla</Label>
+                        <Label htmlFor="remember">{t('Beni hatırla', 'Remember me')}</Label>
                     </div>
 
                     <Button type="submit" className="mt-4 w-full" tabIndex={4} disabled={processing}>
                         {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                        Giriş yap
+                        {t('Giriş yap', 'Log in')}
                     </Button>
                 </div>
             </form>

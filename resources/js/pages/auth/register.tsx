@@ -7,6 +7,7 @@ import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useLocale } from '@/hooks/use-locale';
 import AuthLayout from '@/layouts/auth-layout';
 
 interface RegisterForm {
@@ -17,6 +18,7 @@ interface RegisterForm {
 }
 
 export default function Register() {
+    const { t } = useLocale();
     const { data, setData, post, processing, errors, reset } = useForm<RegisterForm>({
         name: '',
         email: '',
@@ -32,12 +34,15 @@ export default function Register() {
     };
 
     return (
-        <AuthLayout title="Hedeflerine alan aç" description="Ücretsiz hesabını oluştur ve ilk adımı at.">
-            <Head title="Kayıt Ol" />
+        <AuthLayout
+            title={t('Hedeflerine alan aç', 'Make room for your goals')}
+            description={t('Ücretsiz hesabını oluştur ve ilk adımı at.', 'Create your free account and take the first step.')}
+        >
+            <Head title={t('Kayıt Ol', 'Sign up')} />
             <form className="flex flex-col gap-6" onSubmit={submit}>
                 <div className="grid gap-6">
                     <div className="grid gap-2">
-                        <Label htmlFor="name">Ad soyad</Label>
+                        <Label htmlFor="name">{t('Ad soyad', 'Full name')}</Label>
                         <Input
                             id="name"
                             type="text"
@@ -48,13 +53,13 @@ export default function Register() {
                             value={data.name}
                             onChange={(e) => setData('name', e.target.value)}
                             disabled={processing}
-                            placeholder="Adın ve soyadın"
+                            placeholder={t('Adın ve soyadın', 'Your full name')}
                         />
                         <InputError message={errors.name} className="mt-2" />
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="email">E-posta adresi</Label>
+                        <Label htmlFor="email">{t('E-posta adresi', 'Email address')}</Label>
                         <Input
                             id="email"
                             type="email"
@@ -64,13 +69,13 @@ export default function Register() {
                             value={data.email}
                             onChange={(e) => setData('email', e.target.value)}
                             disabled={processing}
-                            placeholder="sen@ornek.com"
+                            placeholder="you@example.com"
                         />
                         <InputError message={errors.email} />
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="password">Şifre</Label>
+                        <Label htmlFor="password">{t('Şifre', 'Password')}</Label>
                         <Input
                             id="password"
                             type="password"
@@ -80,13 +85,13 @@ export default function Register() {
                             value={data.password}
                             onChange={(e) => setData('password', e.target.value)}
                             disabled={processing}
-                            placeholder="Güçlü bir şifre"
+                            placeholder={t('Güçlü bir şifre', 'A strong password')}
                         />
                         <InputError message={errors.password} />
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="password_confirmation">Şifre tekrarı</Label>
+                        <Label htmlFor="password_confirmation">{t('Şifre tekrarı', 'Confirm password')}</Label>
                         <Input
                             id="password_confirmation"
                             type="password"
@@ -96,21 +101,21 @@ export default function Register() {
                             value={data.password_confirmation}
                             onChange={(e) => setData('password_confirmation', e.target.value)}
                             disabled={processing}
-                            placeholder="Şifreni tekrar yaz"
+                            placeholder={t('Şifreni tekrar yaz', 'Enter your password again')}
                         />
                         <InputError message={errors.password_confirmation} />
                     </div>
 
                     <Button type="submit" className="mt-2 w-full" tabIndex={5} disabled={processing}>
                         {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                        Hesabımı oluştur
+                        {t('Hesabımı oluştur', 'Create my account')}
                     </Button>
                 </div>
 
                 <div className="text-muted-foreground text-center text-sm">
-                    Zaten hesabın var mı?{' '}
+                    {t('Zaten hesabın var mı?', 'Already have an account?')}{' '}
                     <TextLink href={route('login')} tabIndex={6}>
-                        Giriş yap
+                        {t('Giriş yap', 'Log in')}
                     </TextLink>
                 </div>
             </form>

@@ -19,14 +19,14 @@ class TaskController extends Controller
     {
         $this->service->create($milestone, $request->validated());
 
-        return back()->with('success', 'Görev eklendi.');
+        return back()->with('success', __('messages.task_created'));
     }
 
     public function update(UpdateTaskRequest $request, Task $task): RedirectResponse
     {
         $this->service->update($task, $request->validated());
 
-        return back()->with('success', 'Görev güncellendi.');
+        return back()->with('success', __('messages.task_updated'));
     }
 
     public function destroy(Task $task): RedirectResponse
@@ -34,7 +34,7 @@ class TaskController extends Controller
         Gate::authorize('delete', $task);
         $this->service->delete($task);
 
-        return back()->with('success', 'Görev silindi.');
+        return back()->with('success', __('messages.task_deleted'));
     }
 
     public function toggle(Task $task): RedirectResponse
@@ -49,6 +49,6 @@ class TaskController extends Controller
     {
         $this->service->reorder($milestone, $request->validated('ids'));
 
-        return back()->with('success', 'Sıralama güncellendi.');
+        return back()->with('success', __('messages.order_updated'));
     }
 }

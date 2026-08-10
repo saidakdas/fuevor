@@ -34,7 +34,7 @@ class GoalController extends Controller
     {
         $goal = $this->service->create($request->user(), $request->validated());
 
-        return to_route('goals.show', $goal)->with('success', 'Hedef oluşturuldu.');
+        return to_route('goals.show', $goal)->with('success', __('messages.goal_created'));
     }
 
     public function show(Goal $goal): Response
@@ -57,7 +57,7 @@ class GoalController extends Controller
     {
         $this->service->update($goal, $request->validated());
 
-        return to_route('goals.show', $goal)->with('success', 'Hedef güncellendi.');
+        return to_route('goals.show', $goal)->with('success', __('messages.goal_updated'));
     }
 
     public function destroy(Goal $goal): RedirectResponse
@@ -65,6 +65,6 @@ class GoalController extends Controller
         Gate::authorize('delete', $goal);
         $this->service->delete($goal);
 
-        return to_route('goals.index')->with('success', 'Hedef silindi.');
+        return to_route('goals.index')->with('success', __('messages.goal_deleted'));
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\DetectVisitorLocale;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserPanelIsAvailable;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -27,10 +28,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'user-panel' => EnsureUserPanelIsAvailable::class,
         ]);
 
-        $middleware->web(append: [
-            HandleInertiaRequests::class,
-            AddLinkHeadersForPreloadedAssets::class,
-        ]);
+        $middleware->web(
+            prepend: [DetectVisitorLocale::class],
+            append: [
+                HandleInertiaRequests::class,
+                AddLinkHeadersForPreloadedAssets::class,
+            ],
+        );
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (ValidationException $e, $request) {

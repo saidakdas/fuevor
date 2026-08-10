@@ -42,7 +42,7 @@ class MilestoneService
     {
         $owned = $goal->milestones()->whereIn('id', $ids)->pluck('id')->map(fn ($id) => (int) $id)->all();
         if (count($owned) !== count($ids)) {
-            throw ValidationException::withMessages(['ids' => 'Sıralama yalnızca bu hedefin kilometre taşlarını içerebilir.']);
+            throw ValidationException::withMessages(['ids' => __('messages.invalid_milestone_order')]);
         }
         DB::transaction(fn () => collect($ids)->each(
             fn ($id, $position) => $goal->milestones()->whereKey($id)->update(['position' => $position + 1])

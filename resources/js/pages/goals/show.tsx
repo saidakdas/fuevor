@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Textarea } from '@/components/ui/textarea';
+import { useLocale } from '@/hooks/use-locale';
 import AppLayout from '@/layouts/app-layout';
 import { Goal, Milestone, Priority, Task } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
@@ -29,11 +30,12 @@ import {
 import { FormEvent, useState } from 'react';
 
 export default function GoalShow({ goal }: { goal: Goal }) {
+    const { locale, t } = useLocale();
     const milestones = goal.milestones ?? [];
     return (
         <AppLayout
             breadcrumbs={[
-                { title: 'Hedeflerim', href: '/goals' },
+                { title: t('Hedeflerim', 'My Goals'), href: '/goals' },
                 { title: goal.title, href: route('goals.show', goal.id) },
             ]}
         >
@@ -46,28 +48,29 @@ export default function GoalShow({ goal }: { goal: Goal }) {
                             className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1 text-sm"
                         >
                             <ArrowLeft className="size-4" />
-                            Hedeflerim
+                            {t('Hedeflerim', 'My Goals')}
                         </Link>
                         <div className="flex flex-wrap items-center gap-2">
-                            <Badge className={priorityColor(goal.priority)}>{priorityLabel(goal.priority)}</Badge>
-                            <Badge variant="outline">{statusLabel(goal.status)}</Badge>
+                            <Badge className={priorityColor(goal.priority)}>{priorityLabel(goal.priority, t)}</Badge>
+                            <Badge variant="outline">{statusLabel(goal.status, t)}</Badge>
                         </div>
                         <h1 className="mt-3 max-w-4xl text-3xl font-bold tracking-tight md:text-4xl">{goal.title}</h1>
                         <p className="text-muted-foreground mt-3 max-w-3xl text-sm leading-6 md:text-base">
-                            {goal.description || 'Bu hedef için henüz bir açıklama eklenmedi.'}
+                            {goal.description || t('Bu hedef için henüz bir açıklama eklenmedi.', 'No description has been added for this goal yet.')}
                         </p>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" asChild>
                             <Link href={route('goals.edit', goal.id)}>
                                 <Edit3 />
-                                Düzenle
+                                {t('Düzenle', 'Edit')}
                             </Link>
                         </Button>
                         <Button
                             variant="outline"
                             size="icon"
-                            onClick={() => confirm('Bu hedef silinsin mi?') && router.delete(route('goals.destroy', goal.id))}
+                            onClick={() => confirm(t('Bu hedef silinsin mi?', 'Delete this goal?')) && router.delete(route('goals.destroy', goal.id))}
+                            aria-label={t('Hedefi sil', 'Delete goal')}
                         >
                             <Trash2 />
                         </Button>
@@ -77,18 +80,18 @@ export default function GoalShow({ goal }: { goal: Goal }) {
                     <CardContent className="grid gap-8 p-6 md:grid-cols-[1fr_auto] md:p-8">
                         <div>
                             <div className="mb-3 flex items-center justify-between">
-                                <span className="text-sm text-slate-300">Hedef ilerlemesi</span>
+                                <span className="text-sm text-slate-300">{t('Hedef ilerlemesi', 'Goal progress')}</span>
                                 <strong className="text-3xl">%{goal.progress}</strong>
                             </div>
                             <ProgressBar value={goal.progress} />
                             <div className="mt-5 flex flex-wrap gap-5 text-xs text-slate-300">
                                 <span className="flex items-center gap-1.5">
                                     <CalendarDays className="size-4" />
-                                    {formatDate(goal.start_date)} — {formatDate(goal.target_date)}
+                                    {formatDate(goal.start_date, locale)} — {formatDate(goal.target_date, locale)}
                                 </span>
                                 <span className="flex items-center gap-1.5">
                                     <Clock3 className="size-4" />
-                                    {remaining(goal.target_date)}
+                                    {remaining(goal.target_date, t)}
                                 </span>
                             </div>
                         </div>
@@ -98,7 +101,7 @@ export default function GoalShow({ goal }: { goal: Goal }) {
                             </div>
                             <div>
                                 <p className="text-2xl font-bold">{milestones.length}</p>
-                                <p className="text-xs text-slate-400">Kilometre taşı</p>
+                                <p className="text-xs text-slate-400">{t('Kilometre taşı', 'Milestones')}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -106,24 +109,37 @@ export default function GoalShow({ goal }: { goal: Goal }) {
                 <div className="grid gap-5 lg:grid-cols-2">
                     <Insight
                         icon={Sparkles}
-                        title="Neden bu hedef?"
+                        title={t('Neden bu hedef?', 'Why this goal?')}
                         text={goal.motivation}
-                        empty="Motivasyonunu eklediğinde zor günlerde buradan güç alabilirsin."
+                        empty={t(
+                            'Motivasyonunu eklediğinde zor günlerde buradan güç alabilirsin.',
+                            'Add your motivation here to draw strength from it on difficult days.',
+                        )}
                     />
-                    <Insight icon={Gift} title="Kazanım / ödül" text={goal.reward} empty="Bu hedefe ulaştığında elde edeceğin kazanımı tanımla." />
+                    <Insight
+                        icon={Gift}
+                        title={t('Kazanım / ödül', 'Benefit / reward')}
+                        text={goal.reward}
+                        empty={t('Bu hedefe ulaştığında elde edeceğin kazanımı tanımla.', 'Describe what you will gain when you reach this goal.')}
+                    />
                 </div>
                 <section className="space-y-4">
                     <div className="flex items-center justify-between gap-4">
                         <div>
-                            <h2 className="text-xl font-bold">Yol haritası</h2>
-                            <p className="text-muted-foreground mt-1 text-sm">Kilometre taşlarını görevlerle ilerlet.</p>
+                            <h2 className="text-xl font-bold">{t('Yol haritası', 'Roadmap')}</h2>
+                            <p className="text-muted-foreground mt-1 text-sm">
+                                {t('Kilometre taşlarını görevlerle ilerlet.', 'Advance your milestones with tasks.')}
+                            </p>
                         </div>
                         <MilestoneModal goalId={goal.id} />
                     </div>
                     {milestones.length === 0 ? (
                         <Card className="border-dashed">
                             <CardContent className="text-muted-foreground p-10 text-center text-sm">
-                                İlk kilometre taşını ekleyerek hedefini uygulanabilir adımlara böl.
+                                {t(
+                                    'İlk kilometre taşını ekleyerek hedefini uygulanabilir adımlara böl.',
+                                    'Add your first milestone to break your goal into actionable steps.',
+                                )}
                             </CardContent>
                         </Card>
                     ) : (
@@ -152,6 +168,7 @@ function Insight({ icon: Icon, title, text, empty }: { icon: typeof Gift; title:
 }
 
 function MilestoneCard({ goal, milestone, index }: { goal: Goal; milestone: Milestone; index: number }) {
+    const { locale, t } = useLocale();
     const tasks = milestone.tasks ?? [];
     const move = (direction: -1 | 1) => {
         const ids = (goal.milestones ?? []).map((item) => item.id);
@@ -166,14 +183,16 @@ function MilestoneCard({ goal, milestone, index }: { goal: Goal; milestone: Mile
                     <div className="min-w-0">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                             <span className="text-xs font-bold text-violet-600">{String(index + 1).padStart(2, '0')}</span>
-                            <Badge variant="secondary">{milestoneStatus(milestone.status)}</Badge>
-                            {milestone.target_date && <span className="text-muted-foreground text-xs">{formatDate(milestone.target_date)}</span>}
+                            <Badge variant="secondary">{milestoneStatus(milestone.status, t)}</Badge>
+                            {milestone.target_date && (
+                                <span className="text-muted-foreground text-xs">{formatDate(milestone.target_date, locale)}</span>
+                            )}
                         </div>
                         <CardTitle className="text-lg">{milestone.title}</CardTitle>
                         {milestone.description && <p className="text-muted-foreground mt-2 text-sm leading-5">{milestone.description}</p>}
                     </div>
                     <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" disabled={index === 0} onClick={() => move(-1)} title="Yukarı taşı">
+                        <Button variant="ghost" size="icon" disabled={index === 0} onClick={() => move(-1)} title={t('Yukarı taşı', 'Move up')}>
                             <ArrowUp />
                         </Button>
                         <Button
@@ -181,7 +200,7 @@ function MilestoneCard({ goal, milestone, index }: { goal: Goal; milestone: Mile
                             size="icon"
                             disabled={index === (goal.milestones?.length ?? 1) - 1}
                             onClick={() => move(1)}
-                            title="Aşağı taşı"
+                            title={t('Aşağı taşı', 'Move down')}
                         >
                             <ArrowDown />
                         </Button>
@@ -190,9 +209,10 @@ function MilestoneCard({ goal, milestone, index }: { goal: Goal; milestone: Mile
                             variant="ghost"
                             size="icon"
                             onClick={() =>
-                                confirm('Kilometre taşı ve görevleri silinsin mi?') &&
+                                confirm(t('Kilometre taşı ve görevleri silinsin mi?', 'Delete this milestone and its tasks?')) &&
                                 router.delete(route('milestones.destroy', milestone.id), { preserveScroll: true })
                             }
+                            aria-label={t('Kilometre taşını sil', 'Delete milestone')}
                         >
                             <Trash2 />
                         </Button>
@@ -203,13 +223,13 @@ function MilestoneCard({ goal, milestone, index }: { goal: Goal; milestone: Mile
             <CardContent className="space-y-3 border-t bg-slate-50/60 p-4 dark:bg-slate-950/30">
                 <div className="flex items-center justify-between">
                     <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-                        Görevler · {tasks.filter((task) => task.is_completed).length}/{tasks.length}
+                        {t('Görevler', 'Tasks')} · {tasks.filter((task) => task.is_completed).length}/{tasks.length}
                     </p>
                     <TaskModal milestoneId={milestone.id} />
                 </div>
                 {tasks.length === 0 ? (
                     <div className="bg-background text-muted-foreground rounded-xl border border-dashed p-6 text-center text-xs">
-                        Henüz görev yok.
+                        {t('Henüz görev yok.', 'No tasks yet.')}
                     </div>
                 ) : (
                     tasks.map((task, taskIndex) => <TaskRow key={task.id} milestone={milestone} task={task} index={taskIndex} />)
@@ -220,6 +240,7 @@ function MilestoneCard({ goal, milestone, index }: { goal: Goal; milestone: Mile
 }
 
 function TaskRow({ milestone, task, index }: { milestone: Milestone; task: Task; index: number }) {
+    const { locale, t } = useLocale();
     const tasks = milestone.tasks ?? [];
     const move = (direction: -1 | 1) => {
         const ids = tasks.map((item) => item.id);
@@ -238,8 +259,8 @@ function TaskRow({ milestone, task, index }: { milestone: Milestone; task: Task;
             <div className="min-w-0 flex-1">
                 <p className={`truncate text-sm font-medium ${task.is_completed ? 'text-muted-foreground line-through' : ''}`}>{task.title}</p>
                 <div className="text-muted-foreground mt-1 flex flex-wrap gap-2 text-[11px]">
-                    {task.due_date && <span>{formatDate(task.due_date)}</span>}
-                    <span>{priorityLabel(task.priority)}</span>
+                    {task.due_date && <span>{formatDate(task.due_date, locale)}</span>}
+                    <span>{priorityLabel(task.priority, t)}</span>
                 </div>
             </div>
             <div className="flex">
@@ -254,7 +275,11 @@ function TaskRow({ milestone, task, index }: { milestone: Milestone; task: Task;
                     variant="ghost"
                     size="icon"
                     className="size-8"
-                    onClick={() => confirm('Görev silinsin mi?') && router.delete(route('tasks.destroy', task.id), { preserveScroll: true })}
+                    onClick={() =>
+                        confirm(t('Görev silinsin mi?', 'Delete this task?')) &&
+                        router.delete(route('tasks.destroy', task.id), { preserveScroll: true })
+                    }
+                    aria-label={t('Görevi sil', 'Delete task')}
                 >
                     <Trash2 />
                 </Button>
@@ -264,6 +289,7 @@ function TaskRow({ milestone, task, index }: { milestone: Milestone; task: Task;
 }
 
 function MilestoneModal({ goalId, milestone }: { goalId: number; milestone?: Milestone }) {
+    const { t } = useLocale();
     const [open, setOpen] = useState(false);
     const form = useForm({ title: milestone?.title ?? '', description: milestone?.description ?? '', target_date: milestone?.target_date ?? '' });
     const submit = (e: FormEvent) => {
@@ -285,8 +311,8 @@ function MilestoneModal({ goalId, milestone }: { goalId: number; milestone?: Mil
         <Modal
             open={open}
             onOpenChange={setOpen}
-            title={milestone ? 'Kilometre taşını düzenle' : 'Kilometre taşı ekle'}
-            description="Hedef içindeki ölçülebilir ara aşamayı tanımla."
+            title={milestone ? t('Kilometre taşını düzenle', 'Edit milestone') : t('Kilometre taşı ekle', 'Add milestone')}
+            description={t('Hedef içindeki ölçülebilir ara aşamayı tanımla.', 'Define a measurable stage within your goal.')}
             trigger={
                 <Button variant={milestone ? 'ghost' : 'default'} size={milestone ? 'icon' : 'default'}>
                     {milestone ? (
@@ -294,24 +320,24 @@ function MilestoneModal({ goalId, milestone }: { goalId: number; milestone?: Mil
                     ) : (
                         <>
                             <Plus />
-                            Kilometre taşı
+                            {t('Kilometre taşı', 'Milestone')}
                         </>
                     )}
                 </Button>
             }
         >
             <form onSubmit={submit} className="space-y-4">
-                <Field label="Başlık" error={form.errors.title}>
+                <Field label={t('Başlık', 'Title')} error={form.errors.title}>
                     <Input value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} required />
                 </Field>
-                <Field label="Açıklama" error={form.errors.description}>
+                <Field label={t('Açıklama', 'Description')} error={form.errors.description}>
                     <Textarea value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
                 </Field>
-                <Field label="Hedef tarihi" error={form.errors.target_date}>
+                <Field label={t('Hedef tarihi', 'Target date')} error={form.errors.target_date}>
                     <Input type="date" value={form.data.target_date} onChange={(e) => form.setData('target_date', e.target.value)} />
                 </Field>
                 <Button className="w-full" disabled={form.processing}>
-                    {milestone ? 'Kaydet' : 'Ekle'}
+                    {milestone ? t('Kaydet', 'Save') : t('Ekle', 'Add')}
                 </Button>
             </form>
         </Modal>
@@ -319,6 +345,7 @@ function MilestoneModal({ goalId, milestone }: { goalId: number; milestone?: Mil
 }
 
 function TaskModal({ milestoneId, task }: { milestoneId: number; task?: Task }) {
+    const { t } = useLocale();
     const [open, setOpen] = useState(false);
     const form = useForm({
         title: task?.title ?? '',
@@ -345,8 +372,8 @@ function TaskModal({ milestoneId, task }: { milestoneId: number; task?: Task }) 
         <Modal
             open={open}
             onOpenChange={setOpen}
-            title={task ? 'Görevi düzenle' : 'Görev ekle'}
-            description="Net, küçük ve tamamlanabilir bir sonraki adım yaz."
+            title={task ? t('Görevi düzenle', 'Edit task') : t('Görev ekle', 'Add task')}
+            description={t('Net, küçük ve tamamlanabilir bir sonraki adım yaz.', 'Write a clear, small, and achievable next step.')}
             trigger={
                 <Button variant="ghost" size={task ? 'icon' : 'sm'} className={task ? 'size-8' : ''}>
                     {task ? (
@@ -354,37 +381,37 @@ function TaskModal({ milestoneId, task }: { milestoneId: number; task?: Task }) 
                     ) : (
                         <>
                             <Plus />
-                            Görev ekle
+                            {t('Görev ekle', 'Add task')}
                         </>
                     )}
                 </Button>
             }
         >
             <form onSubmit={submit} className="space-y-4">
-                <Field label="Başlık" error={form.errors.title}>
+                <Field label={t('Başlık', 'Title')} error={form.errors.title}>
                     <Input value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} required />
                 </Field>
-                <Field label="Açıklama" error={form.errors.description}>
+                <Field label={t('Açıklama', 'Description')} error={form.errors.description}>
                     <Textarea value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Son tarih" error={form.errors.due_date}>
+                    <Field label={t('Son tarih', 'Due date')} error={form.errors.due_date}>
                         <Input type="date" value={form.data.due_date} onChange={(e) => form.setData('due_date', e.target.value)} />
                     </Field>
-                    <Field label="Öncelik" error={form.errors.priority}>
+                    <Field label={t('Öncelik', 'Priority')} error={form.errors.priority}>
                         <select
                             className="bg-background h-10 rounded-md border px-3 text-sm"
                             value={form.data.priority}
                             onChange={(e) => form.setData('priority', e.target.value as Priority)}
                         >
-                            <option value="low">Düşük</option>
-                            <option value="medium">Orta</option>
-                            <option value="high">Yüksek</option>
+                            <option value="low">{t('Düşük', 'Low')}</option>
+                            <option value="medium">{t('Orta', 'Medium')}</option>
+                            <option value="high">{t('Yüksek', 'High')}</option>
                         </select>
                     </Field>
                 </div>
                 <Button className="w-full" disabled={form.processing}>
-                    {task ? 'Kaydet' : 'Ekle'}
+                    {task ? t('Kaydet', 'Save') : t('Ekle', 'Add')}
                 </Button>
             </form>
         </Modal>
@@ -400,18 +427,35 @@ function Field({ label, error, children }: { label: string; error?: string; chil
         </div>
     );
 }
-const formatDate = (date: string) =>
-    new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`));
-const remaining = (date: string) => {
+type Translate = (turkish: string, english: string) => string;
+
+const formatDate = (date: string, locale: 'tr' | 'en') =>
+    new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' }).format(
+        new Date(`${date}T00:00:00`),
+    );
+const remaining = (date: string, t: Translate) => {
     const days = Math.ceil((new Date(`${date}T23:59:59`).getTime() - Date.now()) / 86400000);
-    return days < 0 ? `${Math.abs(days)} gün gecikti` : days === 0 ? 'Bugün sona eriyor' : `${days} gün kaldı`;
+    return days < 0
+        ? t(`${Math.abs(days)} gün gecikti`, `${Math.abs(days)} days overdue`)
+        : days === 0
+          ? t('Bugün sona eriyor', 'Ends today')
+          : t(`${days} gün kaldı`, `${days} days remaining`);
 };
-const priorityLabel = (value: string) => ({ low: 'Düşük öncelik', medium: 'Orta öncelik', high: 'Yüksek öncelik' })[value] ?? value;
+const priorityLabel = (value: string, t: Translate) =>
+    ({ low: t('Düşük öncelik', 'Low priority'), medium: t('Orta öncelik', 'Medium priority'), high: t('Yüksek öncelik', 'High priority') })[value] ??
+    value;
 const priorityColor = (value: string) =>
     value === 'high'
         ? 'border-0 bg-red-100 text-red-700'
         : value === 'medium'
           ? 'border-0 bg-amber-100 text-amber-700'
           : 'border-0 bg-slate-100 text-slate-700';
-const statusLabel = (value: string) => ({ active: 'Aktif', paused: 'Duraklatıldı', completed: 'Tamamlandı', archived: 'Arşivlendi' })[value] ?? value;
-const milestoneStatus = (value: string) => ({ pending: 'Bekliyor', in_progress: 'Devam ediyor', completed: 'Tamamlandı' })[value] ?? value;
+const statusLabel = (value: string, t: Translate) =>
+    ({
+        active: t('Aktif', 'Active'),
+        paused: t('Duraklatıldı', 'Paused'),
+        completed: t('Tamamlandı', 'Completed'),
+        archived: t('Arşivlendi', 'Archived'),
+    })[value] ?? value;
+const milestoneStatus = (value: string, t: Translate) =>
+    ({ pending: t('Bekliyor', 'Pending'), in_progress: t('Devam ediyor', 'In progress'), completed: t('Tamamlandı', 'Completed') })[value] ?? value;

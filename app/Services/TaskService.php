@@ -53,7 +53,7 @@ class TaskService
     {
         $owned = $milestone->tasks()->whereIn('id', $ids)->pluck('id')->map(fn ($id) => (int) $id)->all();
         if (count($owned) !== count($ids)) {
-            throw ValidationException::withMessages(['ids' => 'Sıralama yalnızca bu kilometre taşının görevlerini içerebilir.']);
+            throw ValidationException::withMessages(['ids' => __('messages.invalid_task_order')]);
         }
         DB::transaction(fn () => collect($ids)->each(
             fn ($id, $position) => $milestone->tasks()->whereKey($id)->update(['position' => $position + 1])

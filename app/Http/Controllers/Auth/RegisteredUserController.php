@@ -16,7 +16,12 @@ use Inertia\Response;
 
 class RegisteredUserController extends Controller
 {
-    public const SUCCESS_MESSAGE = 'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.';
+    public static function successMessage(): string
+    {
+        return app()->getLocale() === 'tr'
+            ? 'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.'
+            : 'Welcome to the family! You have already started moving 1% forward every day. We look forward to meeting you.';
+    }
 
     /**
      * Show the registration page.
@@ -64,6 +69,6 @@ class RegisteredUserController extends Controller
 
     private function registeredRedirect(): RedirectResponse
     {
-        return to_route('home')->with('registration_success', self::SUCCESS_MESSAGE);
+        return to_route('home')->with('registration_success', self::successMessage());
     }
 }

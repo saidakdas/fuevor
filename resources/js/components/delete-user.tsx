@@ -8,10 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import HeadingSmall from '@/components/heading-small';
+import { useLocale } from '@/hooks/use-locale';
 
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 export default function DeleteUser() {
+    const { t } = useLocale();
     const passwordInput = useRef<HTMLInputElement>(null);
     const { data, setData, delete: destroy, processing, reset, errors, clearErrors } = useForm({ password: '' });
 
@@ -33,27 +35,34 @@ export default function DeleteUser() {
 
     return (
         <div className="space-y-6">
-            <HeadingSmall title="Delete account" description="Delete your account and all of its resources" />
+            <HeadingSmall
+                title={t('Hesabı sil', 'Delete account')}
+                description={t('Hesabını ve tüm verilerini kalıcı olarak sil.', 'Permanently delete your account and all of its data.')}
+            />
             <div className="space-y-4 rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-200/10 dark:bg-red-700/10">
                 <div className="relative space-y-0.5 text-red-600 dark:text-red-100">
-                    <p className="font-medium">Warning</p>
-                    <p className="text-sm">Please proceed with caution, this cannot be undone.</p>
+                    <p className="font-medium">{t('Uyarı', 'Warning')}</p>
+                    <p className="text-sm">
+                        {t('Bu işlem geri alınamaz. Lütfen dikkatli ilerle.', 'This cannot be undone. Please proceed with caution.')}
+                    </p>
                 </div>
 
                 <Dialog>
                     <DialogTrigger asChild>
-                        <Button variant="destructive">Delete account</Button>
+                        <Button variant="destructive">{t('Hesabı sil', 'Delete account')}</Button>
                     </DialogTrigger>
                     <DialogContent>
-                        <DialogTitle>Are you sure you want to delete your account?</DialogTitle>
+                        <DialogTitle>{t('Hesabını silmek istediğinden emin misin?', 'Are you sure you want to delete your account?')}</DialogTitle>
                         <DialogDescription>
-                            Once your account is deleted, all of its resources and data will also be permanently deleted. Please enter your password
-                            to confirm you would like to permanently delete your account.
+                            {t(
+                                'Hesabın silindiğinde tüm verilerin de kalıcı olarak silinir. Onaylamak için şifreni gir.',
+                                'Once your account is deleted, all of its data will also be permanently deleted. Enter your password to confirm.',
+                            )}
                         </DialogDescription>
                         <form className="space-y-6" onSubmit={deleteUser}>
                             <div className="grid gap-2">
                                 <Label htmlFor="password" className="sr-only">
-                                    Password
+                                    {t('Şifre', 'Password')}
                                 </Label>
 
                                 <Input
@@ -63,7 +72,7 @@ export default function DeleteUser() {
                                     ref={passwordInput}
                                     value={data.password}
                                     onChange={(e) => setData('password', e.target.value)}
-                                    placeholder="Password"
+                                    placeholder={t('Şifre', 'Password')}
                                     autoComplete="current-password"
                                 />
 
@@ -73,12 +82,12 @@ export default function DeleteUser() {
                             <DialogFooter>
                                 <DialogClose asChild>
                                     <Button variant="secondary" onClick={closeModal}>
-                                        Cancel
+                                        {t('Vazgeç', 'Cancel')}
                                     </Button>
                                 </DialogClose>
 
                                 <Button variant="destructive" disabled={processing} asChild>
-                                    <button type="submit">Delete account</button>
+                                    <button type="submit">{t('Hesabı sil', 'Delete account')}</button>
                                 </Button>
                             </DialogFooter>
                         </form>

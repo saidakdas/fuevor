@@ -19,14 +19,14 @@ class MilestoneController extends Controller
     {
         $this->service->create($goal, $request->validated());
 
-        return back()->with('success', 'Kilometre taşı eklendi.');
+        return back()->with('success', __('messages.milestone_created'));
     }
 
     public function update(UpdateMilestoneRequest $request, Milestone $milestone): RedirectResponse
     {
         $this->service->update($milestone, $request->validated());
 
-        return back()->with('success', 'Kilometre taşı güncellendi.');
+        return back()->with('success', __('messages.milestone_updated'));
     }
 
     public function destroy(Milestone $milestone): RedirectResponse
@@ -34,13 +34,13 @@ class MilestoneController extends Controller
         Gate::authorize('delete', $milestone);
         $this->service->delete($milestone);
 
-        return back()->with('success', 'Kilometre taşı silindi.');
+        return back()->with('success', __('messages.milestone_deleted'));
     }
 
     public function reorder(ReorderRequest $request, Goal $goal): RedirectResponse
     {
         $this->service->reorder($goal, $request->validated('ids'));
 
-        return back()->with('success', 'Sıralama güncellendi.');
+        return back()->with('success', __('messages.order_updated'));
     }
 }

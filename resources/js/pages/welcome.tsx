@@ -1,4 +1,5 @@
 import InputError from '@/components/input-error';
+import { useLocale } from '@/hooks/use-locale';
 import { Head, useForm } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEventHandler, type KeyboardEvent, type PointerEvent } from 'react';
@@ -32,11 +33,17 @@ const GRAVITY = 1_800;
 const JUMP_VELOCITY = 680;
 const RUNNER_HEIGHT = 58;
 
-function formatScore(milliseconds: number): string {
-    return `${(milliseconds / 1_000).toFixed(1)} sn`;
+function formatScore(milliseconds: number, locale: 'tr' | 'en'): string {
+    const seconds = new Intl.NumberFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+    }).format(milliseconds / 1_000);
+
+    return `${seconds} ${locale === 'tr' ? 'sn' : 'sec'}`;
 }
 
 export default function Welcome({ bestScoreMs: initialBestScore, registrationSuccess }: WelcomeProps) {
+    const { locale, t } = useLocale();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const gameAreaRef = useRef<HTMLDivElement>(null);
     const statusRef = useRef<GameStatus>('ready');
@@ -335,8 +342,14 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
 
     return (
         <>
-            <Head title="Build Your Future Self">
-                <meta name="description" content="Fuevor çizgi koşu oyununda boşlukların üzerinden atla ve en iyi süreyi yakala." />
+            <Head title={t('Gelecekteki Kendini İnşa Et', 'Build Your Future Self')}>
+                <meta
+                    name="description"
+                    content={t(
+                        'Fuevor çizgi koşu oyununda boşlukların üzerinden atla ve en iyi süreyi yakala.',
+                        'Jump over the gaps in the Fuevor line-running game and set your best time.',
+                    )}
+                />
             </Head>
 
             <div className="relative flex min-h-[100svh] flex-col overflow-x-hidden bg-[#00464d] text-white">
@@ -352,21 +365,28 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                             className="h-auto w-[min(64vw,350px)] drop-shadow-[0_8px_28px_rgba(0,0,0,0.12)]"
                             draggable={false}
                         />
-                        <h1 className="-mt-2 text-xs font-semibold tracking-[0.18em] text-white/60 sm:text-sm">Build Your Future Self</h1>
+                        <h1 className="-mt-2 text-xs font-semibold tracking-[0.18em] text-white/60 sm:text-sm">
+                            {t('Gelecekteki Kendini İnşa Et', 'Build Your Future Self')}
+                        </h1>
                     </section>
 
                     <section className="mx-auto mt-7 w-full max-w-5xl px-5 text-center sm:mt-9 sm:px-9">
                         <p className="mx-auto max-w-3xl text-xl leading-tight font-medium tracking-[-0.025em] text-balance sm:text-3xl lg:text-4xl">
-                            Turn your goals into milestones, milestones into action, and action into your future self.
+                            {t(
+                                'Hedeflerini kilometre taşlarına, kilometre taşlarını eyleme, eylemi de gelecekteki benliğine dönüştür.',
+                                'Turn your goals into milestones, milestones into action, and action into your future self.',
+                            )}
                         </p>
 
                         <div className="mx-auto mt-7 max-w-3xl rounded-2xl border border-white/15 bg-white/[0.08] p-4 shadow-2xl shadow-black/10 backdrop-blur-sm sm:p-6">
-                            <p className="text-sm font-semibold tracking-[0.08em] text-white/75">Erkenden Yerini Al</p>
+                            <p className="text-sm font-semibold tracking-[0.08em] text-white/75">
+                                {t('Erkenden Yerini Al', 'Secure Your Spot Early')}
+                            </p>
 
                             <form className="mt-4 grid gap-3 text-left sm:grid-cols-3" onSubmit={submitRegistration}>
                                 <div>
                                     <label className="sr-only" htmlFor="welcome-name">
-                                        Ad soyad
+                                        {t('Ad soyad', 'Full name')}
                                     </label>
                                     <input
                                         id="welcome-name"
@@ -376,7 +396,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                                         value={registration.data.name}
                                         onChange={(event) => registration.setData('name', event.target.value)}
                                         disabled={registration.processing}
-                                        placeholder="Ad soyad"
+                                        placeholder={t('Ad soyad', 'Full name')}
                                         className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
                                     />
                                     <InputError message={registration.errors.name} className="mt-1.5 text-xs text-red-200" />
@@ -384,7 +404,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
 
                                 <div>
                                     <label className="sr-only" htmlFor="welcome-email">
-                                        E-posta adresi
+                                        {t('E-posta adresi', 'Email address')}
                                     </label>
                                     <input
                                         id="welcome-email"
@@ -394,7 +414,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                                         value={registration.data.email}
                                         onChange={(event) => registration.setData('email', event.target.value)}
                                         disabled={registration.processing}
-                                        placeholder="E-posta adresi"
+                                        placeholder={t('E-posta adresi', 'Email address')}
                                         className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
                                     />
                                     <InputError message={registration.errors.email} className="mt-1.5 text-xs text-red-200" />
@@ -402,7 +422,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
 
                                 <div>
                                     <label className="sr-only" htmlFor="welcome-password">
-                                        Şifre
+                                        {t('Şifre', 'Password')}
                                     </label>
                                     <input
                                         id="welcome-password"
@@ -415,7 +435,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                                             registration.setData('password_confirmation', event.target.value);
                                         }}
                                         disabled={registration.processing}
-                                        placeholder="Şifreni belirle"
+                                        placeholder={t('Şifreni belirle', 'Set your password')}
                                         className="h-12 w-full rounded-xl border border-white/20 bg-black/10 px-4 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/55 focus:ring-2 focus:ring-white/15 disabled:opacity-60"
                                     />
                                     <InputError message={registration.errors.password} className="mt-1.5 text-xs text-red-200" />
@@ -427,7 +447,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                                     className="flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-[#00464d] transition hover:bg-cyan-50 focus:ring-2 focus:ring-white/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-3"
                                 >
                                     {registration.processing && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
-                                    Kaydol
+                                    {t('Kaydol', 'Sign up')}
                                 </button>
                             </form>
                         </div>
@@ -438,7 +458,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                         className="relative mt-4 min-h-[300px] flex-1 cursor-pointer touch-none outline-none select-none sm:mt-7 sm:min-h-[350px]"
                         role="button"
                         tabIndex={0}
-                        aria-label="Fuevor koşu oyunu. Başlamak ve zıplamak için dokun."
+                        aria-label={t('Fuevor koşu oyunu. Başlamak ve zıplamak için dokun.', 'Fuevor running game. Tap to start and jump.')}
                         onPointerDown={handlePointerDown}
                         onKeyDown={handleKeyDown}
                     >
@@ -449,13 +469,17 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                             aria-live="polite"
                         >
                             <div>
-                                <p className="text-[0.6rem] font-semibold tracking-[0.3em] text-white/48 uppercase">Skor</p>
-                                <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{formatScore(scoreMs)}</p>
+                                <p className="text-[0.6rem] font-semibold tracking-[0.3em] text-white/48 uppercase">{t('Skor', 'Score')}</p>
+                                <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{formatScore(scoreMs, locale)}</p>
                             </div>
                             <span className="h-10 w-px bg-white/20" aria-hidden="true" />
-                            <div aria-label={`En iyi skor ${formatScore(bestScoreMs)}`}>
-                                <p className="text-[0.6rem] font-semibold tracking-[0.24em] whitespace-nowrap text-white/48 uppercase">Best skor</p>
-                                <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{formatScore(bestScoreMs)}</p>
+                            <div aria-label={`${t('En iyi skor', 'Best score')} ${formatScore(bestScoreMs, locale)}`}>
+                                <p className="text-[0.6rem] font-semibold tracking-[0.24em] whitespace-nowrap text-white/48 uppercase">
+                                    {t('En iyi skor', 'Best score')}
+                                </p>
+                                <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">
+                                    {formatScore(bestScoreMs, locale)}
+                                </p>
                             </div>
                         </div>
 
@@ -465,23 +489,27 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                                     <span className="absolute inset-0 animate-ping rounded-full border border-white/20" />
                                     <span className="size-2 rounded-full bg-white" />
                                 </span>
-                                <p className="text-lg font-semibold tracking-tight sm:text-xl">Başlamak için oyun alanına dokun</p>
-                                <p className="mt-2 text-xs tracking-wide text-white/55 sm:text-sm">Boşlukları geçmek için tekrar dokun ve zıpla</p>
+                                <p className="text-lg font-semibold tracking-tight sm:text-xl">
+                                    {t('Başlamak için oyun alanına dokun', 'Tap the game area to start')}
+                                </p>
+                                <p className="mt-2 text-xs tracking-wide text-white/55 sm:text-sm">
+                                    {t('Boşlukları geçmek için tekrar dokun ve zıpla', 'Tap again to jump over the gaps')}
+                                </p>
                             </div>
                         )}
 
                         {status === 'game-over' && (
                             <div className="pointer-events-none absolute top-[43%] left-1/2 w-full -translate-x-1/2 -translate-y-1/2 px-6 text-center">
-                                <p className="text-[0.62rem] font-semibold tracking-[0.32em] text-white/55 uppercase">Skorun</p>
+                                <p className="text-[0.62rem] font-semibold tracking-[0.32em] text-white/55 uppercase">{t('Skorun', 'Your score')}</p>
                                 <p className="mt-1 text-5xl font-semibold tracking-[-0.045em] tabular-nums sm:text-6xl">
-                                    {formatScore(finalScoreRef.current)}
+                                    {formatScore(finalScoreRef.current, locale)}
                                 </p>
-                                <p className="mt-5 text-sm font-medium text-white/75">Tekrar oynamak için dokun</p>
+                                <p className="mt-5 text-sm font-medium text-white/75">{t('Tekrar oynamak için dokun', 'Tap to play again')}</p>
                             </div>
                         )}
 
                         <p className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 text-[0.58rem] font-semibold tracking-[0.24em] whitespace-nowrap text-white/38 uppercase sm:bottom-7">
-                            Dokun · Space · ↑
+                            {t('Dokun', 'Tap')} · Space · ↑
                         </p>
                     </section>
                 </main>
@@ -491,7 +519,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                         className="fixed inset-0 z-50 grid place-items-center bg-[#002b2f]/85 px-5 backdrop-blur-md"
                         role="dialog"
                         aria-modal="true"
-                        aria-label="Üyelik mesajı"
+                        aria-label={t('Üyelik mesajı', 'Membership message')}
                     >
                         <p className="max-w-2xl rounded-3xl border border-white/20 bg-white/10 px-7 py-10 text-center text-xl leading-relaxed font-semibold text-white shadow-2xl sm:px-12 sm:py-14 sm:text-3xl">
                             {registrationSuccess}

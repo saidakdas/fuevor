@@ -35,6 +35,13 @@ Tüm mobil uyumlu uçlar `/api/v1` altındadır. Auth uçları Bearer token üre
 php artisan route:list --path=api/v1
 ```
 
+## Dil ve URL politikası
+
+- Türkiye (`TR`) ve KKTC (`CY` + `Asia/Famagusta`) ziyaretçileri Türkçe, diğer ziyaretçiler İngilizce görür.
+- Ülke tespiti sunucuda yapılır; ham IP saklanmaz ve sonuç 24 saat önbelleğe alınır. Tespit başarısız olursa İngilizce kullanılır.
+- Dil, URL yapısını değiştirmez. Tüm yeni route segmentleri İngilizce ve ASCII olmalıdır; `/tr` veya `/en` öneki kullanılmaz.
+- React arayüz metinleri `useLocale()` içindeki `t(turkish, english)` yardımcısıyla eklenmelidir.
+
 ## Kalite kontrolleri
 
 ```bash
