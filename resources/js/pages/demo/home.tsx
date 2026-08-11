@@ -402,7 +402,7 @@ function OverviewPanel({
     onToggleItem: (id: number) => void;
 }) {
     const periodItems = useMemo(
-        () => items.filter((item) => item.range === range).sort((first, second) => first.createdAt - second.createdAt),
+        () => items.filter((item) => item.range === range).sort((first, second) => second.createdAt - first.createdAt),
         [items, range],
     );
     const priorityGoals = useMemo(
@@ -1284,7 +1284,7 @@ function PlanPanel({
     ];
 
     const visibleItems = useMemo(
-        () => items.filter((item) => item.range === range).sort((first, second) => first.createdAt - second.createdAt),
+        () => items.filter((item) => item.range === range).sort((first, second) => second.createdAt - first.createdAt),
         [items, range],
     );
     const completedCount = visibleItems.filter((item) => item.completed).length;
