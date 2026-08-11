@@ -435,7 +435,7 @@ function OverviewPanel({
             <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
                 <PanelHeader t={t} active="overview" onNavigate={onNavigate} />
 
-                <main className="mx-auto max-w-5xl px-5 pt-28 pb-16 sm:px-8 sm:pt-36">
+                <main className="mx-auto max-w-5xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <p className="text-[13px] font-semibold text-[#007aff] capitalize">{formatPlanPeriod(range, locale)}</p>
@@ -470,14 +470,14 @@ function OverviewPanel({
                         </div>
                     </div>
 
-                    <div className="mt-9 overflow-x-auto pb-1">
-                        <div className="flex min-w-max items-center rounded-full bg-black/[0.045] p-1">
+                    <div className="mt-9 pb-1">
+                        <div className="grid w-full grid-cols-5 items-center rounded-full bg-black/[0.045] p-1">
                             {rangeOptions.map((option) => (
                                 <button
                                     key={option.value}
                                     type="button"
                                     onClick={() => onRangeChange(option.value)}
-                                    className={`min-w-24 rounded-full px-5 py-2.5 text-[14px] font-medium transition ${range === option.value ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
+                                    className={`min-w-0 rounded-full px-1 py-2.5 text-[12px] font-medium transition sm:px-5 sm:text-[14px] ${range === option.value ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
                                 >
                                     {option.label}
                                 </button>
@@ -683,7 +683,7 @@ function GoalsPanel({
             <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
                 <PanelHeader t={t} active="goals" onNavigate={onNavigate} />
 
-                <main className="mx-auto max-w-5xl px-5 pt-28 pb-16 sm:px-8 sm:pt-36">
+                <main className="mx-auto max-w-5xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <p className="text-[13px] font-semibold text-[#007aff]">{t('Genel bakış', 'Overview')}</p>
@@ -761,53 +761,80 @@ function GoalsPanel({
 }
 
 function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSection; onNavigate: (section: PanelSection) => void }) {
+    const navigationItems = [
+        { section: 'overview' as const, label: t('Genel Bakış', 'Overview'), icon: Layers3 },
+        { section: 'goals' as const, label: t('Hedefler', 'Goals'), icon: Target },
+        { section: 'plan' as const, label: t('Planla', 'Plan'), icon: ListTodo },
+        { section: 'settings' as const, label: t('Ayarlar', 'Settings'), icon: Settings },
+        { section: 'profile' as const, label: t('Profil', 'Profile'), icon: UserRound },
+    ];
+
     return (
-        <header className="fixed inset-x-0 top-0 z-30 border-b border-black/[0.055] bg-[#f5f5f7]/80 backdrop-blur-2xl">
-            <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-center gap-4 px-5 sm:justify-between sm:px-8">
-                <BrandLogo variant="color" className="hidden h-9 w-32 sm:inline-grid" />
-                <nav className="flex items-center rounded-full bg-black/[0.045] p-1" aria-label={t('Panel bölümleri', 'Panel sections')}>
-                    <button
-                        type="button"
-                        onClick={() => onNavigate('overview')}
-                        className={`rounded-full px-3 py-2 text-[13px] font-medium transition sm:px-4 ${active === 'overview' ? 'bg-white text-[#1d1d1f] shadow-[0_1px_5px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
+        <>
+            <header className="fixed inset-x-0 top-0 z-30 border-b border-black/[0.055] bg-[#f5f5f7]/80 backdrop-blur-2xl">
+                <div className="mx-auto flex h-16 max-w-6xl items-center justify-center gap-4 px-5 sm:h-[72px] sm:justify-between sm:px-8">
+                    <div className="relative h-9 w-28 shrink-0 sm:w-32">
+                        <BrandLogo variant="color" className="demo-logo-light absolute inset-0 h-full w-full transition-opacity" />
+                        <BrandLogo variant="white" className="demo-logo-dark absolute inset-0 h-full w-full opacity-0 transition-opacity" />
+                    </div>
+                    <nav
+                        className="hidden items-center rounded-full bg-black/[0.045] p-1 sm:flex"
+                        aria-label={t('Panel bölümleri', 'Panel sections')}
                     >
-                        {t('Genel Bakış', 'Overview')}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onNavigate('goals')}
-                        className={`rounded-full px-3.5 py-2 text-[13px] font-medium transition sm:px-5 ${active === 'goals' ? 'bg-white text-[#1d1d1f] shadow-[0_1px_5px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
-                    >
-                        {t('Hedefler', 'Goals')}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onNavigate('plan')}
-                        className={`rounded-full px-3.5 py-2 text-[13px] font-medium transition sm:px-5 ${active === 'plan' ? 'bg-white text-[#1d1d1f] shadow-[0_1px_5px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
-                    >
-                        {t('Planla', 'Plan')}
-                    </button>
-                </nav>
-                <div className="flex shrink-0 items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => onNavigate('settings')}
-                        className={`grid size-10 place-items-center rounded-full border transition ${active === 'settings' ? 'border-[#007aff] bg-[#007aff] text-white shadow-[0_5px_18px_rgba(0,122,255,0.2)]' : 'border-black/[0.07] bg-white text-[#6e6e73] hover:text-[#1d1d1f]'}`}
-                        aria-label={t('Ayarları aç', 'Open settings')}
-                    >
-                        <Settings className="size-[18px]" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onNavigate('profile')}
-                        className={`grid size-10 place-items-center rounded-full border transition ${active === 'profile' ? 'border-[#007aff] bg-[#007aff] text-white shadow-[0_5px_18px_rgba(0,122,255,0.2)]' : 'border-black/[0.07] bg-white text-[#6e6e73] hover:text-[#1d1d1f]'}`}
-                        aria-label={t('Profili aç', 'Open profile')}
-                    >
-                        <UserRound className="size-[18px]" />
-                    </button>
+                        {navigationItems.slice(0, 3).map((item) => (
+                            <button
+                                key={item.section}
+                                type="button"
+                                onClick={() => onNavigate(item.section)}
+                                className={`rounded-full px-5 py-2 text-[13px] font-medium whitespace-nowrap transition ${active === item.section ? 'bg-white text-[#1d1d1f] shadow-[0_1px_5px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
+                            >
+                                {item.label}
+                            </button>
+                        ))}
+                    </nav>
+                    <div className="hidden shrink-0 items-center gap-2 sm:flex">
+                        {navigationItems.slice(3).map((item) => {
+                            const Icon = item.icon;
+
+                            return (
+                                <button
+                                    key={item.section}
+                                    type="button"
+                                    onClick={() => onNavigate(item.section)}
+                                    className={`grid size-10 place-items-center rounded-full border transition ${active === item.section ? 'border-[#007aff] bg-[#007aff] text-white shadow-[0_5px_18px_rgba(0,122,255,0.2)]' : 'border-black/[0.07] bg-white text-[#6e6e73] hover:text-[#1d1d1f]'}`}
+                                    aria-label={item.label}
+                                >
+                                    <Icon className="size-[18px]" />
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
-        </header>
+            </header>
+
+            <nav
+                className="demo-mobile-navigation fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-black/[0.055] bg-[#f5f5f7]/80 px-1 pt-2 backdrop-blur-2xl sm:hidden"
+                aria-label={t('Mobil panel bölümleri', 'Mobile panel sections')}
+            >
+                {navigationItems.map((item) => {
+                    const Icon = item.icon;
+                    const selected = active === item.section;
+
+                    return (
+                        <button
+                            key={item.section}
+                            type="button"
+                            onClick={() => onNavigate(item.section)}
+                            className={`flex min-w-0 flex-col items-center gap-1 py-1 text-[10px] leading-none font-medium whitespace-nowrap transition ${selected ? 'text-[#007aff]' : 'text-[#8e8e93]'}`}
+                            aria-current={selected ? 'page' : undefined}
+                        >
+                            <Icon className="size-[21px]" strokeWidth={selected ? 2.4 : 2} />
+                            <span>{item.label}</span>
+                        </button>
+                    );
+                })}
+            </nav>
+        </>
     );
 }
 
@@ -831,7 +858,7 @@ function SettingsPanel({
             <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
                 <PanelHeader t={t} active="settings" onNavigate={onNavigate} />
 
-                <main className="mx-auto max-w-4xl px-5 pt-28 pb-16 sm:px-8 sm:pt-36">
+                <main className="mx-auto max-w-4xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
                     <div>
                         <p className="text-[13px] font-semibold text-[#007aff]">{t('Tercihlerin', 'Your preferences')}</p>
                         <h1 className="mt-2 text-[clamp(2.35rem,6vw,4rem)] leading-none font-semibold tracking-[-0.05em]">
@@ -988,7 +1015,7 @@ function ProfilePanel({
             <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
                 <PanelHeader t={t} active="profile" onNavigate={onNavigate} />
 
-                <main className="mx-auto max-w-4xl px-5 pt-28 pb-16 sm:px-8 sm:pt-36">
+                <main className="mx-auto max-w-4xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
                     <div>
                         <p className="text-[13px] font-semibold text-[#007aff]">{t('Hesabın', 'Your account')}</p>
                         <h1 className="mt-2 text-[clamp(2.35rem,6vw,4rem)] leading-none font-semibold tracking-[-0.05em]">
@@ -1295,7 +1322,7 @@ function PlanPanel({
             <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
                 <PanelHeader t={t} active="plan" onNavigate={onNavigate} />
 
-                <main className="mx-auto max-w-5xl px-5 pt-28 pb-16 sm:px-8 sm:pt-36">
+                <main className="mx-auto max-w-5xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <p className="text-[13px] font-semibold text-[#007aff]">{formatPlanPeriod(range, locale)}</p>
@@ -1317,14 +1344,14 @@ function PlanPanel({
                         </button>
                     </div>
 
-                    <div className="mt-9 overflow-x-auto pb-1">
-                        <div className="flex min-w-max items-center rounded-full bg-black/[0.045] p-1">
+                    <div className="mt-9 pb-1">
+                        <div className="grid w-full grid-cols-5 items-center rounded-full bg-black/[0.045] p-1">
                             {rangeOptions.map((option) => (
                                 <button
                                     key={option.value}
                                     type="button"
                                     onClick={() => onRangeChange(option.value)}
-                                    className={`min-w-24 rounded-full px-5 py-2.5 text-[14px] font-medium transition ${range === option.value ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
+                                    className={`min-w-0 rounded-full px-1 py-2.5 text-[12px] font-medium transition sm:px-5 sm:text-[14px] ${range === option.value ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
                                 >
                                     {option.label}
                                 </button>
