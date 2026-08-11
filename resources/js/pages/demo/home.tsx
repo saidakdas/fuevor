@@ -6,17 +6,22 @@ import {
     ArrowRight,
     CalendarDays,
     CalendarRange,
+    Camera,
     Check,
     ChevronDown,
     ChevronUp,
     CircleCheck,
     GripVertical,
+    Languages,
     Layers3,
     ListTodo,
     LockKeyhole,
     Mail,
+    Moon,
     Phone,
     Plus,
+    Settings,
+    Sun,
     Target,
     Trash2,
     TrendingUp,
@@ -43,7 +48,7 @@ type GoalRecord = {
     createdAt: number;
 };
 
-type PanelSection = 'overview' | 'goals' | 'plan' | 'profile';
+type PanelSection = 'overview' | 'goals' | 'plan' | 'profile' | 'settings';
 type PlanRange = 'today' | 'tomorrow' | 'week' | 'month' | 'year';
 
 type PlanItem = {
@@ -61,15 +66,25 @@ type ProfileData = {
     name: string;
     email: string;
     phone: string;
+    avatar: string;
+};
+
+type SettingsData = {
+    appearance: 'light' | 'dark';
+    language: 'tr' | 'en';
 };
 
 const TOTAL_STEPS = 6;
 const DEMO_GOALS_STORAGE_KEY = 'fuevor.demo.goals';
 const DEMO_PLAN_STORAGE_KEY = 'fuevor.demo.plan-items';
 const DEMO_PROFILE_STORAGE_KEY = 'fuevor.demo.profile';
+const DEMO_SETTINGS_STORAGE_KEY = 'fuevor.demo.settings';
 
 export default function DemoHome() {
-    const { locale, t } = useLocale();
+    const { locale: detectedLocale } = useLocale();
+    const [settings, setSettings] = useState<SettingsData>(() => loadStoredSettings(detectedLocale));
+    const locale = settings.language;
+    const t = (turkish: string, english: string) => (locale === 'tr' ? turkish : english);
     const [step, setStep] = useState(1);
     const [goal, setGoal] = useState('');
     const [gain, setGain] = useState('');
@@ -97,6 +112,12 @@ export default function DemoHome() {
     useEffect(() => {
         storeDemoData(DEMO_PROFILE_STORAGE_KEY, profile);
     }, [profile]);
+
+    useEffect(() => {
+        storeDemoData(DEMO_SETTINGS_STORAGE_KEY, settings);
+        document.documentElement.dataset.demoTheme = settings.appearance;
+        document.documentElement.lang = settings.language;
+    }, [settings]);
 
     const completed = step > TOTAL_STEPS;
     const progress = completed ? 100 : ((step - 1) / TOTAL_STEPS) * 100;
@@ -231,6 +252,10 @@ export default function DemoHome() {
     };
 
     if (showPanel) {
+        if (panelSection === 'settings') {
+            return <SettingsPanel t={t} settings={settings} onNavigate={setPanelSection} onChange={setSettings} />;
+        }
+
         if (panelSection === 'profile') {
             return <ProfilePanel t={t} profile={profile} onNavigate={setPanelSection} onSave={setProfile} />;
         }
@@ -763,16 +788,147 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
                         {t('Planla', 'Plan')}
                     </button>
                 </nav>
-                <button
-                    type="button"
-                    onClick={() => onNavigate('profile')}
-                    className={`grid size-10 shrink-0 place-items-center rounded-full border transition ${active === 'profile' ? 'border-[#007aff] bg-[#007aff] text-white shadow-[0_5px_18px_rgba(0,122,255,0.2)]' : 'border-black/[0.07] bg-white text-[#6e6e73] hover:text-[#1d1d1f]'}`}
-                    aria-label={t('Profili aç', 'Open profile')}
-                >
-                    <UserRound className="size-[18px]" />
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => onNavigate('settings')}
+                        className={`grid size-10 place-items-center rounded-full border transition ${active === 'settings' ? 'border-[#007aff] bg-[#007aff] text-white shadow-[0_5px_18px_rgba(0,122,255,0.2)]' : 'border-black/[0.07] bg-white text-[#6e6e73] hover:text-[#1d1d1f]'}`}
+                        aria-label={t('Ayarları aç', 'Open settings')}
+                    >
+                        <Settings className="size-[18px]" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onNavigate('profile')}
+                        className={`grid size-10 place-items-center rounded-full border transition ${active === 'profile' ? 'border-[#007aff] bg-[#007aff] text-white shadow-[0_5px_18px_rgba(0,122,255,0.2)]' : 'border-black/[0.07] bg-white text-[#6e6e73] hover:text-[#1d1d1f]'}`}
+                        aria-label={t('Profili aç', 'Open profile')}
+                    >
+                        <UserRound className="size-[18px]" />
+                    </button>
+                </div>
             </div>
         </header>
+    );
+}
+
+function SettingsPanel({
+    t,
+    settings,
+    onNavigate,
+    onChange,
+}: {
+    t: Translate;
+    settings: SettingsData;
+    onNavigate: (section: PanelSection) => void;
+    onChange: (settings: SettingsData) => void;
+}) {
+    return (
+        <>
+            <Head title={t('Ayarlar', 'Settings')}>
+                <meta name="robots" content="noindex, nofollow" />
+            </Head>
+
+            <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
+                <PanelHeader t={t} active="settings" onNavigate={onNavigate} />
+
+                <main className="mx-auto max-w-4xl px-5 pt-28 pb-16 sm:px-8 sm:pt-36">
+                    <div>
+                        <p className="text-[13px] font-semibold text-[#007aff]">{t('Tercihlerin', 'Your preferences')}</p>
+                        <h1 className="mt-2 text-[clamp(2.35rem,6vw,4rem)] leading-none font-semibold tracking-[-0.05em]">
+                            {t('Ayarlar', 'Settings')}
+                        </h1>
+                        <p className="mt-4 text-[15px] text-[#6e6e73]">
+                            {t('Fuevor’u sana en uygun şekilde kullan.', 'Use Fuevor in the way that suits you best.')}
+                        </p>
+                    </div>
+
+                    <section className="mt-10">
+                        <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Görünüm', 'Appearance')}</h2>
+                        <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.04)]">
+                            <SettingOption
+                                icon={Sun}
+                                label={t('Açık', 'Light')}
+                                description={t('Aydınlık ve ferah görünüm', 'Bright and airy appearance')}
+                                selected={settings.appearance === 'light'}
+                                onSelect={() => onChange({ ...settings, appearance: 'light' })}
+                            />
+                            <SettingOption
+                                icon={Moon}
+                                label={t('Koyu', 'Dark')}
+                                description={t('Düşük ışık için koyu görünüm', 'Dark appearance for low light')}
+                                selected={settings.appearance === 'dark'}
+                                onSelect={() => onChange({ ...settings, appearance: 'dark' })}
+                                divided
+                            />
+                        </div>
+                    </section>
+
+                    <section className="mt-8">
+                        <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Dil', 'Language')}</h2>
+                        <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.04)]">
+                            <SettingOption
+                                icon={Languages}
+                                label="Türkçe"
+                                description="Fuevor’u Türkçe kullan"
+                                selected={settings.language === 'tr'}
+                                onSelect={() => onChange({ ...settings, language: 'tr' })}
+                            />
+                            <SettingOption
+                                icon={Languages}
+                                label="English"
+                                description="Use Fuevor in English"
+                                selected={settings.language === 'en'}
+                                onSelect={() => onChange({ ...settings, language: 'en' })}
+                                divided
+                            />
+                        </div>
+                    </section>
+
+                    <p className="mt-5 px-1 text-[12px] leading-relaxed text-[#8e8e93]">
+                        {t('Değişiklikler anında uygulanır ve bu cihazda saklanır.', 'Changes apply instantly and are saved on this device.')}
+                    </p>
+                </main>
+            </div>
+        </>
+    );
+}
+
+function SettingOption({
+    icon: Icon,
+    label,
+    description,
+    selected,
+    onSelect,
+    divided = false,
+}: {
+    icon: typeof Sun;
+    label: string;
+    description: string;
+    selected: boolean;
+    onSelect: () => void;
+    divided?: boolean;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onSelect}
+            className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-black/[0.025] active:bg-black/[0.045] sm:px-6 ${divided ? 'border-t border-black/[0.055]' : ''}`}
+            aria-pressed={selected}
+        >
+            <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#007aff]/10 text-[#007aff]">
+                <Icon className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+                <span className="block text-[16px] font-semibold tracking-[-0.01em]">{label}</span>
+                <span className="mt-0.5 block text-[13px] text-[#8e8e93]">{description}</span>
+            </span>
+            <span
+                className={`grid size-6 shrink-0 place-items-center rounded-full border transition ${selected ? 'border-[#007aff] bg-[#007aff] text-white' : 'border-black/[0.12] text-transparent'}`}
+                aria-hidden="true"
+            >
+                <Check className="size-3.5 stroke-[3]" />
+            </span>
+        </button>
     );
 }
 
@@ -802,6 +958,7 @@ function ProfilePanel({
             name: draft.name.trim(),
             email: draft.email.trim(),
             phone: draft.phone.trim(),
+            avatar: draft.avatar,
         });
         setSaved(true);
         window.setTimeout(() => setSaved(false), 2200);
@@ -865,14 +1022,59 @@ function ProfilePanel({
                             className="demo-step-enter mt-6 overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
                         >
                             <div className="flex items-center gap-4 border-b border-black/[0.055] px-5 py-6 sm:px-7">
-                                <span className="grid size-16 shrink-0 place-items-center rounded-full bg-[#007aff] text-[24px] font-semibold text-white shadow-[0_7px_20px_rgba(0,122,255,0.2)]">
-                                    {profileInitial}
-                                </span>
+                                <div className="relative shrink-0">
+                                    {draft.avatar ? (
+                                        <img
+                                            src={draft.avatar}
+                                            alt={t('Profil fotoğrafı', 'Profile photo')}
+                                            className="size-16 rounded-full object-cover shadow-[0_7px_20px_rgba(0,0,0,0.14)]"
+                                        />
+                                    ) : (
+                                        <span className="grid size-16 place-items-center rounded-full bg-[#007aff] text-[24px] font-semibold text-white shadow-[0_7px_20px_rgba(0,122,255,0.2)]">
+                                            {profileInitial}
+                                        </span>
+                                    )}
+                                    <label
+                                        htmlFor="demo-profile-photo"
+                                        className="absolute -right-1 -bottom-1 grid size-7 cursor-pointer place-items-center rounded-full border-2 border-white bg-[#1d1d1f] text-white shadow-md transition hover:scale-105"
+                                        title={t('Profil fotoğrafını değiştir', 'Change profile photo')}
+                                    >
+                                        <Camera className="size-3.5" />
+                                    </label>
+                                </div>
                                 <div className="min-w-0">
                                     <h2 className="truncate text-[20px] font-semibold tracking-[-0.025em]">
                                         {draft.name || t('Ad Soyad', 'Full Name')}
                                     </h2>
                                     <p className="mt-1 truncate text-[13px] text-[#8e8e93]">{draft.email || t('E-posta adresi', 'Email address')}</p>
+                                    <label
+                                        htmlFor="demo-profile-photo"
+                                        className="mt-2 inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-[#007aff]"
+                                    >
+                                        <Camera className="size-3.5" />
+                                        {draft.avatar ? t('Fotoğrafı değiştir', 'Change photo') : t('Fotoğraf ekle', 'Add photo')}
+                                    </label>
+                                    <input
+                                        id="demo-profile-photo"
+                                        type="file"
+                                        accept="image/*"
+                                        className="sr-only"
+                                        aria-label={t('Profil fotoğrafı seç', 'Choose profile photo')}
+                                        onChange={async (event) => {
+                                            const input = event.currentTarget;
+                                            const file = input.files?.[0];
+                                            if (!file) return;
+
+                                            try {
+                                                const avatar = await resizeProfileImage(file);
+                                                setDraft((current) => ({ ...current, avatar }));
+                                            } catch {
+                                                // Unsupported image files leave the current profile photo unchanged.
+                                            } finally {
+                                                input.value = '';
+                                            }
+                                        }}
+                                    />
                                 </div>
                             </div>
 
@@ -1709,7 +1911,7 @@ function loadStoredPlanItems(): PlanItem[] {
 }
 
 function loadStoredProfile(): ProfileData {
-    const emptyProfile = { name: '', email: '', phone: '' };
+    const emptyProfile = { name: '', email: '', phone: '', avatar: '' };
     if (typeof window === 'undefined') return emptyProfile;
 
     try {
@@ -1721,10 +1923,69 @@ function loadStoredProfile(): ProfileData {
             name: typeof profile.name === 'string' ? profile.name : '',
             email: typeof profile.email === 'string' ? profile.email : '',
             phone: typeof profile.phone === 'string' ? profile.phone : '',
+            avatar: typeof profile.avatar === 'string' ? profile.avatar : '',
         };
     } catch {
         return emptyProfile;
     }
+}
+
+function loadStoredSettings(defaultLanguage: 'tr' | 'en'): SettingsData {
+    const defaultSettings: SettingsData = { appearance: 'light', language: defaultLanguage };
+    if (typeof window === 'undefined') return defaultSettings;
+
+    try {
+        const value: unknown = JSON.parse(window.localStorage.getItem(DEMO_SETTINGS_STORAGE_KEY) ?? 'null');
+        if (!value || typeof value !== 'object') return defaultSettings;
+
+        const settings = value as Partial<SettingsData>;
+        return {
+            appearance: settings.appearance === 'dark' ? 'dark' : 'light',
+            language: settings.language === 'en' || settings.language === 'tr' ? settings.language : defaultLanguage,
+        };
+    } catch {
+        return defaultSettings;
+    }
+}
+
+function resizeProfileImage(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onerror = () => reject(new Error('The profile image could not be read.'));
+        reader.onload = () => {
+            const image = new Image();
+            image.onerror = () => reject(new Error('The selected file is not a valid image.'));
+            image.onload = () => {
+                const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+                const outputSize = Math.min(512, sourceSize);
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+
+                if (!context) {
+                    reject(new Error('The profile image could not be processed.'));
+                    return;
+                }
+
+                canvas.width = outputSize;
+                canvas.height = outputSize;
+                context.drawImage(
+                    image,
+                    (image.naturalWidth - sourceSize) / 2,
+                    (image.naturalHeight - sourceSize) / 2,
+                    sourceSize,
+                    sourceSize,
+                    0,
+                    0,
+                    outputSize,
+                    outputSize,
+                );
+                resolve(canvas.toDataURL('image/jpeg', 0.86));
+            };
+            image.src = String(reader.result);
+        };
+        reader.readAsDataURL(file);
+    });
 }
 
 function loadStoredArray<T>(key: string): T[] {
