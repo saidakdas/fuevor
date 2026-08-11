@@ -371,7 +371,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                     </section>
 
                     <section className="mx-auto mt-7 w-full max-w-5xl px-5 text-center sm:mt-9 sm:px-9">
-                        <p className="mx-auto max-w-3xl text-xl leading-tight font-medium tracking-[-0.025em] text-balance sm:text-3xl lg:text-4xl">
+                        <p className="mx-auto max-w-3xl text-lg leading-tight font-medium tracking-[-0.025em] text-balance sm:text-2xl lg:text-3xl">
                             {t(
                                 'Hedeflerini kilometre taşlarına, kilometre taşlarını eyleme, eylemi de gelecekteki benliğine dönüştür.',
                                 'Turn your goals into milestones, milestones into action, and action into your future self.',
