@@ -11,6 +11,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
+$demoHome = fn () => Inertia::render('demo/home');
+
+if (app()->environment('local', 'testing')) {
+    Route::get('demo', $demoHome)->name('demo.preview');
+}
+
 Route::get('/', function (Request $request) {
     return Inertia::render('welcome', [
         'bestScoreMs' => GameScore::query()->max('duration_ms') ?? 0,

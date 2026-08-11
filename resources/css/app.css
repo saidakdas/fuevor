@@ -76,6 +76,31 @@
     }
 }
 
+.apple-interface {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+}
+
+@keyframes demo-step-enter {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.demo-step-enter {
+    animation: demo-step-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .demo-step-enter {
+        animation: none;
+    }
+}
+
 :root {
     --background: hsl(0, 0%, 100%);
     --foreground: hsl(0, 0%, 3.9%);

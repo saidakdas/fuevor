@@ -42,6 +42,12 @@ php artisan route:list --path=api/v1
 - Dil, URL yapısını değiştirmez. Tüm yeni route segmentleri İngilizce ve ASCII olmalıdır; `/tr` veya `/en` öneki kullanılmaz.
 - React arayüz metinleri `useLocale()` içindeki `t(turkish, english)` yardımcısıyla eklenmelidir.
 
+## Yerel tasarım önizlemesi
+
+- `fuevor.com` mevcut bekleme listesi ve koşu oyunu sayfasını göstermeye devam eder.
+- Yeni ürün tasarımı yerel geliştirmede `/demo` adresinden canlı olarak önizlenebilir.
+- `/demo` yolu production ortamında tanımlanmaz; herhangi bir subdomain, şifre veya ek deployment gerektirmez.
+
 ## Kalite kontrolleri
 
 ```bash
