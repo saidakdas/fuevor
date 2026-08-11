@@ -1471,6 +1471,29 @@ function PlanPanel({
                         </div>
 
                         <div className="space-y-7 p-5 sm:p-6">
+                            <form onSubmit={addIndependentItem}>
+                                <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-[#6e6e73]">
+                                    <ListTodo className="size-4" />
+                                    {t('Yeni plan maddesi', 'New plan item')}
+                                </div>
+                                <div className="flex items-center gap-2 rounded-[18px] border border-black/[0.07] bg-white p-2 pl-4 focus-within:border-[#007aff]/35 focus-within:ring-4 focus-within:ring-[#007aff]/8">
+                                    <input
+                                        value={independentTitle}
+                                        onChange={(event) => setIndependentTitle(event.target.value)}
+                                        placeholder={t('Yapmak istediğini yaz', 'Write what you want to do')}
+                                        className="h-10 min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:text-[#aeaeb2]"
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={!independentTitle.trim()}
+                                        className="grid size-10 shrink-0 place-items-center rounded-full bg-[#007aff] text-white transition disabled:bg-[#d1d1d6]"
+                                        aria-label={t('Plana ekle', 'Add to plan')}
+                                    >
+                                        <ArrowRight className="size-[17px]" />
+                                    </button>
+                                </div>
+                            </form>
+
                             <div>
                                 <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-[#6e6e73]">
                                     <Layers3 className="size-4" />
@@ -1516,29 +1539,6 @@ function PlanPanel({
                                     )}
                                 </div>
                             </div>
-
-                            <form onSubmit={addIndependentItem}>
-                                <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-[#6e6e73]">
-                                    <ListTodo className="size-4" />
-                                    {t('Yeni plan maddesi', 'New plan item')}
-                                </div>
-                                <div className="flex items-center gap-2 rounded-[18px] border border-black/[0.07] bg-white p-2 pl-4 focus-within:border-[#007aff]/35 focus-within:ring-4 focus-within:ring-[#007aff]/8">
-                                    <input
-                                        value={independentTitle}
-                                        onChange={(event) => setIndependentTitle(event.target.value)}
-                                        placeholder={t('Yapmak istediğini yaz', 'Write what you want to do')}
-                                        className="h-10 min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:text-[#aeaeb2]"
-                                    />
-                                    <button
-                                        type="submit"
-                                        disabled={!independentTitle.trim()}
-                                        className="grid size-10 shrink-0 place-items-center rounded-full bg-[#007aff] text-white transition disabled:bg-[#d1d1d6]"
-                                        aria-label={t('Plana ekle', 'Add to plan')}
-                                    >
-                                        <ArrowRight className="size-[17px]" />
-                                    </button>
-                                </div>
-                            </form>
                         </div>
                     </section>
                 </div>
