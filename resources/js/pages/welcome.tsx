@@ -379,11 +379,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                         </p>
 
                         <div className="mx-auto mt-7 max-w-3xl rounded-2xl border border-white/15 bg-white/[0.08] p-4 shadow-2xl shadow-black/10 backdrop-blur-sm sm:p-6">
-                            <p className="text-sm font-semibold tracking-[0.08em] text-white/75">
-                                {t('Erkenden Yerini Al', 'Secure Your Spot Early')}
-                            </p>
-
-                            <form className="mt-4 grid gap-3 text-left sm:grid-cols-3" onSubmit={submitRegistration}>
+                            <form className="grid gap-3 text-left sm:grid-cols-3" onSubmit={submitRegistration}>
                                 <div>
                                     <label className="sr-only" htmlFor="welcome-name">
                                         {t('Ad soyad', 'Full name')}
@@ -447,7 +443,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                                     className="flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-[#00464d] transition hover:bg-cyan-50 focus:ring-2 focus:ring-white/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-3"
                                 >
                                     {registration.processing && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
-                                    {t('Kaydol', 'Sign up')}
+                                    {t('Erken Erişime Katıl', 'Join Early Access')}
                                 </button>
                             </form>
                         </div>
