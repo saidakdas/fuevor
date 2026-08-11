@@ -11,6 +11,12 @@ type Gap = {
     width: number;
 };
 
+type LevelStep = {
+    crossedAtMs: number | null;
+    targetLevel: number;
+    x: number;
+};
+
 type Player = {
     height: number;
     velocity: number;
@@ -32,6 +38,22 @@ type RegistrationForm = {
 const GRAVITY = 1_800;
 const JUMP_VELOCITY = 680;
 const RUNNER_HEIGHT = 58;
+const LEVEL_DURATION_MS = 60_000;
+const LEVEL_STEP_HEIGHT = 28;
+const LEVEL_STEP_LEAD_MS = 2_600;
+const LEVEL_STEP_CLIMB_MS = 320;
+const LEVEL_STEP_CLEARANCE = 120;
+const BASE_SPEED = 235;
+const SPEED_PER_LEVEL = 24;
+const MAX_SPEED = 430;
+
+function getLevelSpeed(level: number): number {
+    return Math.min(MAX_SPEED, BASE_SPEED + (level - 1) * SPEED_PER_LEVEL);
+}
+
+function easeInOut(progress: number): number {
+    return progress * progress * (3 - 2 * progress);
+}
 
 function formatScore(milliseconds: number, locale: 'tr' | 'en'): string {
     const seconds = new Intl.NumberFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
@@ -53,6 +75,8 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
     const lastScorePaintRef = useRef(0);
     const fallTimeRef = useRef(0);
     const gapsRef = useRef<Gap[]>([]);
+    const currentLevelRef = useRef(1);
+    const levelStepRef = useRef<LevelStep | null>(null);
     const dimensionsRef = useRef({ height: 360, width: 1_000 });
     const playerRef = useRef<Player>({ height: RUNNER_HEIGHT, velocity: 0, y: 0 });
 
@@ -113,6 +137,8 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
         finalScoreRef.current = 0;
         fallTimeRef.current = 0;
         lastScorePaintRef.current = 0;
+        currentLevelRef.current = 1;
+        levelStepRef.current = null;
         playerRef.current = { height: RUNNER_HEIGHT, velocity: 0, y: 0 };
         gapsRef.current = [
             {
@@ -188,41 +214,75 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
 
         let animationFrame = 0;
 
-        const drawLine = (groundY: number, width: number) => {
+        const drawHorizontalTerrain = (startX: number, endX: number, y: number) => {
+            if (endX <= startX) {
+                return;
+            }
+
+            let lineStart = startX;
+
+            for (const gap of gapsRef.current) {
+                const gapStart = Math.max(startX, gap.x);
+                const gapEnd = Math.min(endX, gap.x + gap.width);
+
+                if (gapEnd <= startX || gapStart >= endX) {
+                    continue;
+                }
+
+                if (gapStart > lineStart) {
+                    context.moveTo(lineStart, y);
+                    context.lineTo(gapStart, y);
+                }
+
+                lineStart = Math.max(lineStart, gapEnd);
+            }
+
+            if (lineStart < endX) {
+                context.moveTo(lineStart, y);
+                context.lineTo(endX, y);
+            }
+        };
+
+        const drawTerrain = (groundY: number, width: number, cameraElevation: number) => {
             context.save();
             context.lineCap = 'round';
+            context.lineJoin = 'round';
             context.lineWidth = 2;
             context.strokeStyle = 'rgba(255, 255, 255, 0.92)';
             context.shadowBlur = 10;
             context.shadowColor = 'rgba(255, 255, 255, 0.32)';
             context.beginPath();
 
-            let lineStart = -2;
-            for (const gap of gapsRef.current) {
-                if (gap.x > width || gap.x + gap.width < 0) {
-                    continue;
-                }
+            const levelStep = levelStepRef.current;
+            if (!levelStep) {
+                drawHorizontalTerrain(-2, width + 2, groundY);
+            } else {
+                const lowerGroundY = groundY + cameraElevation;
+                const upperGroundY = lowerGroundY - LEVEL_STEP_HEIGHT;
 
-                context.moveTo(lineStart, groundY);
-                context.lineTo(Math.max(lineStart, gap.x), groundY);
-                lineStart = gap.x + gap.width;
+                drawHorizontalTerrain(-2, Math.min(levelStep.x, width + 2), lowerGroundY);
+                drawHorizontalTerrain(Math.max(levelStep.x, -2), width + 2, upperGroundY);
+
+                if (levelStep.x >= -2 && levelStep.x <= width + 2) {
+                    context.moveTo(levelStep.x, lowerGroundY);
+                    context.lineTo(levelStep.x, upperGroundY);
+                }
             }
 
-            context.moveTo(lineStart, groundY);
-            context.lineTo(width + 2, groundY);
             context.stroke();
             context.restore();
         };
 
-        const drawRunner = (groundY: number, playerX: number, timestamp: number) => {
+        const drawRunner = (groundY: number, playerX: number, timestamp: number, climbProgress: number) => {
             const player = playerRef.current;
             const isRunning = statusRef.current === 'running';
             const isFalling = statusRef.current === 'falling';
             const runningOnGround = isRunning && player.y < 3;
             const stride = runningOnGround ? Math.sin(timestamp / 78) : 0;
             const bob = runningOnGround ? Math.abs(Math.sin(timestamp / 78)) * 1.5 : 0;
+            const climbBob = Math.sin(climbProgress * Math.PI) * 4;
             const fallOffset = isFalling ? Math.pow(fallTimeRef.current / 1_000, 2) * 410 : 0;
-            const footY = groundY - player.y + fallOffset - bob;
+            const footY = groundY - player.y + fallOffset - bob - climbBob;
 
             context.save();
             context.translate(playerX, footY);
@@ -276,10 +336,28 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
             const groundY = height * 0.67;
             const playerX = width * (width < 640 ? 0.25 : 0.22);
             const player = playerRef.current;
+            let cameraElevation = 0;
+            let climbProgress = 0;
 
             if (statusRef.current === 'running') {
                 elapsedRef.current += delta * 1_000;
-                const speed = Math.min(390, 235 + elapsedRef.current / 4_500);
+                const currentLevel = currentLevelRef.current;
+                const speed = getLevelSpeed(currentLevel);
+                const nextLevelAtMs = currentLevel * LEVEL_DURATION_MS;
+
+                if (!levelStepRef.current && elapsedRef.current >= nextLevelAtMs - LEVEL_STEP_LEAD_MS) {
+                    const remainingSeconds = Math.max(0, nextLevelAtMs - elapsedRef.current) / 1_000;
+                    const stepX = playerX + speed * remainingSeconds;
+
+                    levelStepRef.current = {
+                        crossedAtMs: null,
+                        targetLevel: currentLevel + 1,
+                        x: stepX,
+                    };
+                    gapsRef.current = gapsRef.current.filter(
+                        (gap) => gap.x + gap.width <= stepX - LEVEL_STEP_CLEARANCE || gap.x >= stepX + LEVEL_STEP_CLEARANCE,
+                    );
+                }
 
                 player.velocity -= GRAVITY * delta;
                 player.y += player.velocity * delta;
@@ -293,15 +371,53 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                     gap.x -= speed * delta;
                 }
 
+                const levelStep = levelStepRef.current;
+                if (levelStep) {
+                    levelStep.x -= speed * delta;
+
+                    if (levelStep.crossedAtMs === null && levelStep.x <= playerX) {
+                        levelStep.crossedAtMs = elapsedRef.current;
+                        currentLevelRef.current = levelStep.targetLevel;
+                    }
+                }
+
                 gapsRef.current = gapsRef.current.filter((gap) => gap.x + gap.width > -20);
 
                 const lastGap = gapsRef.current.at(-1);
                 if (!lastGap || lastGap.x < width + 160) {
                     const previousEnd = lastGap ? lastGap.x + lastGap.width : width;
+                    const levelIndex = currentLevelRef.current - 1;
+                    const minimumSpacing = Math.max(220, 350 - levelIndex * 24);
+                    const spacingVariance = Math.max(100, 230 - levelIndex * 16);
+                    const minimumGapWidth = Math.min(104, 68 + levelIndex * 3);
+                    const baseMaximumGapWidth = Math.max(68, Math.min(112, width * 0.19));
+                    const maximumGapWidth = Math.max(minimumGapWidth, Math.min(140, baseMaximumGapWidth + levelIndex * 5));
+                    let nextGapX = previousEnd + minimumSpacing + Math.random() * spacingVariance;
+                    const nextGapWidth = minimumGapWidth + Math.random() * (maximumGapWidth - minimumGapWidth);
+                    const pendingStep = levelStepRef.current;
+
+                    if (
+                        pendingStep &&
+                        nextGapX < pendingStep.x + LEVEL_STEP_CLEARANCE &&
+                        nextGapX + nextGapWidth > pendingStep.x - LEVEL_STEP_CLEARANCE
+                    ) {
+                        nextGapX = pendingStep.x + LEVEL_STEP_CLEARANCE;
+                    }
+
                     gapsRef.current.push({
-                        x: previousEnd + 350 + Math.random() * 230,
-                        width: Math.max(68, Math.min(112, width * (0.12 + Math.random() * 0.07))),
+                        x: nextGapX,
+                        width: nextGapWidth,
                     });
+                }
+
+                const activeStep = levelStepRef.current;
+                if (activeStep && activeStep.crossedAtMs !== null) {
+                    climbProgress = Math.min(1, (elapsedRef.current - activeStep.crossedAtMs) / LEVEL_STEP_CLIMB_MS);
+                    cameraElevation = easeInOut(climbProgress) * LEVEL_STEP_HEIGHT;
+
+                    if (climbProgress === 1 && activeStep.x < -LEVEL_STEP_CLEARANCE) {
+                        levelStepRef.current = null;
+                    }
                 }
 
                 const hasFallen = gapsRef.current.some((gap) => playerX + 7 >= gap.x && playerX - 7 <= gap.x + gap.width && player.y < 4);
@@ -326,8 +442,8 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
             }
 
             context.clearRect(0, 0, width, height);
-            drawLine(groundY, width);
-            drawRunner(groundY, playerX, timestamp);
+            drawTerrain(groundY, width, cameraElevation);
+            drawRunner(groundY, playerX, timestamp, climbProgress);
 
             animationFrame = window.requestAnimationFrame(animate);
         };
