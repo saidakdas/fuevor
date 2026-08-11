@@ -5,6 +5,7 @@ import { LoaderCircle } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEventHandler, type KeyboardEvent, type PointerEvent } from 'react';
 
 type GameStatus = 'ready' | 'running' | 'falling' | 'game-over';
+type IntroPhase = 'centered' | 'moving' | 'complete';
 
 type Gap = {
     x: number;
@@ -46,6 +47,8 @@ const LEVEL_STEP_CLEARANCE = 120;
 const BASE_SPEED = 235;
 const SPEED_PER_LEVEL = 24;
 const MAX_SPEED = 430;
+const INTRO_HOLD_MS = 1_500;
+const INTRO_MOVE_MS = 850;
 
 function getLevelSpeed(level: number): number {
     return Math.min(MAX_SPEED, BASE_SPEED + (level - 1) * SPEED_PER_LEVEL);
@@ -83,12 +86,28 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
     const [status, setStatus] = useState<GameStatus>('ready');
     const [scoreMs, setScoreMs] = useState(0);
     const [bestScoreMs, setBestScoreMs] = useState(initialBestScore);
+    const [introPhase, setIntroPhase] = useState<IntroPhase>(registrationSuccess ? 'complete' : 'centered');
     const registration = useForm<RegistrationForm>({
         name: '',
         email: '',
         password: '',
         password_confirmation: '',
     });
+
+    useEffect(() => {
+        if (registrationSuccess || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            setIntroPhase('complete');
+            return;
+        }
+
+        const moveTimer = window.setTimeout(() => setIntroPhase('moving'), INTRO_HOLD_MS);
+        const completeTimer = window.setTimeout(() => setIntroPhase('complete'), INTRO_HOLD_MS + INTRO_MOVE_MS);
+
+        return () => {
+            window.clearTimeout(moveTimer);
+            window.clearTimeout(completeTimer);
+        };
+    }, [registrationSuccess]);
 
     const submitRegistration: FormEventHandler<HTMLFormElement> = (event) => {
         event.preventDefault();
@@ -474,7 +493,9 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                 <div className="pointer-events-none absolute bottom-[-12rem] left-[24%] h-96 w-96 rounded-full bg-black/10 blur-3xl" />
 
                 <main className="relative z-10 flex min-h-0 flex-1 flex-col pt-5 sm:pt-7">
-                    <section className="flex flex-col items-center px-5 pt-2 text-center sm:pt-0">
+                    <section
+                        className={`flex flex-col items-center px-5 pt-2 text-center sm:pt-0 ${introPhase === 'complete' ? 'opacity-100' : 'opacity-0'}`}
+                    >
                         <img
                             src="/fuevor-white-logo.svg"
                             alt="Fuevor"
@@ -486,7 +507,36 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                         </h1>
                     </section>
 
-                    <section className="mx-auto mt-7 w-full max-w-5xl px-5 text-center sm:mt-9 sm:px-9">
+                    {introPhase !== 'complete' && (
+                        <div
+                            className={`pointer-events-none fixed left-0 z-30 flex w-full flex-col items-center px-5 text-center transition-[top,transform] duration-[850ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                                introPhase === 'centered' ? 'top-1/2 -translate-y-1/2' : 'top-7 translate-y-0'
+                            }`}
+                            aria-hidden="true"
+                        >
+                            <img
+                                src="/fuevor-white-logo.svg"
+                                alt=""
+                                className={`h-auto drop-shadow-[0_8px_28px_rgba(0,0,0,0.12)] transition-[width] duration-[850ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                                    introPhase === 'centered' ? 'w-[min(82vw,520px)]' : 'w-[min(64vw,350px)]'
+                                }`}
+                                draggable={false}
+                            />
+                            <p
+                                className={`-mt-2 font-semibold tracking-[0.18em] transition-[font-size,color] duration-[850ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                                    introPhase === 'centered' ? 'text-base text-white/80 sm:text-lg' : 'text-xs text-white/60 sm:text-sm'
+                                }`}
+                            >
+                                {t('Gelecekteki Kendini İnşa Et', 'Build Your Future Self')}
+                            </p>
+                        </div>
+                    )}
+
+                    <section
+                        className={`mx-auto mt-7 w-full max-w-5xl px-5 text-center transition-[opacity,transform] delay-150 duration-700 ease-out motion-reduce:transition-none sm:mt-9 sm:px-9 ${
+                            introPhase === 'centered' ? 'pointer-events-none translate-y-3 opacity-0' : 'translate-y-0 opacity-100'
+                        }`}
+                    >
                         <p className="mx-auto max-w-3xl text-lg leading-tight font-medium tracking-[-0.025em] text-balance sm:text-2xl lg:text-3xl">
                             {t(
                                 'Hedeflerini kilometre taşlarına, kilometre taşlarını eyleme, eylemi de gelecekteki benliğine dönüştür.',
@@ -567,7 +617,9 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
 
                     <section
                         ref={gameAreaRef}
-                        className="relative mt-4 min-h-[300px] flex-1 cursor-pointer touch-none outline-none select-none sm:mt-7 sm:min-h-[350px]"
+                        className={`relative mt-4 min-h-[300px] flex-1 cursor-pointer touch-none transition-[opacity,transform] delay-150 duration-700 ease-out outline-none select-none motion-reduce:transition-none sm:mt-7 sm:min-h-[350px] ${
+                            introPhase === 'centered' ? 'pointer-events-none translate-y-3 opacity-0' : 'translate-y-0 opacity-100'
+                        }`}
                         role="button"
                         tabIndex={0}
                         aria-label={t('Fuevor koşu oyunu. Başlamak ve zıplamak için dokun.', 'Fuevor running game. Tap to start and jump.')}
