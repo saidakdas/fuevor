@@ -74,6 +74,16 @@ type SettingsData = {
     language: 'tr' | 'en';
 };
 
+type CropPosition = {
+    x: number;
+    y: number;
+};
+
+type ImageDimensions = {
+    width: number;
+    height: number;
+};
+
 const TOTAL_STEPS = 6;
 const DEMO_GOALS_STORAGE_KEY = 'fuevor.demo.goals';
 const DEMO_PLAN_STORAGE_KEY = 'fuevor.demo.plan-items';
@@ -977,6 +987,7 @@ function ProfilePanel({
     const [newPassword, setNewPassword] = useState('');
     const [passwordConfirmation, setPasswordConfirmation] = useState('');
     const [passwordMessage, setPasswordMessage] = useState<'success' | 'mismatch' | null>(null);
+    const [cropSource, setCropSource] = useState<string | null>(null);
     const profileInitial = draft.name.trim().charAt(0).toLocaleUpperCase('tr-TR') || 'K';
 
     const savePersonalInformation = (event: FormEvent) => {
@@ -1074,13 +1085,25 @@ function ProfilePanel({
                                         {draft.name || t('Ad Soyad', 'Full Name')}
                                     </h2>
                                     <p className="mt-1 truncate text-[13px] text-[#8e8e93]">{draft.email || t('E-posta adresi', 'Email address')}</p>
-                                    <label
-                                        htmlFor="demo-profile-photo"
-                                        className="mt-2 inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-[#007aff]"
-                                    >
-                                        <Camera className="size-3.5" />
-                                        {draft.avatar ? t('Fotoğrafı değiştir', 'Change photo') : t('Fotoğraf ekle', 'Add photo')}
-                                    </label>
+                                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                                        <label
+                                            htmlFor="demo-profile-photo"
+                                            className="inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-[#007aff]"
+                                        >
+                                            <Camera className="size-3.5" />
+                                            {draft.avatar ? t('Değiştir', 'Change') : t('Fotoğraf ekle', 'Add photo')}
+                                        </label>
+                                        {draft.avatar && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setDraft((current) => ({ ...current, avatar: '' }))}
+                                                className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#ff3b30]"
+                                            >
+                                                <Trash2 className="size-3.5" />
+                                                {t('Sil', 'Delete')}
+                                            </button>
+                                        )}
+                                    </div>
                                     <input
                                         id="demo-profile-photo"
                                         type="file"
@@ -1093,8 +1116,8 @@ function ProfilePanel({
                                             if (!file) return;
 
                                             try {
-                                                const avatar = await resizeProfileImage(file);
-                                                setDraft((current) => ({ ...current, avatar }));
+                                                const source = await readProfileImage(file);
+                                                setCropSource(source);
                                             } catch {
                                                 // Unsupported image files leave the current profile photo unchanged.
                                             } finally {
@@ -1213,7 +1236,216 @@ function ProfilePanel({
                     )}
                 </main>
             </div>
+
+            {cropSource && (
+                <ProfilePhotoEditor
+                    t={t}
+                    source={cropSource}
+                    onCancel={() => setCropSource(null)}
+                    onConfirm={(avatar) => {
+                        setDraft((current) => ({ ...current, avatar }));
+                        setCropSource(null);
+                    }}
+                />
+            )}
         </>
+    );
+}
+
+const PROFILE_CROP_SIZE = 252;
+
+function ProfilePhotoEditor({
+    t,
+    source,
+    onCancel,
+    onConfirm,
+}: {
+    t: Translate;
+    source: string;
+    onCancel: () => void;
+    onConfirm: (avatar: string) => void;
+}) {
+    const [dimensions, setDimensions] = useState<ImageDimensions | null>(null);
+    const [zoom, setZoom] = useState(1);
+    const [position, setPosition] = useState<CropPosition>({ x: 0, y: 0 });
+    const [processing, setProcessing] = useState(false);
+    const dragOrigin = useRef<{
+        pointerX: number;
+        pointerY: number;
+        positionX: number;
+        positionY: number;
+    } | null>(null);
+
+    useEffect(() => {
+        const image = new Image();
+        image.onload = () => {
+            setDimensions({ width: image.naturalWidth, height: image.naturalHeight });
+            setZoom(1);
+            setPosition({ x: 0, y: 0 });
+        };
+        image.src = source;
+    }, [source]);
+
+    const cropMetrics = useMemo(() => {
+        if (!dimensions) return null;
+
+        const baseScale = Math.max(PROFILE_CROP_SIZE / dimensions.width, PROFILE_CROP_SIZE / dimensions.height);
+        const scale = baseScale * zoom;
+        const renderedWidth = dimensions.width * scale;
+        const renderedHeight = dimensions.height * scale;
+
+        return {
+            scale,
+            renderedWidth,
+            renderedHeight,
+            maxX: Math.max(0, (renderedWidth - PROFILE_CROP_SIZE) / 2),
+            maxY: Math.max(0, (renderedHeight - PROFILE_CROP_SIZE) / 2),
+        };
+    }, [dimensions, zoom]);
+
+    const keepInsideCrop = (nextPosition: CropPosition): CropPosition => {
+        if (!cropMetrics) return { x: 0, y: 0 };
+
+        return {
+            x: Math.min(cropMetrics.maxX, Math.max(-cropMetrics.maxX, nextPosition.x)),
+            y: Math.min(cropMetrics.maxY, Math.max(-cropMetrics.maxY, nextPosition.y)),
+        };
+    };
+
+    useEffect(() => {
+        setPosition((current) => keepInsideCrop(current));
+        // cropMetrics changes whenever zoom changes and constrains the current position.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cropMetrics?.maxX, cropMetrics?.maxY]);
+
+    const confirmCrop = async () => {
+        if (!dimensions || !cropMetrics || processing) return;
+
+        setProcessing(true);
+        try {
+            const avatar = await cropProfileImage(source, dimensions, cropMetrics.scale, position);
+            onConfirm(avatar);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    return (
+        <div
+            className="apple-interface fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-0 backdrop-blur-md sm:items-center sm:p-5"
+            role="presentation"
+            onMouseDown={onCancel}
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="profile-photo-editor-title"
+                onMouseDown={(event) => event.stopPropagation()}
+                className="w-full max-w-md rounded-t-[30px] bg-[#f9f9fb] px-5 pt-5 pb-7 shadow-[0_30px_90px_rgba(0,0,0,0.3)] sm:rounded-[30px] sm:px-7"
+            >
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 id="profile-photo-editor-title" className="text-[20px] font-semibold tracking-[-0.025em]">
+                            {t('Fotoğrafı düzenle', 'Edit photo')}
+                        </h2>
+                        <p className="mt-1 text-[13px] text-[#8e8e93]">
+                            {t('Sürükleyerek dairenin içine yerleştir.', 'Drag to position it inside the circle.')}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                        aria-label={t('Kapat', 'Close')}
+                    >
+                        <X className="size-[17px]" />
+                    </button>
+                </div>
+
+                <div className="mt-7 flex justify-center">
+                    <div
+                        className="relative touch-none overflow-hidden rounded-full bg-[#1c1c1e] shadow-[0_12px_40px_rgba(0,0,0,0.22)] ring-4 ring-white/80 select-none"
+                        style={{ width: PROFILE_CROP_SIZE, height: PROFILE_CROP_SIZE }}
+                        onPointerDown={(event) => {
+                            event.currentTarget.setPointerCapture(event.pointerId);
+                            dragOrigin.current = {
+                                pointerX: event.clientX,
+                                pointerY: event.clientY,
+                                positionX: position.x,
+                                positionY: position.y,
+                            };
+                        }}
+                        onPointerMove={(event) => {
+                            if (!dragOrigin.current) return;
+
+                            setPosition(
+                                keepInsideCrop({
+                                    x: dragOrigin.current.positionX + event.clientX - dragOrigin.current.pointerX,
+                                    y: dragOrigin.current.positionY + event.clientY - dragOrigin.current.pointerY,
+                                }),
+                            );
+                        }}
+                        onPointerUp={() => {
+                            dragOrigin.current = null;
+                        }}
+                        onPointerCancel={() => {
+                            dragOrigin.current = null;
+                        }}
+                    >
+                        {cropMetrics && (
+                            <img
+                                src={source}
+                                alt=""
+                                draggable={false}
+                                className="pointer-events-none absolute max-w-none"
+                                style={{
+                                    width: cropMetrics.renderedWidth,
+                                    height: cropMetrics.renderedHeight,
+                                    left: `calc(50% + ${position.x}px)`,
+                                    top: `calc(50% + ${position.y}px)`,
+                                    transform: 'translate(-50%, -50%)',
+                                }}
+                            />
+                        )}
+                        <span className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/60 ring-inset" />
+                    </div>
+                </div>
+
+                <label className="mt-7 block">
+                    <span className="mb-3 flex items-center justify-between text-[12px] font-semibold text-[#6e6e73]">
+                        <span>{t('Yakınlaştır', 'Zoom')}</span>
+                        <span className="tabular-nums">%{Math.round(zoom * 100)}</span>
+                    </span>
+                    <input
+                        type="range"
+                        min="1"
+                        max="3"
+                        step="0.01"
+                        value={zoom}
+                        onChange={(event) => setZoom(Number(event.target.value))}
+                        className="w-full accent-[#007aff]"
+                    />
+                </label>
+
+                <div className="mt-7 grid grid-cols-2 gap-3">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="h-12 rounded-full border border-black/[0.07] bg-white text-[14px] font-semibold transition active:scale-[0.98]"
+                    >
+                        {t('Vazgeç', 'Cancel')}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmCrop}
+                        disabled={!dimensions || processing}
+                        className="h-12 rounded-full bg-[#007aff] text-[14px] font-semibold text-white transition active:scale-[0.98] disabled:bg-[#d1d1d6]"
+                    >
+                        {processing ? t('Hazırlanıyor…', 'Preparing…') : t('Fotoğrafı Kullan', 'Use Photo')}
+                    </button>
+                </div>
+            </section>
+        </div>
     );
 }
 
@@ -1975,43 +2207,44 @@ function loadStoredSettings(defaultLanguage: 'tr' | 'en'): SettingsData {
     }
 }
 
-function resizeProfileImage(file: File): Promise<string> {
+function readProfileImage(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
 
         reader.onerror = () => reject(new Error('The profile image could not be read.'));
         reader.onload = () => {
+            const source = String(reader.result);
             const image = new Image();
             image.onerror = () => reject(new Error('The selected file is not a valid image.'));
-            image.onload = () => {
-                const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
-                const outputSize = Math.min(512, sourceSize);
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-
-                if (!context) {
-                    reject(new Error('The profile image could not be processed.'));
-                    return;
-                }
-
-                canvas.width = outputSize;
-                canvas.height = outputSize;
-                context.drawImage(
-                    image,
-                    (image.naturalWidth - sourceSize) / 2,
-                    (image.naturalHeight - sourceSize) / 2,
-                    sourceSize,
-                    sourceSize,
-                    0,
-                    0,
-                    outputSize,
-                    outputSize,
-                );
-                resolve(canvas.toDataURL('image/jpeg', 0.86));
-            };
-            image.src = String(reader.result);
+            image.onload = () => resolve(source);
+            image.src = source;
         };
         reader.readAsDataURL(file);
+    });
+}
+
+function cropProfileImage(source: string, dimensions: ImageDimensions, scale: number, position: CropPosition): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onerror = () => reject(new Error('The profile image could not be processed.'));
+        image.onload = () => {
+            const sourceSize = PROFILE_CROP_SIZE / scale;
+            const sourceX = dimensions.width / 2 - position.x / scale - sourceSize / 2;
+            const sourceY = dimensions.height / 2 - position.y / scale - sourceSize / 2;
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            if (!context) {
+                reject(new Error('The profile image could not be processed.'));
+                return;
+            }
+
+            canvas.width = 512;
+            canvas.height = 512;
+            context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, 512, 512);
+            resolve(canvas.toDataURL('image/jpeg', 0.88));
+        };
+        image.src = source;
     });
 }
 
