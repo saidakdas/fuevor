@@ -604,14 +604,6 @@ function OverviewPanel({
         goals.length === 0 ? 0 : Math.round(goals.reduce((total, goalRecord) => total + calculateGoalProgress(goalRecord), 0) / goals.length);
     const periodCompleted = periodItems.filter((item) => item.completed).length;
     const periodProgress = periodItems.length === 0 ? 0 : Math.round((periodCompleted / periodItems.length) * 100);
-    const rangeOptions: Array<{ value: PlanRange; label: string }> = [
-        { value: 'today', label: t('Bugün', 'Today') },
-        { value: 'tomorrow', label: t('Yarın', 'Tomorrow') },
-        { value: 'week', label: t('Hafta', 'Week') },
-        { value: 'month', label: t('Ay', 'Month') },
-        { value: 'year', label: t('Yıl', 'Year') },
-    ];
-
     return (
         <>
             <Head title={t('Genel Bakış', 'Overview')}>
@@ -656,22 +648,7 @@ function OverviewPanel({
                         </div>
                     </div>
 
-                    <div className="mt-9 pb-1">
-                        <div className="grid w-full grid-cols-5 items-center rounded-full bg-black/[0.045] p-1">
-                            {rangeOptions.map((option) => (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() => onRangeChange(option.value)}
-                                    className={`min-w-0 rounded-full px-1 py-2.5 text-[12px] font-medium transition sm:px-5 sm:text-[14px] ${isRangeOptionActive(option.value, range, date) ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <PlanDateNavigator t={t} locale={locale} range={range} date={date} onDateChange={onDateChange} />
+                    <PlanPeriodControl t={t} locale={locale} range={range} date={date} onRangeChange={onRangeChange} onDateChange={onDateChange} />
 
                     <section className="mt-5 grid gap-3 sm:grid-cols-3" aria-label={t('Özet bilgiler', 'Summary information')}>
                         <OverviewStat
@@ -2683,52 +2660,82 @@ function ProfileSelect({
     );
 }
 
-function PlanDateNavigator({
+function PlanPeriodControl({
     t,
     locale,
     range,
     date,
+    onRangeChange,
     onDateChange,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
     range: PlanRange;
     date: string;
+    onRangeChange: (range: PlanRange) => void;
     onDateChange: (date: string) => void;
 }) {
     const [calendarOpen, setCalendarOpen] = useState(false);
     const move = (direction: -1 | 1) => onDateChange(shiftPlanDate(date, range, direction));
+    const daySelected = range === 'today' || range === 'tomorrow';
+    const periodOptions: Array<{ value: 'week' | 'month' | 'year'; label: string }> = [
+        { value: 'week', label: t('Hafta', 'Week') },
+        { value: 'month', label: t('Ay', 'Month') },
+        { value: 'year', label: t('Yıl', 'Year') },
+    ];
 
     return (
-        <div className="mt-3 flex items-center justify-center gap-2" aria-label={t('Tarih seçimi', 'Date selection')}>
-            <button
-                type="button"
-                onClick={() => move(-1)}
-                className="grid size-11 shrink-0 place-items-center rounded-full border border-black/[0.07] bg-white text-[#6e6e73] shadow-[0_4px_16px_rgba(0,0,0,0.035)] transition hover:text-[#007aff] active:scale-95"
-                aria-label={t('Önceki döneme git', 'Go to previous period')}
+        <div
+            className="mt-9 grid grid-cols-[minmax(0,1.75fr)_repeat(3,minmax(0,1fr))] items-center rounded-full bg-black/[0.045] p-1"
+            aria-label={t('Tarih ve dönem seçimi', 'Date and period selection')}
+        >
+            <div
+                className={`flex h-11 min-w-0 items-center rounded-full transition ${
+                    daySelected ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73]'
+                }`}
             >
-                <ChevronLeft className="size-5" />
-            </button>
+                <button
+                    type="button"
+                    onClick={() => move(-1)}
+                    className="grid size-8 shrink-0 place-items-center rounded-full transition hover:text-[#007aff] active:scale-90 sm:size-9"
+                    aria-label={t('Önceki döneme git', 'Go to previous period')}
+                >
+                    <ChevronLeft className="size-[17px]" />
+                </button>
 
-            <button
-                type="button"
-                onClick={() => setCalendarOpen(true)}
-                className="flex h-11 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-full border border-black/[0.07] bg-white px-4 text-[13px] font-semibold shadow-[0_4px_16px_rgba(0,0,0,0.035)] transition hover:border-[#007aff]/25 active:scale-[0.99] sm:max-w-sm sm:text-[14px]"
-                aria-haspopup="dialog"
-                aria-expanded={calendarOpen}
-            >
-                <CalendarDays className="size-[17px] shrink-0 text-[#007aff]" />
-                <span className="truncate capitalize">{formatPlanPeriod(range, locale, date)}</span>
-            </button>
+                <button
+                    type="button"
+                    onClick={() => setCalendarOpen(true)}
+                    className="flex min-w-0 flex-1 items-center justify-center gap-1.5 overflow-hidden text-[12px] font-semibold sm:text-[14px]"
+                    aria-haspopup="dialog"
+                    aria-expanded={calendarOpen}
+                >
+                    <CalendarDays className="hidden size-[16px] shrink-0 text-[#007aff] min-[430px]:block" />
+                    <span className="truncate capitalize">{formatPlanDayLabel(date, locale, t)}</span>
+                </button>
 
-            <button
-                type="button"
-                onClick={() => move(1)}
-                className="grid size-11 shrink-0 place-items-center rounded-full border border-black/[0.07] bg-white text-[#6e6e73] shadow-[0_4px_16px_rgba(0,0,0,0.035)] transition hover:text-[#007aff] active:scale-95"
-                aria-label={t('Sonraki döneme git', 'Go to next period')}
-            >
-                <ChevronRight className="size-5" />
-            </button>
+                <button
+                    type="button"
+                    onClick={() => move(1)}
+                    className="grid size-8 shrink-0 place-items-center rounded-full transition hover:text-[#007aff] active:scale-90 sm:size-9"
+                    aria-label={t('Sonraki döneme git', 'Go to next period')}
+                >
+                    <ChevronRight className="size-[17px]" />
+                </button>
+            </div>
+
+            {periodOptions.map((option) => (
+                <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onRangeChange(option.value)}
+                    className={`h-11 min-w-0 rounded-full px-1 text-[12px] font-medium transition sm:px-5 sm:text-[14px] ${
+                        range === option.value ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'
+                    }`}
+                >
+                    {option.label}
+                </button>
+            ))}
 
             {calendarOpen && (
                 <PlanCalendar
@@ -2737,6 +2744,7 @@ function PlanDateNavigator({
                     selectedDate={date}
                     onCancel={() => setCalendarOpen(false)}
                     onSelect={(selectedDate) => {
+                        onRangeChange('today');
                         onDateChange(selectedDate);
                         setCalendarOpen(false);
                     }}
@@ -2928,14 +2936,6 @@ function PlanPanel({
     const [pendingFirstItem, setPendingFirstItem] = useState<Omit<PlanItem, 'id' | 'completed' | 'createdAt'> | null>(null);
     const [draggedPlanId, setDraggedPlanId] = useState<number | null>(null);
 
-    const rangeOptions: Array<{ value: PlanRange; label: string }> = [
-        { value: 'today', label: t('Bugün', 'Today') },
-        { value: 'tomorrow', label: t('Yarın', 'Tomorrow') },
-        { value: 'week', label: t('Hafta', 'Week') },
-        { value: 'month', label: t('Ay', 'Month') },
-        { value: 'year', label: t('Yıl', 'Year') },
-    ];
-
     const visibleItems = useMemo(() => sortPlanItems(items.filter((item) => isPlanItemInPeriod(item, range, date))), [date, items, range]);
     const completedCount = visibleItems.filter((item) => item.completed).length;
     const planProgress = visibleItems.length === 0 ? 0 : Math.round((completedCount / visibleItems.length) * 100);
@@ -3032,22 +3032,7 @@ function PlanPanel({
                         </button>
                     </div>
 
-                    <div className="mt-9 pb-1">
-                        <div className="grid w-full grid-cols-5 items-center rounded-full bg-black/[0.045] p-1">
-                            {rangeOptions.map((option) => (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() => onRangeChange(option.value)}
-                                    className={`min-w-0 rounded-full px-1 py-2.5 text-[12px] font-medium transition sm:px-5 sm:text-[14px] ${isRangeOptionActive(option.value, range, date) ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <PlanDateNavigator t={t} locale={locale} range={range} date={date} onDateChange={onDateChange} />
+                    <PlanPeriodControl t={t} locale={locale} range={range} date={date} onRangeChange={onRangeChange} onDateChange={onDateChange} />
 
                     <section className="mt-6 overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
                         <div className="flex items-center justify-between border-b border-black/[0.055] px-5 py-5 sm:px-7">
@@ -3982,6 +3967,16 @@ function formatPlanPeriod(range: PlanRange, locale: 'tr' | 'en', date: string): 
     return new Intl.DateTimeFormat(language, { year: 'numeric' }).format(selectedDate);
 }
 
+function formatPlanDayLabel(date: string, locale: 'tr' | 'en', t: Translate): string {
+    if (date === defaultDateForRange('today')) return t('Bugün', 'Today');
+    if (date === defaultDateForRange('tomorrow')) return t('Yarın', 'Tomorrow');
+
+    return new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+        day: 'numeric',
+        month: 'short',
+    }).format(parseDateKey(date));
+}
+
 function formatDateKey(date: Date): string {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -4038,13 +4033,6 @@ function shiftPlanDate(date: string, range: PlanRange, direction: -1 | 1): strin
     else shiftedDate.setDate(shiftedDate.getDate() + direction);
 
     return formatDateKey(shiftedDate);
-}
-
-function isRangeOptionActive(option: PlanRange, range: PlanRange, date: string): boolean {
-    if (option === 'today') return (range === 'today' || range === 'tomorrow') && date === defaultDateForRange('today');
-    if (option === 'tomorrow') return (range === 'today' || range === 'tomorrow') && date === defaultDateForRange('tomorrow');
-
-    return option === range;
 }
 
 function isPlanItemInPeriod(item: PlanItem, range: PlanRange, date: string): boolean {
