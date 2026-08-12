@@ -752,16 +752,6 @@ function OverviewPanel({
                         </div>
                     </div>
 
-                    <PlanPeriodControl
-                        t={t}
-                        locale={locale}
-                        range={range}
-                        date={date}
-                        onRangeChange={onRangeChange}
-                        onDateChange={onDateChange}
-                        onAddReminder={onCreateReminder}
-                    />
-
                     <section className="mt-5 grid gap-3 sm:grid-cols-3" aria-label={t('Özet bilgiler', 'Summary information')}>
                         <OverviewStat
                             icon={TrendingUp}
@@ -782,6 +772,17 @@ function OverviewPanel({
                             color="bg-[#34c759]/10 text-[#28a745]"
                         />
                     </section>
+
+                    <PlanPeriodControl
+                        t={t}
+                        locale={locale}
+                        range={range}
+                        date={date}
+                        className="mt-4"
+                        onRangeChange={onRangeChange}
+                        onDateChange={onDateChange}
+                        onAddReminder={onCreateReminder}
+                    />
 
                     <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
                         <section className="overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
@@ -2786,6 +2787,7 @@ function PlanPeriodControl({
     locale,
     range,
     date,
+    className = 'mt-9',
     onRangeChange,
     onDateChange,
     onAddReminder,
@@ -2794,6 +2796,7 @@ function PlanPeriodControl({
     locale: 'tr' | 'en';
     range: PlanRange;
     date: string;
+    className?: string;
     onRangeChange: (range: PlanRange) => void;
     onDateChange: (date: string) => void;
     onAddReminder?: (date: string) => void;
@@ -2818,7 +2821,7 @@ function PlanPeriodControl({
 
     return (
         <div
-            className="mt-9 grid grid-cols-[minmax(0,1.75fr)_repeat(3,minmax(0,1fr))] items-center rounded-full bg-black/[0.045] p-1"
+            className={`${className} grid grid-cols-[minmax(0,1.75fr)_repeat(3,minmax(0,1fr))] items-center rounded-full bg-black/[0.045] p-1`}
             aria-label={t('Tarih ve dönem seçimi', 'Date and period selection')}
         >
             <div
