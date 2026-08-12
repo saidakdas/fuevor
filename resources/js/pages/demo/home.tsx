@@ -1886,41 +1886,47 @@ function BirthDateCalendar({
                     >
                         <ChevronLeft className="size-5" />
                     </button>
-                    <select
-                        value={visibleMonth.getMonth()}
-                        onChange={(event) => setVisibleMonth(new Date(visibleMonth.getFullYear(), Number(event.target.value), 1, 12))}
-                        className="h-10 min-w-0 rounded-full bg-white px-3 text-[13px] font-semibold capitalize outline-none"
-                        aria-label={t('Ay', 'Month')}
-                    >
-                        {monthNames.map((month, index) => (
-                            <option
-                                key={month}
-                                value={index}
-                                disabled={visibleMonth.getFullYear() === new Date().getFullYear() && index > new Date().getMonth()}
-                            >
-                                {month}
-                            </option>
-                        ))}
-                    </select>
-                    <select
-                        value={visibleMonth.getFullYear()}
-                        onChange={(event) => {
-                            const year = Number(event.target.value);
-                            const month =
-                                year === new Date().getFullYear()
-                                    ? Math.min(visibleMonth.getMonth(), new Date().getMonth())
-                                    : visibleMonth.getMonth();
-                            setVisibleMonth(new Date(year, month, 1, 12));
-                        }}
-                        className="h-10 min-w-0 rounded-full bg-white px-3 text-[13px] font-semibold outline-none"
-                        aria-label={t('Yıl', 'Year')}
-                    >
-                        {years.map((year) => (
-                            <option key={year} value={year}>
-                                {year}
-                            </option>
-                        ))}
-                    </select>
+                    <div className="relative min-w-0">
+                        <select
+                            value={visibleMonth.getMonth()}
+                            onChange={(event) => setVisibleMonth(new Date(visibleMonth.getFullYear(), Number(event.target.value), 1, 12))}
+                            className="h-10 w-full min-w-0 appearance-none rounded-full bg-white px-8 text-center text-[13px] font-semibold capitalize outline-none"
+                            aria-label={t('Ay', 'Month')}
+                        >
+                            {monthNames.map((month, index) => (
+                                <option
+                                    key={month}
+                                    value={index}
+                                    disabled={visibleMonth.getFullYear() === new Date().getFullYear() && index > new Date().getMonth()}
+                                >
+                                    {month}
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-[#8e8e93]" />
+                    </div>
+                    <div className="relative min-w-0">
+                        <select
+                            value={visibleMonth.getFullYear()}
+                            onChange={(event) => {
+                                const year = Number(event.target.value);
+                                const month =
+                                    year === new Date().getFullYear()
+                                        ? Math.min(visibleMonth.getMonth(), new Date().getMonth())
+                                        : visibleMonth.getMonth();
+                                setVisibleMonth(new Date(year, month, 1, 12));
+                            }}
+                            className="h-10 w-full min-w-0 appearance-none rounded-full bg-white px-8 text-center text-[13px] font-semibold outline-none"
+                            aria-label={t('Yıl', 'Year')}
+                        >
+                            {years.map((year) => (
+                                <option key={year} value={year}>
+                                    {year}
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-[#8e8e93]" />
+                    </div>
                     <button
                         type="button"
                         onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1, 12))}
