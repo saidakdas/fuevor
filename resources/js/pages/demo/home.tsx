@@ -74,7 +74,7 @@ type PlanItem = {
     id: number;
     title: string;
     range: PlanRange;
-    source: 'goal' | 'independent';
+    source: 'goal' | 'independent' | 'reminder';
     goalId?: number;
     buildingBlockId?: number;
     completed: boolean;
@@ -153,6 +153,7 @@ export default function DemoHome() {
     const [planDate, setPlanDate] = useState(() => formatDateKey(new Date()));
     const [profile, setProfile] = useState<ProfileData>(loadStoredProfile);
     const [activeReminder, setActiveReminder] = useState<PlanItem | null>(null);
+    const [standaloneReminderDate, setStandaloneReminderDate] = useState<string | null>(null);
     const nextBlockId = useRef(2);
     const nextPlanItemId = useRef(Math.max(0, ...planItems.map((item) => item.id)) + 1);
     const nextNoteId = useRef(Math.max(0, ...notes.map((note) => note.id)) + 1);
@@ -407,6 +408,20 @@ export default function DemoHome() {
         );
     };
 
+    const addStandaloneReminder = (title: string, date: string, time: string) => {
+        addPlanItem({
+            title,
+            range: date === defaultDateForRange('tomorrow') ? 'tomorrow' : 'today',
+            scheduledFor: date,
+            source: 'reminder',
+            priority: 'important',
+            reminderAt: `${date}T${time}`,
+        });
+        setPlanDate(date);
+        setPlanRange(date === defaultDateForRange('tomorrow') ? 'tomorrow' : 'today');
+        setStandaloneReminderDate(null);
+    };
+
     const addNote = (note: Omit<NoteRecord, 'id' | 'createdAt'>) => {
         setNotes((currentNotes) => [
             {
@@ -472,6 +487,16 @@ export default function DemoHome() {
             }}
         />
     ) : null;
+    const standaloneReminderDialog = standaloneReminderDate ? (
+        <StandaloneReminderDialog
+            key={standaloneReminderDate}
+            t={t}
+            locale={locale}
+            initialDate={standaloneReminderDate}
+            onCancel={() => setStandaloneReminderDate(null)}
+            onSave={addStandaloneReminder}
+        />
+    ) : null;
 
     if (showPanel) {
         if (panelSection === 'overview') {
@@ -489,9 +514,11 @@ export default function DemoHome() {
                         onRangeChange={changePlanRange}
                         onDateChange={changePlanDate}
                         onToggleItem={togglePlanItem}
+                        onCreateReminder={setStandaloneReminderDate}
                     />
                     {profileSheet}
                     {reminderAlert}
+                    {standaloneReminderDialog}
                 </>
             );
         }
@@ -516,9 +543,11 @@ export default function DemoHome() {
                         onRemoveItem={removePlanItem}
                         onReorderItems={reorderPlanItems}
                         onUpdateReminder={updatePlanReminder}
+                        onCreateReminder={setStandaloneReminderDate}
                     />
                     {profileSheet}
                     {reminderAlert}
+                    {standaloneReminderDialog}
                 </>
             );
         }
@@ -538,6 +567,7 @@ export default function DemoHome() {
                     />
                     {profileSheet}
                     {reminderAlert}
+                    {standaloneReminderDialog}
                 </>
             );
         }
@@ -547,6 +577,7 @@ export default function DemoHome() {
                 <GoalsPanel t={t} locale={locale} goals={goals} onCreateGoal={startNewGoal} onNavigate={navigatePanel} />
                 {profileSheet}
                 {reminderAlert}
+                {standaloneReminderDialog}
             </>
         );
     }
@@ -648,6 +679,7 @@ function OverviewPanel({
     onRangeChange,
     onDateChange,
     onToggleItem,
+    onCreateReminder,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
@@ -660,6 +692,7 @@ function OverviewPanel({
     onRangeChange: (range: PlanRange) => void;
     onDateChange: (date: string) => void;
     onToggleItem: (id: number) => void;
+    onCreateReminder: (date: string) => void;
 }) {
     const periodItems = useMemo(() => sortPlanItems(items.filter((item) => isPlanItemInPeriod(item, range, date))), [date, items, range]);
     const priorityGoals = useMemo(
@@ -719,7 +752,15 @@ function OverviewPanel({
                         </div>
                     </div>
 
-                    <PlanPeriodControl t={t} locale={locale} range={range} date={date} onRangeChange={onRangeChange} onDateChange={onDateChange} />
+                    <PlanPeriodControl
+                        t={t}
+                        locale={locale}
+                        range={range}
+                        date={date}
+                        onRangeChange={onRangeChange}
+                        onDateChange={onDateChange}
+                        onAddReminder={onCreateReminder}
+                    />
 
                     <section className="mt-5 grid gap-3 sm:grid-cols-3" aria-label={t('Özet bilgiler', 'Summary information')}>
                         <OverviewStat
@@ -804,7 +845,10 @@ function OverviewPanel({
                                                         {item.title}
                                                     </p>
                                                     <p className="mt-1 truncate text-[11px] text-[#8e8e93]">
-                                                        {sourceGoal?.title ?? t('Bağımsız plan', 'Independent plan')}
+                                                        {sourceGoal?.title ??
+                                                            (item.source === 'reminder'
+                                                                ? t('Harici anımsatıcı', 'Standalone reminder')
+                                                                : t('Bağımsız plan', 'Independent plan'))}
                                                     </p>
                                                     {item.reminderAt && (
                                                         <p className="mt-1.5 flex items-center gap-1.5 truncate text-[11px] font-semibold text-[#007aff]">
@@ -2744,6 +2788,7 @@ function PlanPeriodControl({
     date,
     onRangeChange,
     onDateChange,
+    onAddReminder,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
@@ -2751,6 +2796,7 @@ function PlanPeriodControl({
     date: string;
     onRangeChange: (range: PlanRange) => void;
     onDateChange: (date: string) => void;
+    onAddReminder?: (date: string) => void;
 }) {
     const [calendarOpen, setCalendarOpen] = useState(false);
     const move = (direction: -1 | 1) => onDateChange(shiftPlanDate(date, range, direction));
@@ -2834,6 +2880,14 @@ function PlanPeriodControl({
                         onDateChange(selectedDate);
                         setCalendarOpen(false);
                     }}
+                    onAddReminder={
+                        onAddReminder
+                            ? (selectedDate) => {
+                                  setCalendarOpen(false);
+                                  onAddReminder(selectedDate);
+                              }
+                            : undefined
+                    }
                 />
             )}
         </div>
@@ -2846,15 +2900,18 @@ function PlanCalendar({
     selectedDate,
     onCancel,
     onSelect,
+    onAddReminder,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
     selectedDate: string;
     onCancel: () => void;
     onSelect: (date: string) => void;
+    onAddReminder?: (date: string) => void;
 }) {
     const language = locale === 'tr' ? 'tr-TR' : 'en-US';
     const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(parseDateKey(selectedDate)));
+    const [focusedDate, setFocusedDate] = useState(selectedDate);
     const today = formatDateKey(new Date());
     const days = useMemo(() => calendarMonthDays(visibleMonth), [visibleMonth]);
     const weekdays = useMemo(() => {
@@ -2938,7 +2995,7 @@ function PlanCalendar({
                 <div className="grid grid-cols-7 gap-y-1" role="grid">
                     {days.map((day) => {
                         const dayKey = formatDateKey(day);
-                        const selected = dayKey === selectedDate;
+                        const selected = dayKey === focusedDate;
                         const currentDay = dayKey === today;
                         const outsideMonth = day.getMonth() !== visibleMonth.getMonth();
 
@@ -2946,7 +3003,14 @@ function PlanCalendar({
                             <button
                                 key={dayKey}
                                 type="button"
-                                onClick={() => onSelect(dayKey)}
+                                onClick={() => {
+                                    if (onAddReminder) {
+                                        setFocusedDate(dayKey);
+                                        return;
+                                    }
+
+                                    onSelect(dayKey);
+                                }}
                                 className={`mx-auto grid size-10 place-items-center rounded-full text-[14px] font-medium transition active:scale-90 ${
                                     selected
                                         ? 'bg-[#007aff] text-white shadow-[0_5px_16px_rgba(0,122,255,0.25)]'
@@ -2971,13 +3035,33 @@ function PlanCalendar({
                     })}
                 </div>
 
-                <button
-                    type="button"
-                    onClick={() => onSelect(today)}
-                    className="mt-5 h-11 w-full rounded-full border border-black/[0.07] bg-white text-[14px] font-semibold text-[#007aff] transition active:scale-[0.98]"
-                >
-                    {t('Bugüne Git', 'Go to Today')}
-                </button>
+                {onAddReminder ? (
+                    <div className="mt-5 grid grid-cols-[0.85fr_1.15fr] gap-2">
+                        <button
+                            type="button"
+                            onClick={() => onSelect(focusedDate)}
+                            className="h-11 rounded-full border border-black/[0.07] bg-white px-3 text-[13px] font-semibold text-[#007aff] transition active:scale-[0.98]"
+                        >
+                            {t('Bu Güne Git', 'Go to This Day')}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onAddReminder(focusedDate)}
+                            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-[#ff9500] px-3 text-[13px] font-semibold text-white shadow-[0_7px_18px_rgba(255,149,0,0.22)] transition active:scale-[0.98]"
+                        >
+                            <BellRing className="size-4" />
+                            {t('Anımsatıcı Ekle', 'Add Reminder')}
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => onSelect(today)}
+                        className="mt-5 h-11 w-full rounded-full border border-black/[0.07] bg-white text-[14px] font-semibold text-[#007aff] transition active:scale-[0.98]"
+                    >
+                        {t('Bugüne Git', 'Go to Today')}
+                    </button>
+                )}
             </section>
         </div>
     );
@@ -3000,6 +3084,7 @@ function PlanPanel({
     onRemoveItem,
     onReorderItems,
     onUpdateReminder,
+    onCreateReminder,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
@@ -3017,6 +3102,7 @@ function PlanPanel({
     onRemoveItem: (id: number) => void;
     onReorderItems: (orderedIds: number[]) => void;
     onUpdateReminder: (id: number, reminderAt?: string) => void;
+    onCreateReminder: (date: string) => void;
 }) {
     const [composerOpen, setComposerOpen] = useState(false);
     const [independentTitle, setIndependentTitle] = useState('');
@@ -3132,17 +3218,35 @@ function PlanPanel({
                             </p>
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => setComposerOpen(true)}
-                            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#007aff] px-6 text-[15px] font-semibold text-white shadow-[0_8px_24px_rgba(0,122,255,0.2)] transition hover:bg-[#006ee6] active:scale-[0.98] sm:w-auto"
-                        >
-                            <Plus className="size-[18px]" strokeWidth={2.5} />
-                            {t('Plan Ekle', 'Add to Plan')}
-                        </button>
+                        <div className="grid grid-cols-2 gap-2 sm:flex">
+                            <button
+                                type="button"
+                                onClick={() => onCreateReminder(date)}
+                                className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-full border border-black/[0.07] bg-white px-4 text-[13px] font-semibold text-[#1d1d1f] shadow-[0_5px_18px_rgba(0,0,0,0.04)] transition active:scale-[0.98] sm:px-5 sm:text-[14px]"
+                            >
+                                <BellRing className="size-[17px] shrink-0 text-[#ff9500]" />
+                                <span className="truncate">{t('Anımsatıcı', 'Reminder')}</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setComposerOpen(true)}
+                                className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-full bg-[#007aff] px-4 text-[13px] font-semibold text-white shadow-[0_8px_24px_rgba(0,122,255,0.2)] transition hover:bg-[#006ee6] active:scale-[0.98] sm:px-6 sm:text-[15px]"
+                            >
+                                <Plus className="size-[18px] shrink-0" strokeWidth={2.5} />
+                                <span className="truncate">{t('Plan Ekle', 'Add to Plan')}</span>
+                            </button>
+                        </div>
                     </div>
 
-                    <PlanPeriodControl t={t} locale={locale} range={range} date={date} onRangeChange={onRangeChange} onDateChange={onDateChange} />
+                    <PlanPeriodControl
+                        t={t}
+                        locale={locale}
+                        range={range}
+                        date={date}
+                        onRangeChange={onRangeChange}
+                        onDateChange={onDateChange}
+                        onAddReminder={onCreateReminder}
+                    />
 
                     <section className="mt-6 overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
                         <div className="flex items-center justify-between border-b border-black/[0.055] px-5 py-5 sm:px-7">
@@ -3214,7 +3318,11 @@ function PlanPanel({
                                                     <span
                                                         className={`mr-1.5 inline-block size-1.5 rounded-full ${PRIORITY_STYLES[item.priority].dot}`}
                                                     />
-                                                    {sourceGoal ? sourceGoal.title : t('Bağımsız plan', 'Independent plan')}
+                                                    {sourceGoal
+                                                        ? sourceGoal.title
+                                                        : item.source === 'reminder'
+                                                          ? t('Harici anımsatıcı', 'Standalone reminder')
+                                                          : t('Bağımsız plan', 'Independent plan')}
                                                 </p>
                                                 <button
                                                     type="button"
@@ -3550,6 +3658,131 @@ function PlanCarryoverDialog({ t, onCancel, onChoose }: { t: Translate; onCancel
                 </p>
             </section>
         </div>
+    );
+}
+
+function StandaloneReminderDialog({
+    t,
+    locale,
+    initialDate,
+    onCancel,
+    onSave,
+}: {
+    t: Translate;
+    locale: 'tr' | 'en';
+    initialDate: string;
+    onCancel: () => void;
+    onSave: (title: string, date: string, time: string) => void;
+}) {
+    const [title, setTitle] = useState('');
+    const [date, setDate] = useState(initialDate);
+    const [time, setTime] = useState(suggestedReminderTime);
+    const [calendarOpen, setCalendarOpen] = useState(false);
+    const reminderTime = new Date(`${date}T${time}`).getTime();
+    const isValid = title.trim() !== '' && isDateKey(date) && /^\d{2}:\d{2}$/.test(time) && reminderTime > Date.now();
+
+    return (
+        <>
+            <div
+                className="apple-interface fixed inset-0 z-[70] flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-5"
+                role="presentation"
+                onMouseDown={onCancel}
+            >
+                <section
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="standalone-reminder-title"
+                    onMouseDown={(event) => event.stopPropagation()}
+                    className="w-full max-w-md rounded-t-[30px] border border-black/[0.07] bg-[#f9f9fb] px-5 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_30px_90px_rgba(0,0,0,0.28)] sm:rounded-[30px] sm:px-7 sm:pb-7"
+                >
+                    <div className="flex items-start justify-between gap-4">
+                        <span className="grid size-13 place-items-center rounded-[17px] bg-[#ff9500]/12 text-[#ff9500]">
+                            <BellRing className="size-6" />
+                        </span>
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                            aria-label={t('Kapat', 'Close')}
+                        >
+                            <X className="size-[17px]" />
+                        </button>
+                    </div>
+
+                    <h2 id="standalone-reminder-title" className="mt-5 text-[24px] font-semibold tracking-[-0.035em]">
+                        {t('Harici anımsatıcı', 'Standalone reminder')}
+                    </h2>
+                    <p className="mt-2 text-[13px] leading-5 text-[#6e6e73]">
+                        {t('Seçtiğin günün planına yalnızca anımsatıcı olarak eklenecek.', 'It will be added to the selected day as a reminder.')}
+                    </p>
+
+                    <label className="mt-6 block">
+                        <span className="mb-2 block text-[12px] font-semibold text-[#6e6e73]">{t('Anımsatılacak konu', 'Reminder title')}</span>
+                        <input
+                            autoFocus
+                            autoCapitalize="sentences"
+                            value={title}
+                            onChange={(event) => setTitle(event.target.value)}
+                            placeholder={t('Örneğin: İlacını al', 'For example: Take your medicine')}
+                            className="h-13 w-full rounded-[17px] border border-black/[0.07] bg-white px-4 text-[15px] font-medium outline-none placeholder:text-[#aeaeb2] focus:border-[#007aff]/35 focus:ring-4 focus:ring-[#007aff]/8"
+                        />
+                    </label>
+
+                    <div className="mt-3 grid grid-cols-[1.25fr_0.75fr] gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setCalendarOpen(true)}
+                            className="flex h-13 min-w-0 items-center gap-2 rounded-[17px] border border-black/[0.07] bg-white px-4 text-left text-[13px] font-semibold"
+                        >
+                            <CalendarDays className="size-[17px] shrink-0 text-[#007aff]" />
+                            <span className="truncate">{formatReminderDate(date, locale)}</span>
+                        </button>
+                        <label className="flex h-13 min-w-0 items-center gap-2 rounded-[17px] border border-black/[0.07] bg-white px-3.5">
+                            <Clock3 className="size-[17px] shrink-0 text-[#007aff]" />
+                            <span className="sr-only">{t('Anımsatıcı saati', 'Reminder time')}</span>
+                            <input
+                                type="time"
+                                value={time}
+                                onChange={(event) => setTime(event.target.value)}
+                                className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold outline-none"
+                            />
+                        </label>
+                    </div>
+
+                    {title.trim() !== '' && !isValid && (
+                        <p className="mt-3 text-[12px] font-medium text-[#ff3b30]">
+                            {t('İleri bir tarih ve saat seçmelisin.', 'Choose a future date and time.')}
+                        </p>
+                    )}
+
+                    <button
+                        type="button"
+                        disabled={!isValid}
+                        onClick={() => {
+                            requestBrowserNotificationPermission();
+                            onSave(title.trim(), date, time);
+                        }}
+                        className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#ff9500] text-[14px] font-semibold text-white shadow-[0_8px_22px_rgba(255,149,0,0.22)] transition active:scale-[0.98] disabled:bg-[#d1d1d6] disabled:shadow-none"
+                    >
+                        <BellRing className="size-[17px]" />
+                        {t('Anımsatıcıyı Ekle', 'Add Reminder')}
+                    </button>
+                </section>
+            </div>
+
+            {calendarOpen && (
+                <PlanCalendar
+                    t={t}
+                    locale={locale}
+                    selectedDate={date}
+                    onCancel={() => setCalendarOpen(false)}
+                    onSelect={(selectedDate) => {
+                        setDate(selectedDate);
+                        setCalendarOpen(false);
+                    }}
+                />
+            )}
+        </>
     );
 }
 
