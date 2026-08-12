@@ -886,7 +886,7 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
 
             <div className="demo-mobile-dock fixed inset-x-0 bottom-0 z-40 flex items-end gap-2.5 px-3 sm:hidden">
                 <nav
-                    className="demo-mobile-navigation grid min-w-0 flex-1 grid-cols-3 rounded-[29px] border border-white/60 bg-white/68 p-1.5 shadow-[0_14px_42px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-[28px]"
+                    className="demo-mobile-navigation grid min-w-0 flex-1 grid-cols-3 rounded-[29px] border border-white/48 bg-white/45 p-1.5 shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px]"
                     aria-label={t('Mobil panel bölümleri', 'Mobile panel sections')}
                 >
                     {navigationItems.map((item) => {
@@ -911,7 +911,7 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
                 <button
                     type="button"
                     onClick={() => onNavigate('profile')}
-                    className="demo-mobile-profile-island grid size-[69px] shrink-0 place-items-center overflow-hidden rounded-full border border-white/65 bg-white/68 p-[7px] text-[#1d1d1f] shadow-[0_14px_42px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-[28px] transition active:scale-95"
+                    className="demo-mobile-profile-island grid size-[69px] shrink-0 place-items-center overflow-hidden rounded-full border border-white/48 bg-white/45 p-[7px] text-[#1d1d1f] shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px] transition active:scale-95"
                     aria-label={t('Profili aç', 'Open profile')}
                 >
                     {storedProfile.avatar ? (
@@ -1139,32 +1139,72 @@ function ProfilePanel({
                     </header>
 
                     <main className="mx-auto max-w-4xl px-4 pt-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-8 sm:pt-8 sm:pb-10">
-                        <button
-                            type="button"
-                            onClick={() => setTab('personal')}
-                            className="flex w-full items-center gap-4 rounded-[26px] border border-black/[0.055] bg-white px-5 py-5 text-left shadow-[0_10px_34px_rgba(0,0,0,0.045)] transition active:scale-[0.99] sm:px-6"
-                        >
-                            {draft.avatar ? (
-                                <img
-                                    src={draft.avatar}
-                                    alt={t('Profil fotoğrafı', 'Profile photo')}
-                                    className="size-16 shrink-0 rounded-full object-cover shadow-[0_6px_18px_rgba(0,0,0,0.14)]"
+                        <div className="flex w-full items-center gap-4 rounded-[26px] border border-black/[0.055] bg-white px-5 py-5 shadow-[0_10px_34px_rgba(0,0,0,0.045)] sm:px-6">
+                            <div className="relative shrink-0">
+                                {draft.avatar ? (
+                                    <img
+                                        src={draft.avatar}
+                                        alt={t('Profil fotoğrafı', 'Profile photo')}
+                                        className="size-16 rounded-full object-cover shadow-[0_6px_18px_rgba(0,0,0,0.14)]"
+                                    />
+                                ) : (
+                                    <span className="grid size-16 place-items-center rounded-full bg-[#007aff] text-[23px] font-semibold text-white shadow-[0_7px_20px_rgba(0,122,255,0.2)]">
+                                        {profileInitial}
+                                    </span>
+                                )}
+                                <label
+                                    htmlFor="demo-profile-photo"
+                                    className="absolute -right-1 -bottom-1 grid size-7 cursor-pointer place-items-center rounded-full border-2 border-white bg-[#1d1d1f] text-white shadow-md transition hover:scale-105"
+                                    title={t('Profil fotoğrafını değiştir', 'Change profile photo')}
+                                >
+                                    <Camera className="size-3.5" />
+                                </label>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <h2 className="truncate text-[20px] font-semibold tracking-[-0.025em]">{draft.name || t('Ad Soyad', 'Full Name')}</h2>
+                                <p className="mt-1 truncate text-[13px] text-[#8e8e93]">{draft.email || t('E-posta adresi', 'Email address')}</p>
+                                <div className="mt-2 flex flex-wrap items-center gap-3">
+                                    <label
+                                        htmlFor="demo-profile-photo"
+                                        className="inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-[#007aff]"
+                                    >
+                                        <Camera className="size-3.5" />
+                                        {draft.avatar ? t('Değiştir', 'Change') : t('Fotoğraf ekle', 'Add photo')}
+                                    </label>
+                                    {draft.avatar && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setDraft((current) => ({ ...current, avatar: '' }))}
+                                            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#ff3b30]"
+                                        >
+                                            <Trash2 className="size-3.5" />
+                                            {t('Sil', 'Delete')}
+                                        </button>
+                                    )}
+                                </div>
+                                <input
+                                    id="demo-profile-photo"
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    aria-label={t('Profil fotoğrafı seç', 'Choose profile photo')}
+                                    onChange={async (event) => {
+                                        const input = event.currentTarget;
+                                        const file = input.files?.[0];
+                                        if (!file) return;
+
+                                        try {
+                                            const source = await readProfileImage(file);
+                                            setCropSource(source);
+                                        } catch {
+                                            // Unsupported image files leave the current profile photo unchanged.
+                                        } finally {
+                                            input.value = '';
+                                        }
+                                    }}
                                 />
-                            ) : (
-                                <span className="grid size-16 shrink-0 place-items-center rounded-full bg-[#007aff] text-[23px] font-semibold text-white shadow-[0_7px_20px_rgba(0,122,255,0.2)]">
-                                    {profileInitial}
-                                </span>
-                            )}
-                            <span className="min-w-0 flex-1">
-                                <span className="block truncate text-[20px] font-semibold tracking-[-0.025em]">
-                                    {draft.name || t('Ad Soyad', 'Full Name')}
-                                </span>
-                                <span className="mt-1 block truncate text-[13px] text-[#8e8e93]">
-                                    {draft.email || t('E-posta adresi', 'Email address')}
-                                </span>
-                            </span>
-                            <ChevronRight className="size-5 shrink-0 text-[#aeaeb2]" />
-                        </button>
+                            </div>
+                        </div>
 
                         <div className="mt-5 flex w-full items-center rounded-full bg-black/[0.045] p-1 sm:w-fit">
                             <button
@@ -1188,78 +1228,7 @@ function ProfilePanel({
                                 onSubmit={savePersonalInformation}
                                 className="demo-step-enter mt-6 overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
                             >
-                                <div className="flex items-center gap-4 border-b border-black/[0.055] px-5 py-6 sm:px-7">
-                                    <div className="relative shrink-0">
-                                        {draft.avatar ? (
-                                            <img
-                                                src={draft.avatar}
-                                                alt={t('Profil fotoğrafı', 'Profile photo')}
-                                                className="size-16 rounded-full object-cover shadow-[0_7px_20px_rgba(0,0,0,0.14)]"
-                                            />
-                                        ) : (
-                                            <span className="grid size-16 place-items-center rounded-full bg-[#007aff] text-[24px] font-semibold text-white shadow-[0_7px_20px_rgba(0,122,255,0.2)]">
-                                                {profileInitial}
-                                            </span>
-                                        )}
-                                        <label
-                                            htmlFor="demo-profile-photo"
-                                            className="absolute -right-1 -bottom-1 grid size-7 cursor-pointer place-items-center rounded-full border-2 border-white bg-[#1d1d1f] text-white shadow-md transition hover:scale-105"
-                                            title={t('Profil fotoğrafını değiştir', 'Change profile photo')}
-                                        >
-                                            <Camera className="size-3.5" />
-                                        </label>
-                                    </div>
-                                    <div className="min-w-0">
-                                        <h2 className="truncate text-[20px] font-semibold tracking-[-0.025em]">
-                                            {draft.name || t('Ad Soyad', 'Full Name')}
-                                        </h2>
-                                        <p className="mt-1 truncate text-[13px] text-[#8e8e93]">
-                                            {draft.email || t('E-posta adresi', 'Email address')}
-                                        </p>
-                                        <div className="mt-2 flex flex-wrap items-center gap-3">
-                                            <label
-                                                htmlFor="demo-profile-photo"
-                                                className="inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-[#007aff]"
-                                            >
-                                                <Camera className="size-3.5" />
-                                                {draft.avatar ? t('Değiştir', 'Change') : t('Fotoğraf ekle', 'Add photo')}
-                                            </label>
-                                            {draft.avatar && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setDraft((current) => ({ ...current, avatar: '' }))}
-                                                    className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#ff3b30]"
-                                                >
-                                                    <Trash2 className="size-3.5" />
-                                                    {t('Sil', 'Delete')}
-                                                </button>
-                                            )}
-                                        </div>
-                                        <input
-                                            id="demo-profile-photo"
-                                            type="file"
-                                            accept="image/*"
-                                            className="sr-only"
-                                            aria-label={t('Profil fotoğrafı seç', 'Choose profile photo')}
-                                            onChange={async (event) => {
-                                                const input = event.currentTarget;
-                                                const file = input.files?.[0];
-                                                if (!file) return;
-
-                                                try {
-                                                    const source = await readProfileImage(file);
-                                                    setCropSource(source);
-                                                } catch {
-                                                    // Unsupported image files leave the current profile photo unchanged.
-                                                } finally {
-                                                    input.value = '';
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-5 px-5 py-6 sm:px-7">
+                                <div className="space-y-5 px-5 py-6 sm:px-7 sm:py-7">
                                     <ProfileField
                                         label={t('Ad Soyad', 'Full Name')}
                                         value={draft.name}
