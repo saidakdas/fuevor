@@ -6,6 +6,8 @@ import mobilePhoneExamples from 'libphonenumber-js/examples.mobile.json';
 import {
     ArrowLeft,
     ArrowRight,
+    Bell,
+    BellRing,
     BriefcaseBusiness,
     CakeSlice,
     CalendarDays,
@@ -17,6 +19,7 @@ import {
     ChevronRight,
     ChevronUp,
     CircleCheck,
+    Clock3,
     Globe2,
     GraduationCap,
     GripVertical,
@@ -79,6 +82,8 @@ type PlanItem = {
     scheduledFor: string;
     priority: Priority;
     sortOrder?: number;
+    reminderAt?: string;
+    reminderDeliveredAt?: number;
 };
 
 type NoteRecord = {
@@ -147,6 +152,7 @@ export default function DemoHome() {
     const [planRange, setPlanRange] = useState<PlanRange>('today');
     const [planDate, setPlanDate] = useState(() => formatDateKey(new Date()));
     const [profile, setProfile] = useState<ProfileData>(loadStoredProfile);
+    const [activeReminder, setActiveReminder] = useState<PlanItem | null>(null);
     const nextBlockId = useRef(2);
     const nextPlanItemId = useRef(Math.max(0, ...planItems.map((item) => item.id)) + 1);
     const nextNoteId = useRef(Math.max(0, ...notes.map((note) => note.id)) + 1);
@@ -158,6 +164,45 @@ export default function DemoHome() {
     useEffect(() => {
         storeDemoData(DEMO_PLAN_STORAGE_KEY, planItems);
     }, [planItems]);
+
+    useEffect(() => {
+        if (activeReminder) return;
+
+        const deliverDueReminder = () => {
+            const now = Date.now();
+            const dueReminder = planItems
+                .filter(
+                    (item) =>
+                        !item.completed &&
+                        !item.reminderDeliveredAt &&
+                        typeof item.reminderAt === 'string' &&
+                        !Number.isNaN(new Date(item.reminderAt).getTime()) &&
+                        new Date(item.reminderAt).getTime() <= now,
+                )
+                .sort((first, second) => String(first.reminderAt).localeCompare(String(second.reminderAt)))[0];
+
+            if (!dueReminder) return;
+
+            setActiveReminder(dueReminder);
+            setPlanItems((currentItems) => currentItems.map((item) => (item.id === dueReminder.id ? { ...item, reminderDeliveredAt: now } : item)));
+
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                try {
+                    new Notification(locale === 'tr' ? 'Fuevor Anımsatıcı' : 'Fuevor Reminder', {
+                        body: dueReminder.title,
+                        icon: '/favicon.ico',
+                    });
+                } catch {
+                    // The in-app alert remains available when system notifications cannot be displayed.
+                }
+            }
+        };
+
+        deliverDueReminder();
+        const timer = window.setInterval(deliverDueReminder, 30_000);
+
+        return () => window.clearInterval(timer);
+    }, [activeReminder, locale, planItems]);
 
     useEffect(() => {
         if (!settings.carryOverIncompletePlans) return;
@@ -352,6 +397,16 @@ export default function DemoHome() {
         );
     };
 
+    const updatePlanReminder = (itemId: number, reminderAt?: string) => {
+        setPlanItems((currentItems) =>
+            currentItems.map((item) => {
+                if (item.id !== itemId) return item;
+                if (reminderAt) return { ...item, reminderAt, reminderDeliveredAt: undefined };
+                return { ...item, reminderAt: undefined, reminderDeliveredAt: undefined };
+            }),
+        );
+    };
+
     const addNote = (note: Omit<NoteRecord, 'id' | 'createdAt'>) => {
         setNotes((currentNotes) => [
             {
@@ -406,6 +461,17 @@ export default function DemoHome() {
             onSettingsChange={setSettings}
         />
     ) : null;
+    const reminderAlert = activeReminder ? (
+        <ReminderAlert
+            t={t}
+            item={activeReminder}
+            onDismiss={() => setActiveReminder(null)}
+            onComplete={() => {
+                togglePlanItem(activeReminder.id);
+                setActiveReminder(null);
+            }}
+        />
+    ) : null;
 
     if (showPanel) {
         if (panelSection === 'overview') {
@@ -425,6 +491,7 @@ export default function DemoHome() {
                         onToggleItem={togglePlanItem}
                     />
                     {profileSheet}
+                    {reminderAlert}
                 </>
             );
         }
@@ -448,8 +515,10 @@ export default function DemoHome() {
                         onToggleItem={togglePlanItem}
                         onRemoveItem={removePlanItem}
                         onReorderItems={reorderPlanItems}
+                        onUpdateReminder={updatePlanReminder}
                     />
                     {profileSheet}
+                    {reminderAlert}
                 </>
             );
         }
@@ -468,6 +537,7 @@ export default function DemoHome() {
                         onRemoveNote={removeNote}
                     />
                     {profileSheet}
+                    {reminderAlert}
                 </>
             );
         }
@@ -476,6 +546,7 @@ export default function DemoHome() {
             <>
                 <GoalsPanel t={t} locale={locale} goals={goals} onCreateGoal={startNewGoal} onNavigate={navigatePanel} />
                 {profileSheet}
+                {reminderAlert}
             </>
         );
     }
@@ -735,6 +806,12 @@ function OverviewPanel({
                                                     <p className="mt-1 truncate text-[11px] text-[#8e8e93]">
                                                         {sourceGoal?.title ?? t('Bağımsız plan', 'Independent plan')}
                                                     </p>
+                                                    {item.reminderAt && (
+                                                        <p className="mt-1.5 flex items-center gap-1.5 truncate text-[11px] font-semibold text-[#007aff]">
+                                                            <BellRing className="size-3.5 shrink-0" />
+                                                            {formatReminderDateTime(item.reminderAt, locale)}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
@@ -2796,7 +2873,7 @@ function PlanCalendar({
 
     return (
         <div
-            className="apple-interface fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-5"
+            className="apple-interface fixed inset-0 z-[90] flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-5"
             role="presentation"
             onMouseDown={onCancel}
         >
@@ -2922,6 +2999,7 @@ function PlanPanel({
     onToggleItem,
     onRemoveItem,
     onReorderItems,
+    onUpdateReminder,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
@@ -2938,16 +3016,27 @@ function PlanPanel({
     onToggleItem: (id: number) => void;
     onRemoveItem: (id: number) => void;
     onReorderItems: (orderedIds: number[]) => void;
+    onUpdateReminder: (id: number, reminderAt?: string) => void;
 }) {
     const [composerOpen, setComposerOpen] = useState(false);
     const [independentTitle, setIndependentTitle] = useState('');
     const [independentPriority, setIndependentPriority] = useState<Priority>('important');
     const [pendingFirstItem, setPendingFirstItem] = useState<Omit<PlanItem, 'id' | 'completed' | 'createdAt'> | null>(null);
     const [draggedPlanId, setDraggedPlanId] = useState<number | null>(null);
+    const [reminderEnabled, setReminderEnabled] = useState(false);
+    const [reminderDate, setReminderDate] = useState(() => suggestedReminderDate(date));
+    const [reminderTime, setReminderTime] = useState(suggestedReminderTime);
+    const [reminderCalendarOpen, setReminderCalendarOpen] = useState(false);
+    const [editingReminderId, setEditingReminderId] = useState<number | null>(null);
 
     const visibleItems = useMemo(() => sortPlanItems(items.filter((item) => isPlanItemInPeriod(item, range, date))), [date, items, range]);
     const completedCount = visibleItems.filter((item) => item.completed).length;
     const planProgress = visibleItems.length === 0 ? 0 : Math.round((completedCount / visibleItems.length) * 100);
+    const reminderAt = reminderEnabled ? `${reminderDate}T${reminderTime}` : undefined;
+    const reminderIsValid =
+        !reminderEnabled ||
+        (typeof reminderAt === 'string' && Number.isFinite(new Date(reminderAt).getTime()) && new Date(reminderAt).getTime() > Date.now());
+    const editingReminderItem = editingReminderId === null ? undefined : items.find((item) => item.id === editingReminderId);
 
     const requestAddItem = (item: Omit<PlanItem, 'id' | 'completed' | 'createdAt'>) => {
         if (items.length === 0 && !settings.carryOverPreferenceSet) {
@@ -2961,11 +3050,12 @@ function PlanPanel({
     const addIndependentItem = (event: FormEvent) => {
         event.preventDefault();
         const title = independentTitle.trim();
-        if (!title) return;
+        if (!title || !reminderIsValid) return;
 
-        requestAddItem({ title, range, scheduledFor: date, source: 'independent', priority: independentPriority });
+        requestAddItem({ title, range, scheduledFor: date, source: 'independent', priority: independentPriority, reminderAt });
         setIndependentTitle('');
         setComposerOpen(false);
+        setReminderEnabled(false);
     };
 
     const addGoalBlock = (goalRecord: GoalRecord, block: BuildingBlock) => {
@@ -2977,7 +3067,18 @@ function PlanPanel({
             goalId: goalRecord.id,
             buildingBlockId: block.id,
             priority: goalRecord.priority,
+            reminderAt,
         });
+    };
+
+    const toggleComposerReminder = () => {
+        if (!reminderEnabled) {
+            setReminderDate(suggestedReminderDate(date));
+            setReminderTime(suggestedReminderTime());
+            requestBrowserNotificationPermission();
+        }
+
+        setReminderEnabled(!reminderEnabled);
     };
 
     const isBlockPlanned = (goalId: number, buildingBlockId: number) =>
@@ -3115,6 +3216,16 @@ function PlanPanel({
                                                     />
                                                     {sourceGoal ? sourceGoal.title : t('Bağımsız plan', 'Independent plan')}
                                                 </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditingReminderId(item.id)}
+                                                    className={`mt-2 inline-flex items-center gap-1.5 rounded-full text-[11px] font-semibold transition hover:text-[#007aff] ${item.reminderAt ? 'text-[#007aff]' : 'text-[#8e8e93]'}`}
+                                                >
+                                                    {item.reminderAt ? <BellRing className="size-3.5" /> : <Bell className="size-3.5" />}
+                                                    {item.reminderAt
+                                                        ? formatReminderDateTime(item.reminderAt, locale)
+                                                        : t('Anımsatıcı ekle', 'Add reminder')}
+                                                </button>
                                             </div>
                                             <div className="flex shrink-0 flex-col sm:hidden">
                                                 <button
@@ -3199,7 +3310,7 @@ function PlanPanel({
                                     />
                                     <button
                                         type="submit"
-                                        disabled={!independentTitle.trim()}
+                                        disabled={!independentTitle.trim() || !reminderIsValid}
                                         className="grid size-10 shrink-0 place-items-center rounded-full bg-[#007aff] text-white transition disabled:bg-[#d1d1d6]"
                                         aria-label={t('Plana ekle', 'Add to plan')}
                                     >
@@ -3231,6 +3342,66 @@ function PlanPanel({
                                         </button>
                                     ))}
                                 </div>
+
+                                <button
+                                    type="button"
+                                    onClick={toggleComposerReminder}
+                                    className="mt-5 flex w-full items-center gap-3 rounded-[18px] border border-black/[0.07] bg-white px-4 py-3.5 text-left transition active:scale-[0.99]"
+                                    aria-pressed={reminderEnabled}
+                                >
+                                    <span
+                                        className={`grid size-9 shrink-0 place-items-center rounded-[12px] ${reminderEnabled ? 'bg-[#ff9500]/12 text-[#ff9500]' : 'bg-[#f2f2f7] text-[#8e8e93]'}`}
+                                    >
+                                        {reminderEnabled ? <BellRing className="size-[18px]" /> : <Bell className="size-[18px]" />}
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-[14px] font-semibold">{t('Anımsatıcı', 'Reminder')}</span>
+                                        <span className="mt-0.5 block text-[11px] text-[#8e8e93]">
+                                            {reminderEnabled
+                                                ? t('Belirlediğin zamanda haber verilecek', 'You will be notified at the selected time')
+                                                : t('Bu plan için tarih ve saat belirle', 'Choose a date and time for this plan')}
+                                        </span>
+                                    </span>
+                                    <span
+                                        className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition ${reminderEnabled ? 'bg-[#34c759]' : 'bg-[#d1d1d6]'}`}
+                                        aria-hidden="true"
+                                    >
+                                        <span
+                                            className={`absolute top-0.5 size-[27px] rounded-full bg-white shadow-[0_2px_5px_rgba(0,0,0,0.22)] transition-transform ${reminderEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
+                                        />
+                                    </span>
+                                </button>
+
+                                {reminderEnabled && (
+                                    <>
+                                        <div className="mt-3 grid grid-cols-[1.25fr_0.75fr] gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setReminderCalendarOpen(true)}
+                                                className="flex h-12 min-w-0 items-center gap-2 rounded-[16px] border border-black/[0.07] bg-white px-3.5 text-left text-[13px] font-semibold"
+                                            >
+                                                <CalendarDays className="size-4 shrink-0 text-[#007aff]" />
+                                                <span className="truncate">{formatReminderDate(reminderDate, locale)}</span>
+                                            </button>
+                                            <label className="flex h-12 min-w-0 items-center gap-2 rounded-[16px] border border-black/[0.07] bg-white px-3.5">
+                                                <Clock3 className="size-4 shrink-0 text-[#007aff]" />
+                                                <span className="sr-only">{t('Anımsatıcı saati', 'Reminder time')}</span>
+                                                <input
+                                                    type="time"
+                                                    value={reminderTime}
+                                                    onChange={(event) => setReminderTime(event.target.value)}
+                                                    className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold outline-none"
+                                                    required
+                                                />
+                                            </label>
+                                        </div>
+                                        {!reminderIsValid && (
+                                            <p className="mt-2 text-[11px] font-medium text-[#ff3b30]">
+                                                {t('İleri bir tarih ve saat seçmelisin.', 'Choose a future date and time.')}
+                                            </p>
+                                        )}
+                                    </>
+                                )}
                             </form>
 
                             <div>
@@ -3259,7 +3430,7 @@ function PlanPanel({
                                                         <button
                                                             key={block.id}
                                                             type="button"
-                                                            disabled={planned}
+                                                            disabled={planned || !reminderIsValid}
                                                             onClick={() => addGoalBlock(goalRecord, block)}
                                                             className="flex w-full items-center gap-3 border-t border-black/[0.045] px-4 py-3.5 text-left transition hover:bg-black/[0.02] disabled:cursor-default disabled:opacity-45"
                                                         >
@@ -3287,6 +3458,37 @@ function PlanPanel({
             )}
 
             {pendingFirstItem && <PlanCarryoverDialog t={t} onCancel={() => setPendingFirstItem(null)} onChoose={confirmCarryoverPreference} />}
+
+            {reminderCalendarOpen && (
+                <PlanCalendar
+                    t={t}
+                    locale={locale}
+                    selectedDate={reminderDate}
+                    onCancel={() => setReminderCalendarOpen(false)}
+                    onSelect={(selectedDate) => {
+                        setReminderDate(selectedDate);
+                        setReminderCalendarOpen(false);
+                    }}
+                />
+            )}
+
+            {editingReminderItem && (
+                <PlanReminderDialog
+                    key={`${editingReminderItem.id}-${editingReminderItem.reminderAt ?? 'new'}`}
+                    t={t}
+                    locale={locale}
+                    item={editingReminderItem}
+                    onCancel={() => setEditingReminderId(null)}
+                    onSave={(nextReminderAt) => {
+                        onUpdateReminder(editingReminderItem.id, nextReminderAt);
+                        setEditingReminderId(null);
+                    }}
+                    onRemove={() => {
+                        onUpdateReminder(editingReminderItem.id);
+                        setEditingReminderId(null);
+                    }}
+                />
+            )}
         </>
     );
 }
@@ -3348,6 +3550,159 @@ function PlanCarryoverDialog({ t, onCancel, onChoose }: { t: Translate; onCancel
                 </p>
             </section>
         </div>
+    );
+}
+
+function PlanReminderDialog({
+    t,
+    locale,
+    item,
+    onCancel,
+    onSave,
+    onRemove,
+}: {
+    t: Translate;
+    locale: 'tr' | 'en';
+    item: PlanItem;
+    onCancel: () => void;
+    onSave: (reminderAt: string) => void;
+    onRemove: () => void;
+}) {
+    const [date, setDate] = useState(() => item.reminderAt?.slice(0, 10) ?? suggestedReminderDate(item.scheduledFor));
+    const [time, setTime] = useState(() => item.reminderAt?.slice(11, 16) ?? suggestedReminderTime());
+    const [calendarOpen, setCalendarOpen] = useState(false);
+    const reminderAt = `${date}T${time}`;
+    const reminderTime = new Date(reminderAt).getTime();
+    const isValid = isDateKey(date) && /^\d{2}:\d{2}$/.test(time) && Number.isFinite(reminderTime) && reminderTime > Date.now();
+
+    return (
+        <>
+            <div
+                className="apple-interface fixed inset-0 z-[70] flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-5"
+                role="presentation"
+                onMouseDown={onCancel}
+            >
+                <section
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="reminder-dialog-title"
+                    onMouseDown={(event) => event.stopPropagation()}
+                    className="w-full max-w-md rounded-t-[30px] border border-black/[0.07] bg-[#f9f9fb] px-5 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_30px_90px_rgba(0,0,0,0.28)] sm:rounded-[30px] sm:px-7 sm:pb-7"
+                >
+                    <div className="flex items-start justify-between gap-4">
+                        <span className="grid size-13 place-items-center rounded-[17px] bg-[#ff9500]/12 text-[#ff9500]">
+                            <BellRing className="size-6" />
+                        </span>
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                            aria-label={t('Kapat', 'Close')}
+                        >
+                            <X className="size-[17px]" />
+                        </button>
+                    </div>
+
+                    <h2 id="reminder-dialog-title" className="mt-5 text-[24px] font-semibold tracking-[-0.035em]">
+                        {item.reminderAt ? t('Anımsatıcıyı düzenle', 'Edit reminder') : t('Anımsatıcı ekle', 'Add reminder')}
+                    </h2>
+                    <p className="mt-2 truncate text-[14px] text-[#6e6e73]">{item.title}</p>
+
+                    <div className="mt-6 grid grid-cols-[1.25fr_0.75fr] gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setCalendarOpen(true)}
+                            className="flex h-13 min-w-0 items-center gap-2 rounded-[17px] border border-black/[0.07] bg-white px-4 text-left text-[13px] font-semibold"
+                        >
+                            <CalendarDays className="size-[17px] shrink-0 text-[#007aff]" />
+                            <span className="truncate">{formatReminderDate(date, locale)}</span>
+                        </button>
+                        <label className="flex h-13 min-w-0 items-center gap-2 rounded-[17px] border border-black/[0.07] bg-white px-3.5">
+                            <Clock3 className="size-[17px] shrink-0 text-[#007aff]" />
+                            <span className="sr-only">{t('Anımsatıcı saati', 'Reminder time')}</span>
+                            <input
+                                type="time"
+                                value={time}
+                                onChange={(event) => setTime(event.target.value)}
+                                className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold outline-none"
+                            />
+                        </label>
+                    </div>
+
+                    {!isValid && (
+                        <p className="mt-3 text-[12px] font-medium text-[#ff3b30]">
+                            {t('İleri bir tarih ve saat seçmelisin.', 'Choose a future date and time.')}
+                        </p>
+                    )}
+
+                    <button
+                        type="button"
+                        disabled={!isValid}
+                        onClick={() => {
+                            requestBrowserNotificationPermission();
+                            onSave(reminderAt);
+                        }}
+                        className="mt-6 h-12 w-full rounded-full bg-[#007aff] text-[14px] font-semibold text-white shadow-[0_8px_22px_rgba(0,122,255,0.2)] transition active:scale-[0.98] disabled:bg-[#d1d1d6] disabled:shadow-none"
+                    >
+                        {item.reminderAt ? t('Değişiklikleri Kaydet', 'Save Changes') : t('Anımsatıcıyı Ayarla', 'Set Reminder')}
+                    </button>
+
+                    {item.reminderAt && (
+                        <button type="button" onClick={onRemove} className="mt-3 h-11 w-full text-[13px] font-semibold text-[#ff3b30]">
+                            {t('Anımsatıcıyı Kaldır', 'Remove Reminder')}
+                        </button>
+                    )}
+                </section>
+            </div>
+
+            {calendarOpen && (
+                <PlanCalendar
+                    t={t}
+                    locale={locale}
+                    selectedDate={date}
+                    onCancel={() => setCalendarOpen(false)}
+                    onSelect={(selectedDate) => {
+                        setDate(selectedDate);
+                        setCalendarOpen(false);
+                    }}
+                />
+            )}
+        </>
+    );
+}
+
+function ReminderAlert({ t, item, onDismiss, onComplete }: { t: Translate; item: PlanItem; onDismiss: () => void; onComplete: () => void }) {
+    return (
+        <aside
+            role="alert"
+            className="apple-interface fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+6.7rem)] left-4 z-[65] mx-auto max-w-md rounded-[24px] border border-white/50 bg-white/85 p-4 text-[#1d1d1f] shadow-[0_20px_60px_rgba(0,0,0,0.2)] backdrop-blur-2xl sm:right-7 sm:bottom-7 sm:left-auto sm:w-[390px]"
+        >
+            <div className="flex items-start gap-3">
+                <span className="grid size-11 shrink-0 place-items-center rounded-[15px] bg-[#ff9500] text-white shadow-[0_7px_18px_rgba(255,149,0,0.25)]">
+                    <BellRing className="size-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-semibold text-[#ff9500]">{t('Anımsatıcı', 'Reminder')}</p>
+                    <p className="mt-0.5 truncate text-[16px] font-semibold">{item.title}</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={onDismiss}
+                    className="grid size-8 shrink-0 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                    aria-label={t('Kapat', 'Close')}
+                >
+                    <X className="size-4" />
+                </button>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+                <button type="button" onClick={onDismiss} className="h-10 rounded-full bg-black/[0.055] text-[13px] font-semibold">
+                    {t('Kapat', 'Dismiss')}
+                </button>
+                <button type="button" onClick={onComplete} className="h-10 rounded-full bg-[#007aff] text-[13px] font-semibold text-white">
+                    {t('Tamamlandı', 'Complete')}
+                </button>
+            </div>
+        </aside>
     );
 }
 
@@ -3998,6 +4353,55 @@ function parseDateKey(date: string): Date {
     return new Date(`${date}T12:00:00`);
 }
 
+function suggestedReminderDate(preferredDate: string): string {
+    const earliestDate = formatDateKey(suggestedReminderMoment());
+    return isDateKey(preferredDate) && preferredDate >= earliestDate ? preferredDate : earliestDate;
+}
+
+function suggestedReminderTime(): string {
+    const suggestedTime = suggestedReminderMoment();
+
+    return `${String(suggestedTime.getHours()).padStart(2, '0')}:${String(suggestedTime.getMinutes()).padStart(2, '0')}`;
+}
+
+function suggestedReminderMoment(): Date {
+    const suggestedTime = new Date(Date.now() + 60 * 60 * 1000);
+    suggestedTime.setMinutes(Math.ceil(suggestedTime.getMinutes() / 5) * 5, 0, 0);
+    return suggestedTime;
+}
+
+function formatReminderDate(date: string, locale: 'tr' | 'en'): string {
+    if (!isDateKey(date)) return date;
+
+    const today = formatDateKey(new Date());
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrow = formatDateKey(tomorrowDate);
+
+    if (date === today) return locale === 'tr' ? 'Bugün' : 'Today';
+    if (date === tomorrow) return locale === 'tr' ? 'Yarın' : 'Tomorrow';
+
+    return new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+        day: 'numeric',
+        month: 'short',
+        year: parseDateKey(date).getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+    }).format(parseDateKey(date));
+}
+
+function formatReminderDateTime(reminderAt: string, locale: 'tr' | 'en'): string {
+    const date = reminderAt.slice(0, 10);
+    const time = reminderAt.slice(11, 16);
+    if (!isDateKey(date) || !/^\d{2}:\d{2}$/.test(time)) return reminderAt;
+
+    return `${formatReminderDate(date, locale)} · ${time}`;
+}
+
+function requestBrowserNotificationPermission(): void {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'default') return;
+
+    void Notification.requestPermission();
+}
+
 function isDateKey(date: string): boolean {
     return /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(parseDateKey(date).getTime());
 }
@@ -4088,7 +4492,14 @@ function loadStoredGoals(): GoalRecord[] {
 
 function loadStoredPlanItems(): PlanItem[] {
     return loadStoredArray<PlanItem>(DEMO_PLAN_STORAGE_KEY).map((item) => {
-        const normalizedItem = { ...item, priority: isPriority(item.priority) ? item.priority : ('important' as const) };
+        const reminderAt =
+            typeof item.reminderAt === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(item.reminderAt) ? item.reminderAt : undefined;
+        const normalizedItem = {
+            ...item,
+            priority: isPriority(item.priority) ? item.priority : ('important' as const),
+            reminderAt,
+            reminderDeliveredAt: Number.isFinite(item.reminderDeliveredAt) ? item.reminderDeliveredAt : undefined,
+        };
         if (isDateKey(item.scheduledFor)) return normalizedItem;
 
         const legacyDate = new Date(Number.isFinite(item.createdAt) ? item.createdAt : Date.now());
