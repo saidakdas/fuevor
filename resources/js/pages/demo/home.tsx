@@ -77,6 +77,8 @@ type PlanItem = {
     completed: boolean;
     createdAt: number;
     scheduledFor: string;
+    priority: Priority;
+    sortOrder?: number;
 };
 
 type NoteRecord = {
@@ -101,6 +103,8 @@ type ProfileData = {
 type SettingsData = {
     appearance: 'light' | 'dark';
     language: 'tr' | 'en';
+    carryOverIncompletePlans: boolean;
+    carryOverPreferenceSet: boolean;
 };
 
 type CropPosition = {
@@ -154,6 +158,40 @@ export default function DemoHome() {
     useEffect(() => {
         storeDemoData(DEMO_PLAN_STORAGE_KEY, planItems);
     }, [planItems]);
+
+    useEffect(() => {
+        if (!settings.carryOverIncompletePlans) return;
+
+        const today = formatDateKey(new Date());
+        setPlanItems((currentItems) => {
+            let changed = false;
+            const nextItems = currentItems.map((item) => {
+                const isDailyPlan = item.range === 'today' || item.range === 'tomorrow';
+                if (!isDailyPlan || item.completed || item.scheduledFor >= today) return item;
+
+                changed = true;
+                return { ...item, range: 'today' as const, scheduledFor: today, sortOrder: undefined };
+            });
+
+            return changed ? nextItems : currentItems;
+        });
+    }, [settings.carryOverIncompletePlans]);
+
+    useEffect(() => {
+        setPlanItems((currentItems) => {
+            let changed = false;
+            const nextItems = currentItems.map((item) => {
+                if (item.source !== 'goal' || item.goalId === undefined) return item;
+                const goalPriority = goals.find((goalRecord) => goalRecord.id === item.goalId)?.priority;
+                if (!goalPriority || item.priority === goalPriority) return item;
+
+                changed = true;
+                return { ...item, priority: goalPriority };
+            });
+
+            return changed ? nextItems : currentItems;
+        });
+    }, [goals]);
 
     useEffect(() => {
         storeDemoData(DEMO_NOTES_STORAGE_KEY, notes);
@@ -304,6 +342,16 @@ export default function DemoHome() {
         setPlanItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
     };
 
+    const reorderPlanItems = (orderedIds: number[]) => {
+        const orderById = new Map(orderedIds.map((id, index) => [id, index]));
+        setPlanItems((currentItems) =>
+            currentItems.map((item) => {
+                const sortOrder = orderById.get(item.id);
+                return sortOrder === undefined ? item : { ...item, sortOrder };
+            }),
+        );
+    };
+
     const addNote = (note: Omit<NoteRecord, 'id' | 'createdAt'>) => {
         setNotes((currentNotes) => [
             {
@@ -395,8 +443,11 @@ export default function DemoHome() {
                         onRangeChange={changePlanRange}
                         onDateChange={changePlanDate}
                         onAddItem={addPlanItem}
+                        settings={settings}
+                        onSettingsChange={setSettings}
                         onToggleItem={togglePlanItem}
                         onRemoveItem={removePlanItem}
+                        onReorderItems={reorderPlanItems}
                     />
                     {profileSheet}
                 </>
@@ -539,10 +590,7 @@ function OverviewPanel({
     onDateChange: (date: string) => void;
     onToggleItem: (id: number) => void;
 }) {
-    const periodItems = useMemo(
-        () => items.filter((item) => isPlanItemInPeriod(item, range, date)).sort((first, second) => second.createdAt - first.createdAt),
-        [date, items, range],
-    );
+    const periodItems = useMemo(() => sortPlanItems(items.filter((item) => isPlanItemInPeriod(item, range, date))), [date, items, range]);
     const priorityGoals = useMemo(
         () =>
             [...goals]
@@ -1334,6 +1382,44 @@ function ProfilePreferences({ t, settings, onChange }: { t: Translate; settings:
                         divided
                     />
                 </div>
+            </section>
+
+            <section className="mt-8">
+                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Planlar', 'Plans')}</h2>
+                <button
+                    type="button"
+                    onClick={() =>
+                        onChange({
+                            ...settings,
+                            carryOverIncompletePlans: !settings.carryOverIncompletePlans,
+                            carryOverPreferenceSet: true,
+                        })
+                    }
+                    className="flex w-full items-center gap-4 rounded-[24px] border border-black/[0.07] bg-white px-5 py-4 text-left shadow-[0_12px_45px_rgba(0,0,0,0.04)] transition active:bg-black/[0.025] sm:px-6"
+                    aria-pressed={settings.carryOverIncompletePlans}
+                >
+                    <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#ff9500]/10 text-[#ff9500]">
+                        <CalendarRange className="size-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-[16px] font-semibold tracking-[-0.01em]">
+                            {t('Tamamlanmayanları ertesi güne aktar', 'Carry incomplete items to the next day')}
+                        </span>
+                        <span className="mt-0.5 block text-[13px] leading-5 text-[#8e8e93]">
+                            {t(
+                                'Günlük planda bitmeyen maddeler otomatik olarak bugüne taşınır.',
+                                'Unfinished daily items automatically move to today.',
+                            )}
+                        </span>
+                    </span>
+                    <span
+                        className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition ${settings.carryOverIncompletePlans ? 'bg-[#34c759]' : 'bg-[#d1d1d6]'}`}
+                    >
+                        <span
+                            className={`absolute top-0.5 size-[27px] rounded-full bg-white shadow-[0_2px_5px_rgba(0,0,0,0.22)] transition-transform ${settings.carryOverIncompletePlans ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
+                        />
+                    </span>
+                </button>
             </section>
 
             <p className="mt-5 px-1 text-[12px] leading-relaxed text-[#8e8e93]">
@@ -2812,10 +2898,13 @@ function PlanPanel({
     date,
     onNavigate,
     onAddItem,
+    settings,
+    onSettingsChange,
     onRangeChange,
     onDateChange,
     onToggleItem,
     onRemoveItem,
+    onReorderItems,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
@@ -2825,13 +2914,19 @@ function PlanPanel({
     date: string;
     onNavigate: (section: PanelSection) => void;
     onAddItem: (item: Omit<PlanItem, 'id' | 'completed' | 'createdAt'>) => void;
+    settings: SettingsData;
+    onSettingsChange: (settings: SettingsData) => void;
     onRangeChange: (range: PlanRange) => void;
     onDateChange: (date: string) => void;
     onToggleItem: (id: number) => void;
     onRemoveItem: (id: number) => void;
+    onReorderItems: (orderedIds: number[]) => void;
 }) {
     const [composerOpen, setComposerOpen] = useState(false);
     const [independentTitle, setIndependentTitle] = useState('');
+    const [independentPriority, setIndependentPriority] = useState<Priority>('important');
+    const [pendingFirstItem, setPendingFirstItem] = useState<Omit<PlanItem, 'id' | 'completed' | 'createdAt'> | null>(null);
+    const [draggedPlanId, setDraggedPlanId] = useState<number | null>(null);
 
     const rangeOptions: Array<{ value: PlanRange; label: string }> = [
         { value: 'today', label: t('Bugün', 'Today') },
@@ -2841,36 +2936,70 @@ function PlanPanel({
         { value: 'year', label: t('Yıl', 'Year') },
     ];
 
-    const visibleItems = useMemo(
-        () => items.filter((item) => isPlanItemInPeriod(item, range, date)).sort((first, second) => second.createdAt - first.createdAt),
-        [date, items, range],
-    );
+    const visibleItems = useMemo(() => sortPlanItems(items.filter((item) => isPlanItemInPeriod(item, range, date))), [date, items, range]);
     const completedCount = visibleItems.filter((item) => item.completed).length;
     const planProgress = visibleItems.length === 0 ? 0 : Math.round((completedCount / visibleItems.length) * 100);
+
+    const requestAddItem = (item: Omit<PlanItem, 'id' | 'completed' | 'createdAt'>) => {
+        if (items.length === 0 && !settings.carryOverPreferenceSet) {
+            setPendingFirstItem(item);
+            return;
+        }
+
+        onAddItem(item);
+    };
 
     const addIndependentItem = (event: FormEvent) => {
         event.preventDefault();
         const title = independentTitle.trim();
         if (!title) return;
 
-        onAddItem({ title, range, scheduledFor: date, source: 'independent' });
+        requestAddItem({ title, range, scheduledFor: date, source: 'independent', priority: independentPriority });
         setIndependentTitle('');
         setComposerOpen(false);
     };
 
     const addGoalBlock = (goalRecord: GoalRecord, block: BuildingBlock) => {
-        onAddItem({
+        requestAddItem({
             title: block.title,
             range,
             scheduledFor: date,
             source: 'goal',
             goalId: goalRecord.id,
             buildingBlockId: block.id,
+            priority: goalRecord.priority,
         });
     };
 
     const isBlockPlanned = (goalId: number, buildingBlockId: number) =>
         items.some((item) => item.goalId === goalId && item.buildingBlockId === buildingBlockId && isPlanItemInPeriod(item, range, date));
+
+    const movePlanItem = (fromIndex: number, toIndex: number) => {
+        if (toIndex < 0 || toIndex >= visibleItems.length || fromIndex === toIndex) return;
+
+        const reordered = [...visibleItems];
+        const [moved] = reordered.splice(fromIndex, 1);
+        reordered.splice(toIndex, 0, moved);
+        onReorderItems(reordered.map((item) => item.id));
+    };
+
+    const moveDraggedPlanBefore = (targetId: number) => {
+        if (draggedPlanId === null || draggedPlanId === targetId) return;
+        movePlanItem(
+            visibleItems.findIndex((item) => item.id === draggedPlanId),
+            visibleItems.findIndex((item) => item.id === targetId),
+        );
+    };
+
+    const confirmCarryoverPreference = (enabled: boolean) => {
+        onSettingsChange({
+            ...settings,
+            carryOverIncompletePlans: enabled,
+            carryOverPreferenceSet: true,
+        });
+        if (pendingFirstItem) onAddItem(pendingFirstItem);
+        setPendingFirstItem(null);
+    };
 
     return (
         <>
@@ -2928,8 +3057,8 @@ function PlanPanel({
                                     {visibleItems.length === 0
                                         ? t('Henüz plan eklenmedi', 'No plans added yet')
                                         : t(
-                                              `${completedCount} / ${visibleItems.length} tamamlandı`,
-                                              `${completedCount} of ${visibleItems.length} completed`,
+                                              `${completedCount} / ${visibleItems.length} tamamlandı · Sıralamayı değiştirebilirsin`,
+                                              `${completedCount} of ${visibleItems.length} completed · You can reorder`,
                                           )}
                                 </p>
                             </div>
@@ -2960,8 +3089,14 @@ function PlanPanel({
                                     return (
                                         <div
                                             key={item.id}
-                                            className={`group flex items-center gap-4 px-5 py-4 sm:px-7 ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
+                                            draggable
+                                            onDragStart={() => setDraggedPlanId(item.id)}
+                                            onDragEnter={() => moveDraggedPlanBefore(item.id)}
+                                            onDragOver={(event) => event.preventDefault()}
+                                            onDragEnd={() => setDraggedPlanId(null)}
+                                            className={`group flex items-center gap-3 px-4 py-4 transition sm:px-6 ${index !== 0 ? 'border-t border-black/[0.055]' : ''} ${draggedPlanId === item.id ? 'bg-[#007aff]/5 opacity-45' : ''}`}
                                         >
+                                            <GripVertical className="hidden size-[18px] shrink-0 cursor-grab text-[#c7c7cc] sm:block" />
                                             <button
                                                 type="button"
                                                 onClick={() => onToggleItem(item.id)}
@@ -2981,8 +3116,31 @@ function PlanPanel({
                                                     {item.title}
                                                 </p>
                                                 <p className="mt-1 text-[11px] font-medium text-[#8e8e93]">
+                                                    <span
+                                                        className={`mr-1.5 inline-block size-1.5 rounded-full ${PRIORITY_STYLES[item.priority].dot}`}
+                                                    />
                                                     {sourceGoal ? sourceGoal.title : t('Bağımsız plan', 'Independent plan')}
                                                 </p>
+                                            </div>
+                                            <div className="flex shrink-0 flex-col sm:hidden">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => movePlanItem(index, index - 1)}
+                                                    disabled={index === 0}
+                                                    className="grid size-7 place-items-center text-[#6e6e73] disabled:opacity-20"
+                                                    aria-label={t('Yukarı taşı', 'Move up')}
+                                                >
+                                                    <ChevronUp className="size-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => movePlanItem(index, index + 1)}
+                                                    disabled={index === visibleItems.length - 1}
+                                                    className="grid size-7 place-items-center text-[#6e6e73] disabled:opacity-20"
+                                                    aria-label={t('Aşağı taşı', 'Move down')}
+                                                >
+                                                    <ChevronDown className="size-4" />
+                                                </button>
                                             </div>
                                             <button
                                                 type="button"
@@ -3054,6 +3212,31 @@ function PlanPanel({
                                         <ArrowRight className="size-[17px]" />
                                     </button>
                                 </div>
+                                <p className="mt-4 mb-2 text-[11px] font-semibold text-[#8e8e93]">{t('Öncelik', 'Priority')}</p>
+                                <div className="grid grid-cols-4 gap-1 rounded-[16px] bg-black/[0.045] p-1">
+                                    {(['urgent', 'very-important', 'important', 'has-time'] as Priority[]).map((priority) => (
+                                        <button
+                                            key={priority}
+                                            type="button"
+                                            onClick={() => setIndependentPriority(priority)}
+                                            className={`min-w-0 rounded-[12px] px-1 py-2 text-[10px] font-semibold transition ${
+                                                independentPriority === priority ? 'bg-white shadow-[0_1px_5px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73]'
+                                            }`}
+                                        >
+                                            <span className={`mr-1 inline-block size-1.5 rounded-full ${PRIORITY_STYLES[priority].dot}`} />
+                                            <span className="hidden sm:inline">{priorityLabel(priority, t)}</span>
+                                            <span className="sm:hidden">
+                                                {priority === 'urgent'
+                                                    ? t('Acil', 'Urgent')
+                                                    : priority === 'very-important'
+                                                      ? t('Çok', 'High')
+                                                      : priority === 'important'
+                                                        ? t('Önemli', 'Normal')
+                                                        : t('Vakti var', 'Later')}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
                             </form>
 
                             <div>
@@ -3070,6 +3253,9 @@ function PlanPanel({
                                         goals.map((goalRecord, goalIndex) => (
                                             <div key={goalRecord.id} className={goalIndex !== 0 ? 'border-t border-black/[0.055]' : ''}>
                                                 <p className="bg-[#f9f9fb] px-4 py-2.5 text-[11px] font-semibold text-[#8e8e93]">
+                                                    <span
+                                                        className={`mr-2 inline-block size-1.5 rounded-full ${PRIORITY_STYLES[goalRecord.priority].dot}`}
+                                                    />
                                                     {goalRecord.title}
                                                 </p>
                                                 {goalRecord.buildingBlocks.map((block) => {
@@ -3105,7 +3291,69 @@ function PlanPanel({
                     </section>
                 </div>
             )}
+
+            {pendingFirstItem && <PlanCarryoverDialog t={t} onCancel={() => setPendingFirstItem(null)} onChoose={confirmCarryoverPreference} />}
         </>
+    );
+}
+
+function PlanCarryoverDialog({ t, onCancel, onChoose }: { t: Translate; onCancel: () => void; onChoose: (enabled: boolean) => void }) {
+    return (
+        <div
+            className="apple-interface fixed inset-0 z-[70] flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-5"
+            role="presentation"
+            onMouseDown={onCancel}
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="carryover-dialog-title"
+                onMouseDown={(event) => event.stopPropagation()}
+                className="w-full max-w-md rounded-t-[30px] border border-black/[0.07] bg-[#f9f9fb] px-5 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_30px_90px_rgba(0,0,0,0.28)] sm:rounded-[30px] sm:px-7 sm:pb-7"
+            >
+                <div className="flex items-start justify-between gap-4">
+                    <span className="grid size-13 place-items-center rounded-[17px] bg-[#ff9500]/10 text-[#ff9500]">
+                        <CalendarRange className="size-6" />
+                    </span>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                        aria-label={t('Kapat', 'Close')}
+                    >
+                        <X className="size-[17px]" />
+                    </button>
+                </div>
+                <h2 id="carryover-dialog-title" className="mt-5 text-[24px] font-semibold tracking-[-0.035em]">
+                    {t('Yarım kalan planların ne olsun?', 'What should happen to unfinished plans?')}
+                </h2>
+                <p className="mt-3 text-[14px] leading-6 text-[#6e6e73]">
+                    {t(
+                        'O gün tamamlayamadığın günlük plan maddelerini ertesi günün planına otomatik olarak aktarabiliriz.',
+                        'We can automatically carry unfinished daily plan items into the next day.',
+                    )}
+                </p>
+                <div className="mt-7 grid gap-3">
+                    <button
+                        type="button"
+                        onClick={() => onChoose(true)}
+                        className="h-12 rounded-full bg-[#007aff] text-[14px] font-semibold text-white shadow-[0_8px_22px_rgba(0,122,255,0.2)] transition active:scale-[0.98]"
+                    >
+                        {t('Evet, ertesi güne aktar', 'Yes, carry them over')}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onChoose(false)}
+                        className="h-12 rounded-full border border-black/[0.07] bg-white text-[14px] font-semibold transition active:scale-[0.98]"
+                    >
+                        {t('Hayır, olduğu günde kalsın', 'No, keep them on that day')}
+                    </button>
+                </div>
+                <p className="mt-4 text-center text-[11px] leading-5 text-[#8e8e93]">
+                    {t('Bu tercihi daha sonra Profil › Ayarlar bölümünden değiştirebilirsin.', 'You can change this later under Profile › Settings.')}
+                </p>
+            </section>
+        </div>
     );
 }
 
@@ -3820,6 +4068,20 @@ function isPlanItemInPeriod(item: PlanItem, range: PlanRange, date: string): boo
     return scheduledDate.getFullYear() === selectedDate.getFullYear();
 }
 
+function sortPlanItems(items: PlanItem[]): PlanItem[] {
+    const hasManualOrder = items.some((item) => Number.isFinite(item.sortOrder));
+
+    return [...items].sort((first, second) => {
+        if (hasManualOrder) {
+            const firstOrder = Number.isFinite(first.sortOrder) ? (first.sortOrder as number) : Number.MAX_SAFE_INTEGER;
+            const secondOrder = Number.isFinite(second.sortOrder) ? (second.sortOrder as number) : Number.MAX_SAFE_INTEGER;
+            if (firstOrder !== secondOrder) return firstOrder - secondOrder;
+        }
+
+        return PRIORITY_RANK[first.priority] - PRIORITY_RANK[second.priority] || first.createdAt - second.createdAt;
+    });
+}
+
 function loadStoredGoals(): GoalRecord[] {
     return loadStoredArray<GoalRecord>(DEMO_GOALS_STORAGE_KEY).map((goalRecord) => ({
         ...goalRecord,
@@ -3829,12 +4091,13 @@ function loadStoredGoals(): GoalRecord[] {
 
 function loadStoredPlanItems(): PlanItem[] {
     return loadStoredArray<PlanItem>(DEMO_PLAN_STORAGE_KEY).map((item) => {
-        if (isDateKey(item.scheduledFor)) return item;
+        const normalizedItem = { ...item, priority: isPriority(item.priority) ? item.priority : ('important' as const) };
+        if (isDateKey(item.scheduledFor)) return normalizedItem;
 
         const legacyDate = new Date(Number.isFinite(item.createdAt) ? item.createdAt : Date.now());
         if (item.range === 'tomorrow') legacyDate.setDate(legacyDate.getDate() + 1);
 
-        return { ...item, scheduledFor: formatDateKey(legacyDate) };
+        return { ...normalizedItem, scheduledFor: formatDateKey(legacyDate) };
     });
 }
 
@@ -3846,6 +4109,10 @@ function loadStoredNotes(): NoteRecord[] {
 
 function isGoalCategory(value: unknown): value is GoalCategory {
     return value === 'health' || value === 'work' || value === 'venture' || value === 'skill' || value === 'education' || value === 'other';
+}
+
+function isPriority(value: unknown): value is Priority {
+    return value === 'urgent' || value === 'very-important' || value === 'important' || value === 'has-time';
 }
 
 function loadStoredProfile(): ProfileData {
@@ -3873,7 +4140,12 @@ function loadStoredProfile(): ProfileData {
 }
 
 function loadStoredSettings(defaultLanguage: 'tr' | 'en'): SettingsData {
-    const defaultSettings: SettingsData = { appearance: 'light', language: defaultLanguage };
+    const defaultSettings: SettingsData = {
+        appearance: 'light',
+        language: defaultLanguage,
+        carryOverIncompletePlans: false,
+        carryOverPreferenceSet: false,
+    };
     if (typeof window === 'undefined') return defaultSettings;
 
     try {
@@ -3884,6 +4156,8 @@ function loadStoredSettings(defaultLanguage: 'tr' | 'en'): SettingsData {
         return {
             appearance: settings.appearance === 'dark' ? 'dark' : 'light',
             language: settings.language === 'en' || settings.language === 'tr' ? settings.language : defaultLanguage,
+            carryOverIncompletePlans: settings.carryOverIncompletePlans === true,
+            carryOverPreferenceSet: settings.carryOverPreferenceSet === true,
         };
     } catch {
         return defaultSettings;
