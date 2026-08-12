@@ -82,6 +82,9 @@
 
 .demo-mobile-dock {
     padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
+    transition:
+        opacity 180ms ease,
+        transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .demo-mobile-navigation,
@@ -239,6 +242,18 @@ html[data-demo-theme='dark'] .apple-interface textarea::placeholder {
     .demo-step-enter,
     .demo-profile-sheet {
         animation: none;
+    }
+}
+
+@media (max-width: 639px) {
+    html:has(.apple-interface input:focus, .apple-interface textarea:focus) .demo-mobile-dock {
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(calc(100% + 2rem));
+    }
+
+    .apple-interface:has(.demo-keyboard-aware-content input:focus, .demo-keyboard-aware-content textarea:focus) .demo-keyboard-aware-content {
+        padding-bottom: 46vh;
     }
 }
 

@@ -953,7 +953,7 @@ function NotesPanel({
             <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
                 <PanelHeader t={t} active="notes" onNavigate={onNavigate} />
 
-                <main className="mx-auto max-w-5xl px-5 pt-24 pb-32 sm:px-8 sm:pt-36 sm:pb-16">
+                <main className="demo-keyboard-aware-content mx-auto max-w-5xl px-5 pt-24 pb-32 sm:px-8 sm:pt-36 sm:pb-16">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <p className="text-[13px] font-semibold text-[#007aff]">{t('Fikirlerini yakala', 'Capture your ideas')}</p>
@@ -980,6 +980,11 @@ function NotesPanel({
                     {composerOpen && (
                         <form
                             onSubmit={submitNote}
+                            onFocusCapture={(event) => {
+                                if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+                                    revealFocusedField(event.target);
+                                }
+                            }}
                             className="demo-step-enter mt-8 overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_14px_48px_rgba(0,0,0,0.055)]"
                         >
                             <div className="space-y-5 px-5 py-6 sm:px-7 sm:py-7">
@@ -987,6 +992,7 @@ function NotesPanel({
                                     <span className="mb-2 block text-[13px] font-semibold text-[#6e6e73]">{t('Not başlığı', 'Note title')}</span>
                                     <input
                                         autoFocus
+                                        autoCapitalize="sentences"
                                         value={title}
                                         onChange={(event) => setTitle(event.target.value)}
                                         placeholder={t('Başlık yaz', 'Write a title')}
@@ -1045,6 +1051,7 @@ function NotesPanel({
                                 <label className="block">
                                     <span className="mb-2 block text-[13px] font-semibold text-[#6e6e73]">{t('Notun', 'Your note')}</span>
                                     <textarea
+                                        autoCapitalize="sentences"
                                         value={content}
                                         onChange={(event) => setContent(event.target.value)}
                                         placeholder={t('Aklındakileri yaz…', 'Write what is on your mind…')}
@@ -2062,6 +2069,7 @@ function ProfileField({
                 <Icon className="size-[17px] shrink-0 text-[#8e8e93]" />
                 <input
                     type={type}
+                    autoCapitalize={type === 'text' ? 'words' : 'none'}
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                     autoComplete={autoComplete}
@@ -2974,6 +2982,7 @@ function PlanPanel({
                                 </div>
                                 <div className="flex items-center gap-2 rounded-[18px] border border-black/[0.07] bg-white p-2 pl-4 focus-within:border-[#007aff]/35 focus-within:ring-4 focus-within:ring-[#007aff]/8">
                                     <input
+                                        autoCapitalize="sentences"
                                         value={independentTitle}
                                         onChange={(event) => setIndependentTitle(event.target.value)}
                                         placeholder={t('Yapmak istediğini yaz', 'Write what you want to do')}
@@ -3063,6 +3072,7 @@ function GoalStep({ t, value, onChange }: { t: Translate; value: string; onChang
             <input
                 id="first-goal"
                 autoFocus
+                autoCapitalize="sentences"
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={t('Hedefini yaz', 'Write your goal')}
@@ -3175,6 +3185,7 @@ function GainStep({ t, value, onChange }: { t: Translate; value: string; onChang
             <textarea
                 id="goal-gain"
                 autoFocus
+                autoCapitalize="sentences"
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={t('Kazanımını yaz', 'Describe what you will gain')}
@@ -3224,6 +3235,7 @@ function BuildingBlocksStep({
                         <input
                             id={`building-block-${block.id}`}
                             autoFocus={index === 0}
+                            autoCapitalize="sentences"
                             value={block.title}
                             onChange={(event) => onChange(block.id, event.target.value)}
                             placeholder={t('Yapman gerekeni yaz', 'Write what you need to do')}
@@ -3881,6 +3893,14 @@ function storeDemoData(key: string, value: unknown): void {
     } catch {
         // The live design preview continues to work if browser storage is unavailable.
     }
+}
+
+function revealFocusedField(field: HTMLElement): void {
+    if (typeof window === 'undefined' || !window.matchMedia('(max-width: 639px)').matches) return;
+
+    window.setTimeout(() => {
+        field.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    }, 360);
 }
 
 function distributeProgress(count: number): number[] {
