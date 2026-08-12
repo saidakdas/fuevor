@@ -1561,7 +1561,7 @@ function ProfilePanel({
                     aria-modal="true"
                     aria-labelledby="profile-sheet-title"
                     onMouseDown={(event) => event.stopPropagation()}
-                    className="demo-profile-sheet absolute inset-x-0 top-[max(0.65rem,env(safe-area-inset-top))] bottom-0 overflow-y-auto rounded-t-[38px] border border-white/55 bg-[#f2f2f7] shadow-[0_-12px_70px_rgba(0,0,0,0.24)] sm:inset-x-auto sm:top-5 sm:right-5 sm:bottom-5 sm:left-1/2 sm:w-[min(880px,calc(100%-2.5rem))] sm:-translate-x-1/2 sm:rounded-[38px]"
+                    className="demo-profile-sheet absolute inset-x-0 top-[max(0.65rem,env(safe-area-inset-top))] bottom-0 overflow-y-auto rounded-t-[38px] border border-white/55 bg-[#f2f2f7] shadow-[0_-12px_70px_rgba(0,0,0,0.24)]"
                 >
                     <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/[0.055] bg-[#f2f2f7]/82 px-5 py-4 backdrop-blur-2xl sm:px-8 sm:py-5">
                         <div className="flex min-w-0 items-center gap-3">
