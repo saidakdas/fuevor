@@ -4,6 +4,8 @@ import { Head } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowRight,
+    BriefcaseBusiness,
+    CakeSlice,
     CalendarDays,
     CalendarRange,
     Camera,
@@ -13,6 +15,7 @@ import {
     ChevronRight,
     ChevronUp,
     CircleCheck,
+    Globe2,
     GripVertical,
     Languages,
     Layers3,
@@ -69,6 +72,9 @@ type ProfileData = {
     name: string;
     email: string;
     phone: string;
+    birthDate: string;
+    country: string;
+    profession: string;
     avatar: string;
 };
 
@@ -1024,6 +1030,9 @@ function ProfilePanel({
             name: draft.name.trim(),
             email: draft.email.trim(),
             phone: draft.phone.trim(),
+            birthDate: draft.birthDate,
+            country: draft.country.trim(),
+            profession: draft.profession,
             avatar: draft.avatar,
         });
         setSaved(true);
@@ -1163,6 +1172,7 @@ function ProfilePanel({
                                     onChange={(value) => setDraft((current) => ({ ...current, name: value }))}
                                     autoComplete="name"
                                     icon={UserRound}
+                                    required
                                 />
                                 <ProfileField
                                     label={t('E-posta', 'Email')}
@@ -1171,6 +1181,7 @@ function ProfilePanel({
                                     autoComplete="email"
                                     type="email"
                                     icon={Mail}
+                                    required
                                 />
                                 <ProfileField
                                     label={t('Telefon', 'Phone')}
@@ -1179,6 +1190,35 @@ function ProfilePanel({
                                     autoComplete="tel"
                                     type="tel"
                                     icon={Phone}
+                                    required
+                                />
+                                <ProfileField
+                                    label={t('Doğum Tarihi', 'Date of Birth')}
+                                    value={draft.birthDate}
+                                    onChange={(value) => setDraft((current) => ({ ...current, birthDate: value }))}
+                                    autoComplete="bday"
+                                    type="date"
+                                    icon={CakeSlice}
+                                    max={formatDateKey(new Date())}
+                                    required
+                                />
+                                <ProfileField
+                                    label={t('Ülke', 'Country')}
+                                    value={draft.country}
+                                    onChange={(value) => setDraft((current) => ({ ...current, country: value }))}
+                                    autoComplete="country-name"
+                                    icon={Globe2}
+                                    placeholder={t('Yaşadığın ülkeyi yaz', 'Enter your country')}
+                                    required
+                                />
+                                <ProfileSelect
+                                    label={t('Meslek', 'Profession')}
+                                    value={draft.profession}
+                                    onChange={(value) => setDraft((current) => ({ ...current, profession: value }))}
+                                    icon={BriefcaseBusiness}
+                                    optionalLabel={t('İsteğe bağlı', 'Optional')}
+                                    placeholder={t('Meslek seç', 'Choose a profession')}
+                                    options={professionOptions(t)}
                                 />
                             </div>
 
@@ -1186,7 +1226,9 @@ function ProfilePanel({
                                 {saved && <span className="text-[13px] font-medium text-[#28a745]">{t('Kaydedildi', 'Saved')}</span>}
                                 <button
                                     type="submit"
-                                    disabled={!draft.name.trim() || !draft.email.trim()}
+                                    disabled={
+                                        !draft.name.trim() || !draft.email.trim() || !draft.phone.trim() || !draft.birthDate || !draft.country.trim()
+                                    }
                                     className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition hover:bg-[#006ee6] active:scale-[0.98] disabled:bg-[#d1d1d6]"
                                 >
                                     {t('Değişiklikleri Kaydet', 'Save Changes')}
@@ -1484,6 +1526,9 @@ function ProfileField({
     icon: Icon,
     type = 'text',
     autoComplete,
+    placeholder,
+    max,
+    required = false,
 }: {
     label: string;
     value: string;
@@ -1491,10 +1536,16 @@ function ProfileField({
     icon: typeof UserRound;
     type?: string;
     autoComplete: string;
+    placeholder?: string;
+    max?: string;
+    required?: boolean;
 }) {
     return (
         <label className="block">
-            <span className="mb-2 block text-[13px] font-medium text-[#6e6e73]">{label}</span>
+            <span className="mb-2 block text-[13px] font-medium text-[#6e6e73]">
+                {label}
+                {required && <span className="ml-1 text-[#ff3b30]">*</span>}
+            </span>
             <span className="flex items-center gap-3 rounded-[16px] border border-black/[0.08] bg-[#f9f9fb] px-4 transition focus-within:border-[#007aff]/40 focus-within:bg-white focus-within:ring-4 focus-within:ring-[#007aff]/8">
                 <Icon className="size-[17px] shrink-0 text-[#8e8e93]" />
                 <input
@@ -1502,8 +1553,54 @@ function ProfileField({
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                     autoComplete={autoComplete}
+                    placeholder={placeholder}
+                    max={max}
+                    required={required}
                     className="h-[52px] min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:text-[#aeaeb2]"
                 />
+            </span>
+        </label>
+    );
+}
+
+function ProfileSelect({
+    label,
+    value,
+    onChange,
+    icon: Icon,
+    placeholder,
+    optionalLabel,
+    options,
+}: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    icon: typeof UserRound;
+    placeholder: string;
+    optionalLabel: string;
+    options: Array<{ value: string; label: string }>;
+}) {
+    return (
+        <label className="block">
+            <span className="mb-2 flex items-center justify-between gap-3 text-[13px] font-medium text-[#6e6e73]">
+                <span>{label}</span>
+                <span className="text-[11px] font-normal text-[#8e8e93]">{optionalLabel}</span>
+            </span>
+            <span className="relative flex items-center gap-3 rounded-[16px] border border-black/[0.08] bg-[#f9f9fb] px-4 transition focus-within:border-[#007aff]/40 focus-within:bg-white focus-within:ring-4 focus-within:ring-[#007aff]/8">
+                <Icon className="size-[17px] shrink-0 text-[#8e8e93]" />
+                <select
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    className={`h-[52px] min-w-0 flex-1 appearance-none bg-transparent pr-7 text-[15px] font-medium outline-none ${value ? '' : 'text-[#8e8e93]'}`}
+                >
+                    <option value="">{placeholder}</option>
+                    {options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-4 size-4 text-[#8e8e93]" />
             </span>
         </label>
     );
@@ -2347,6 +2444,24 @@ function priorityLabel(priority: Priority, t: Translate): string {
     }[priority];
 }
 
+function professionOptions(t: Translate): Array<{ value: string; label: string }> {
+    return [
+        { value: 'student', label: t('Öğrenci', 'Student') },
+        { value: 'teacher', label: t('Öğretmen / Akademisyen', 'Teacher / Academic') },
+        { value: 'software', label: t('Yazılım / Teknoloji', 'Software / Technology') },
+        { value: 'engineer', label: t('Mühendis', 'Engineer') },
+        { value: 'healthcare', label: t('Sağlık Çalışanı', 'Healthcare Professional') },
+        { value: 'designer', label: t('Tasarımcı', 'Designer') },
+        { value: 'finance', label: t('Finans / Muhasebe', 'Finance / Accounting') },
+        { value: 'sales-marketing', label: t('Satış / Pazarlama', 'Sales / Marketing') },
+        { value: 'entrepreneur', label: t('Girişimci / İşletme Sahibi', 'Entrepreneur / Business Owner') },
+        { value: 'freelancer', label: t('Serbest Çalışan', 'Freelancer') },
+        { value: 'public-sector', label: t('Kamu Çalışanı', 'Public Sector Employee') },
+        { value: 'retired', label: t('Emekli', 'Retired') },
+        { value: 'other', label: t('Diğer', 'Other') },
+    ];
+}
+
 function formatGoalDate(date: string, locale: 'tr' | 'en'): string {
     return new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
         day: 'numeric',
@@ -2506,7 +2621,7 @@ function loadStoredPlanItems(): PlanItem[] {
 }
 
 function loadStoredProfile(): ProfileData {
-    const emptyProfile = { name: '', email: '', phone: '', avatar: '' };
+    const emptyProfile = { name: '', email: '', phone: '', birthDate: '', country: '', profession: '', avatar: '' };
     if (typeof window === 'undefined') return emptyProfile;
 
     try {
@@ -2518,6 +2633,9 @@ function loadStoredProfile(): ProfileData {
             name: typeof profile.name === 'string' ? profile.name : '',
             email: typeof profile.email === 'string' ? profile.email : '',
             phone: typeof profile.phone === 'string' ? profile.phone : '',
+            birthDate: typeof profile.birthDate === 'string' ? profile.birthDate : '',
+            country: typeof profile.country === 'string' ? profile.country : '',
+            profession: typeof profile.profession === 'string' ? profile.profession : '',
             avatar: typeof profile.avatar === 'string' ? profile.avatar : '',
         };
     } catch {
