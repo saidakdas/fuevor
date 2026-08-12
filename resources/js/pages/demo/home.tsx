@@ -1178,7 +1178,7 @@ function ProfilePanel({
                                             className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#ff3b30]"
                                         >
                                             <Trash2 className="size-3.5" />
-                                            {t('Sil', 'Delete')}
+                                            {t('Fotoğrafı Kaldır', 'Remove Photo')}
                                         </button>
                                     )}
                                 </div>
