@@ -9,6 +9,8 @@ import {
     Camera,
     Check,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     ChevronUp,
     CircleCheck,
     GripVertical,
@@ -60,6 +62,7 @@ type PlanItem = {
     buildingBlockId?: number;
     completed: boolean;
     createdAt: number;
+    scheduledFor: string;
 };
 
 type ProfileData = {
@@ -107,6 +110,7 @@ export default function DemoHome() {
     const [panelSection, setPanelSection] = useState<PanelSection>('overview');
     const [planItems, setPlanItems] = useState<PlanItem[]>(loadStoredPlanItems);
     const [planRange, setPlanRange] = useState<PlanRange>('today');
+    const [planDate, setPlanDate] = useState(() => formatDateKey(new Date()));
     const [profile, setProfile] = useState<ProfileData>(loadStoredProfile);
     const nextBlockId = useRef(2);
     const nextPlanItemId = useRef(Math.max(0, ...planItems.map((item) => item.id)) + 1);
@@ -261,6 +265,20 @@ export default function DemoHome() {
         setPlanItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
     };
 
+    const changePlanRange = (range: PlanRange) => {
+        setPlanRange(range);
+        setPlanDate(defaultDateForRange(range));
+    };
+
+    const changePlanDate = (date: string) => {
+        if (!isDateKey(date)) return;
+
+        setPlanDate(date);
+        if (planRange === 'today' || planRange === 'tomorrow') {
+            setPlanRange(date === defaultDateForRange('tomorrow') ? 'tomorrow' : 'today');
+        }
+    };
+
     if (showPanel) {
         if (panelSection === 'settings') {
             return <SettingsPanel t={t} settings={settings} onNavigate={setPanelSection} onChange={setSettings} />;
@@ -278,9 +296,11 @@ export default function DemoHome() {
                     goals={goals}
                     items={planItems}
                     range={planRange}
+                    date={planDate}
                     onNavigate={setPanelSection}
                     onCreateGoal={startNewGoal}
-                    onRangeChange={setPlanRange}
+                    onRangeChange={changePlanRange}
+                    onDateChange={changePlanDate}
                     onToggleItem={togglePlanItem}
                 />
             );
@@ -294,8 +314,10 @@ export default function DemoHome() {
                     goals={goals}
                     items={planItems}
                     range={planRange}
+                    date={planDate}
                     onNavigate={setPanelSection}
-                    onRangeChange={setPlanRange}
+                    onRangeChange={changePlanRange}
+                    onDateChange={changePlanDate}
                     onAddItem={addPlanItem}
                     onToggleItem={togglePlanItem}
                     onRemoveItem={removePlanItem}
@@ -396,9 +418,11 @@ function OverviewPanel({
     goals,
     items,
     range,
+    date,
     onNavigate,
     onCreateGoal,
     onRangeChange,
+    onDateChange,
     onToggleItem,
 }: {
     t: Translate;
@@ -406,14 +430,16 @@ function OverviewPanel({
     goals: GoalRecord[];
     items: PlanItem[];
     range: PlanRange;
+    date: string;
     onNavigate: (section: PanelSection) => void;
     onCreateGoal: () => void;
     onRangeChange: (range: PlanRange) => void;
+    onDateChange: (date: string) => void;
     onToggleItem: (id: number) => void;
 }) {
     const periodItems = useMemo(
-        () => items.filter((item) => item.range === range).sort((first, second) => second.createdAt - first.createdAt),
-        [items, range],
+        () => items.filter((item) => isPlanItemInPeriod(item, range, date)).sort((first, second) => second.createdAt - first.createdAt),
+        [date, items, range],
     );
     const priorityGoals = useMemo(
         () =>
@@ -448,7 +474,7 @@ function OverviewPanel({
                 <main className="mx-auto max-w-5xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-                            <p className="text-[13px] font-semibold text-[#007aff] capitalize">{formatPlanPeriod(range, locale)}</p>
+                            <p className="text-[13px] font-semibold text-[#007aff] capitalize">{formatPlanPeriod(range, locale, date)}</p>
                             <h1 className="mt-2 text-[clamp(2.35rem,6vw,4rem)] leading-none font-semibold tracking-[-0.05em]">
                                 {t('Genel Bakış', 'Overview')}
                             </h1>
@@ -487,13 +513,15 @@ function OverviewPanel({
                                     key={option.value}
                                     type="button"
                                     onClick={() => onRangeChange(option.value)}
-                                    className={`min-w-0 rounded-full px-1 py-2.5 text-[12px] font-medium transition sm:px-5 sm:text-[14px] ${range === option.value ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
+                                    className={`min-w-0 rounded-full px-1 py-2.5 text-[12px] font-medium transition sm:px-5 sm:text-[14px] ${isRangeOptionActive(option.value, range, date) ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
                                 >
                                     {option.label}
                                 </button>
                             ))}
                         </div>
                     </div>
+
+                    <PlanDateNavigator t={t} locale={locale} range={range} date={date} onDateChange={onDateChange} />
 
                     <section className="mt-5 grid gap-3 sm:grid-cols-3" aria-label={t('Özet bilgiler', 'Summary information')}>
                         <OverviewStat
@@ -510,7 +538,7 @@ function OverviewPanel({
                         />
                         <OverviewStat
                             icon={CircleCheck}
-                            label={planRangeLabel(range, t)}
+                            label={planRangeLabel(range, t, date)}
                             value={periodItems.length === 0 ? '—' : `${periodCompleted}/${periodItems.length}`}
                             color="bg-[#34c759]/10 text-[#28a745]"
                         />
@@ -520,7 +548,7 @@ function OverviewPanel({
                         <section className="overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
                             <div className="flex items-center justify-between border-b border-black/[0.055] px-5 py-5 sm:px-6">
                                 <div>
-                                    <h2 className="text-[18px] font-semibold tracking-[-0.02em]">{planRangeLabel(range, t)}</h2>
+                                    <h2 className="text-[18px] font-semibold tracking-[-0.02em]">{planRangeLabel(range, t, date)}</h2>
                                     <p className="mt-1 text-[12px] text-[#8e8e93]">
                                         {periodItems.length === 0
                                             ? t('Henüz plan eklenmedi', 'No plans added yet')
@@ -1481,15 +1509,67 @@ function ProfileField({
     );
 }
 
+function PlanDateNavigator({
+    t,
+    locale,
+    range,
+    date,
+    onDateChange,
+}: {
+    t: Translate;
+    locale: 'tr' | 'en';
+    range: PlanRange;
+    date: string;
+    onDateChange: (date: string) => void;
+}) {
+    const move = (direction: -1 | 1) => onDateChange(shiftPlanDate(date, range, direction));
+
+    return (
+        <div className="mt-3 flex items-center justify-center gap-2" aria-label={t('Tarih seçimi', 'Date selection')}>
+            <button
+                type="button"
+                onClick={() => move(-1)}
+                className="grid size-11 shrink-0 place-items-center rounded-full border border-black/[0.07] bg-white text-[#6e6e73] shadow-[0_4px_16px_rgba(0,0,0,0.035)] transition hover:text-[#007aff] active:scale-95"
+                aria-label={t('Önceki döneme git', 'Go to previous period')}
+            >
+                <ChevronLeft className="size-5" />
+            </button>
+
+            <label className="relative flex h-11 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full border border-black/[0.07] bg-white px-4 text-[13px] font-semibold shadow-[0_4px_16px_rgba(0,0,0,0.035)] sm:max-w-sm sm:text-[14px]">
+                <CalendarDays className="size-[17px] shrink-0 text-[#007aff]" />
+                <span className="truncate capitalize">{formatPlanPeriod(range, locale, date)}</span>
+                <input
+                    type="date"
+                    value={date}
+                    onChange={(event) => onDateChange(event.target.value)}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                    aria-label={t('Takvimden tarih seç', 'Choose a date from the calendar')}
+                />
+            </label>
+
+            <button
+                type="button"
+                onClick={() => move(1)}
+                className="grid size-11 shrink-0 place-items-center rounded-full border border-black/[0.07] bg-white text-[#6e6e73] shadow-[0_4px_16px_rgba(0,0,0,0.035)] transition hover:text-[#007aff] active:scale-95"
+                aria-label={t('Sonraki döneme git', 'Go to next period')}
+            >
+                <ChevronRight className="size-5" />
+            </button>
+        </div>
+    );
+}
+
 function PlanPanel({
     t,
     locale,
     goals,
     items,
     range,
+    date,
     onNavigate,
     onAddItem,
     onRangeChange,
+    onDateChange,
     onToggleItem,
     onRemoveItem,
 }: {
@@ -1498,9 +1578,11 @@ function PlanPanel({
     goals: GoalRecord[];
     items: PlanItem[];
     range: PlanRange;
+    date: string;
     onNavigate: (section: PanelSection) => void;
     onAddItem: (item: Omit<PlanItem, 'id' | 'completed' | 'createdAt'>) => void;
     onRangeChange: (range: PlanRange) => void;
+    onDateChange: (date: string) => void;
     onToggleItem: (id: number) => void;
     onRemoveItem: (id: number) => void;
 }) {
@@ -1516,8 +1598,8 @@ function PlanPanel({
     ];
 
     const visibleItems = useMemo(
-        () => items.filter((item) => item.range === range).sort((first, second) => second.createdAt - first.createdAt),
-        [items, range],
+        () => items.filter((item) => isPlanItemInPeriod(item, range, date)).sort((first, second) => second.createdAt - first.createdAt),
+        [date, items, range],
     );
     const completedCount = visibleItems.filter((item) => item.completed).length;
     const planProgress = visibleItems.length === 0 ? 0 : Math.round((completedCount / visibleItems.length) * 100);
@@ -1527,7 +1609,7 @@ function PlanPanel({
         const title = independentTitle.trim();
         if (!title) return;
 
-        onAddItem({ title, range, source: 'independent' });
+        onAddItem({ title, range, scheduledFor: date, source: 'independent' });
         setIndependentTitle('');
         setComposerOpen(false);
     };
@@ -1536,6 +1618,7 @@ function PlanPanel({
         onAddItem({
             title: block.title,
             range,
+            scheduledFor: date,
             source: 'goal',
             goalId: goalRecord.id,
             buildingBlockId: block.id,
@@ -1543,7 +1626,7 @@ function PlanPanel({
     };
 
     const isBlockPlanned = (goalId: number, buildingBlockId: number) =>
-        items.some((item) => item.goalId === goalId && item.buildingBlockId === buildingBlockId);
+        items.some((item) => item.goalId === goalId && item.buildingBlockId === buildingBlockId && isPlanItemInPeriod(item, range, date));
 
     return (
         <>
@@ -1557,7 +1640,7 @@ function PlanPanel({
                 <main className="mx-auto max-w-5xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-                            <p className="text-[13px] font-semibold text-[#007aff]">{formatPlanPeriod(range, locale)}</p>
+                            <p className="text-[13px] font-semibold text-[#007aff]">{formatPlanPeriod(range, locale, date)}</p>
                             <h1 className="mt-2 text-[clamp(2.35rem,6vw,4rem)] leading-none font-semibold tracking-[-0.05em]">
                                 {t('Planla', 'Plan')}
                             </h1>
@@ -1583,7 +1666,7 @@ function PlanPanel({
                                     key={option.value}
                                     type="button"
                                     onClick={() => onRangeChange(option.value)}
-                                    className={`min-w-0 rounded-full px-1 py-2.5 text-[12px] font-medium transition sm:px-5 sm:text-[14px] ${range === option.value ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
+                                    className={`min-w-0 rounded-full px-1 py-2.5 text-[12px] font-medium transition sm:px-5 sm:text-[14px] ${isRangeOptionActive(option.value, range, date) ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
                                 >
                                     {option.label}
                                 </button>
@@ -1591,10 +1674,12 @@ function PlanPanel({
                         </div>
                     </div>
 
+                    <PlanDateNavigator t={t} locale={locale} range={range} date={date} onDateChange={onDateChange} />
+
                     <section className="mt-6 overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
                         <div className="flex items-center justify-between border-b border-black/[0.055] px-5 py-5 sm:px-7">
                             <div>
-                                <h2 className="text-[18px] font-semibold tracking-[-0.02em]">{planRangeLabel(range, t)}</h2>
+                                <h2 className="text-[18px] font-semibold tracking-[-0.02em]">{planRangeLabel(range, t, date)}</h2>
                                 <p className="mt-1 text-[12px] text-[#8e8e93]">
                                     {visibleItems.length === 0
                                         ? t('Henüz plan eklenmedi', 'No plans added yet')
@@ -1690,7 +1775,7 @@ function PlanPanel({
                                 <h2 id="plan-composer-title" className="text-[20px] font-semibold tracking-[-0.025em]">
                                     {t('Plana ekle', 'Add to plan')}
                                 </h2>
-                                <p className="mt-0.5 text-[12px] text-[#8e8e93]">{planRangeLabel(range, t)}</p>
+                                <p className="mt-0.5 text-[12px] text-[#8e8e93]">{planRangeLabel(range, t, date)}</p>
                             </div>
                             <button
                                 type="button"
@@ -2121,7 +2206,14 @@ function calculateGoalProgress(goal: GoalRecord): number {
     return Math.round((completed / goal.buildingBlocks.length) * 100);
 }
 
-function planRangeLabel(range: PlanRange, t: Translate): string {
+function planRangeLabel(range: PlanRange, t: Translate, date?: string): string {
+    if ((range === 'today' || range === 'tomorrow') && date) {
+        if (date === defaultDateForRange('today')) return t('Bugünün Planı', "Today's Plan");
+        if (date === defaultDateForRange('tomorrow')) return t('Yarının Planı', "Tomorrow's Plan");
+
+        return t('Günün Planı', 'Daily Plan');
+    }
+
     return {
         today: t('Bugünün Planı', "Today's Plan"),
         tomorrow: t('Yarının Planı', "Tomorrow's Plan"),
@@ -2131,34 +2223,98 @@ function planRangeLabel(range: PlanRange, t: Translate): string {
     }[range];
 }
 
-function formatPlanPeriod(range: PlanRange, locale: 'tr' | 'en'): string {
+function formatPlanPeriod(range: PlanRange, locale: 'tr' | 'en', date: string): string {
     const language = locale === 'tr' ? 'tr-TR' : 'en-US';
-    const today = new Date();
+    const selectedDate = parseDateKey(date);
 
     if (range === 'today' || range === 'tomorrow') {
-        const date = new Date(today);
-        if (range === 'tomorrow') date.setDate(date.getDate() + 1);
-
-        return new Intl.DateTimeFormat(language, { weekday: 'long', day: 'numeric', month: 'long' }).format(date);
+        return new Intl.DateTimeFormat(language, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(selectedDate);
     }
 
     if (range === 'week') {
-        const firstDay = new Date(today);
-        const mondayOffset = (today.getDay() + 6) % 7;
-        firstDay.setDate(today.getDate() - mondayOffset);
+        const firstDay = startOfWeek(selectedDate);
         const lastDay = new Date(firstDay);
         lastDay.setDate(firstDay.getDate() + 6);
         const first = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short' }).format(firstDay);
-        const last = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short' }).format(lastDay);
+        const last = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', year: 'numeric' }).format(lastDay);
 
         return `${first} – ${last}`;
     }
 
     if (range === 'month') {
-        return new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' }).format(today);
+        return new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' }).format(selectedDate);
     }
 
-    return new Intl.DateTimeFormat(language, { year: 'numeric' }).format(today);
+    return new Intl.DateTimeFormat(language, { year: 'numeric' }).format(selectedDate);
+}
+
+function formatDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
+function parseDateKey(date: string): Date {
+    return new Date(`${date}T12:00:00`);
+}
+
+function isDateKey(date: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(parseDateKey(date).getTime());
+}
+
+function defaultDateForRange(range: PlanRange): string {
+    const date = new Date();
+    if (range === 'tomorrow') date.setDate(date.getDate() + 1);
+
+    return formatDateKey(date);
+}
+
+function startOfWeek(date: Date): Date {
+    const firstDay = new Date(date);
+    firstDay.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+
+    return firstDay;
+}
+
+function shiftPlanDate(date: string, range: PlanRange, direction: -1 | 1): string {
+    const shiftedDate = parseDateKey(date);
+
+    if (range === 'week') shiftedDate.setDate(shiftedDate.getDate() + direction * 7);
+    else if (range === 'month') shiftedDate.setMonth(shiftedDate.getMonth() + direction);
+    else if (range === 'year') shiftedDate.setFullYear(shiftedDate.getFullYear() + direction);
+    else shiftedDate.setDate(shiftedDate.getDate() + direction);
+
+    return formatDateKey(shiftedDate);
+}
+
+function isRangeOptionActive(option: PlanRange, range: PlanRange, date: string): boolean {
+    if (option === 'today') return (range === 'today' || range === 'tomorrow') && date === defaultDateForRange('today');
+    if (option === 'tomorrow') return (range === 'today' || range === 'tomorrow') && date === defaultDateForRange('tomorrow');
+
+    return option === range;
+}
+
+function isPlanItemInPeriod(item: PlanItem, range: PlanRange, date: string): boolean {
+    if (range === 'today' || range === 'tomorrow') {
+        return (item.range === 'today' || item.range === 'tomorrow') && item.scheduledFor === date;
+    }
+
+    if (item.range !== range) return false;
+
+    const scheduledDate = parseDateKey(item.scheduledFor);
+    const selectedDate = parseDateKey(date);
+
+    if (range === 'week') {
+        return formatDateKey(startOfWeek(scheduledDate)) === formatDateKey(startOfWeek(selectedDate));
+    }
+
+    if (range === 'month') {
+        return scheduledDate.getFullYear() === selectedDate.getFullYear() && scheduledDate.getMonth() === selectedDate.getMonth();
+    }
+
+    return scheduledDate.getFullYear() === selectedDate.getFullYear();
 }
 
 function loadStoredGoals(): GoalRecord[] {
@@ -2166,7 +2322,14 @@ function loadStoredGoals(): GoalRecord[] {
 }
 
 function loadStoredPlanItems(): PlanItem[] {
-    return loadStoredArray<PlanItem>(DEMO_PLAN_STORAGE_KEY);
+    return loadStoredArray<PlanItem>(DEMO_PLAN_STORAGE_KEY).map((item) => {
+        if (isDateKey(item.scheduledFor)) return item;
+
+        const legacyDate = new Date(Number.isFinite(item.createdAt) ? item.createdAt : Date.now());
+        if (item.range === 'tomorrow') legacyDate.setDate(legacyDate.getDate() + 1);
+
+        return { ...item, scheduledFor: formatDateKey(legacyDate) };
+    });
 }
 
 function loadStoredProfile(): ProfileData {
