@@ -28,6 +28,7 @@ import {
     Mail,
     Moon,
     NotebookPen,
+    Pencil,
     Phone,
     Plus,
     Rocket,
@@ -318,6 +319,10 @@ export default function DemoHome() {
         setNotes((currentNotes) => currentNotes.filter((note) => note.id !== noteId));
     };
 
+    const updateNote = (noteId: number, note: Omit<NoteRecord, 'id' | 'createdAt'>) => {
+        setNotes((currentNotes) => currentNotes.map((currentNote) => (currentNote.id === noteId ? { ...currentNote, ...note } : currentNote)));
+    };
+
     const changePlanRange = (range: PlanRange) => {
         setPlanRange(range);
         setPlanDate(defaultDateForRange(range));
@@ -408,6 +413,7 @@ export default function DemoHome() {
                         notes={notes}
                         onNavigate={navigatePanel}
                         onAddNote={addNote}
+                        onUpdateNote={updateNote}
                         onRemoveNote={removeNote}
                     />
                     {profileSheet}
@@ -904,6 +910,7 @@ function NotesPanel({
     notes,
     onNavigate,
     onAddNote,
+    onUpdateNote,
     onRemoveNote,
 }: {
     t: Translate;
@@ -912,9 +919,11 @@ function NotesPanel({
     notes: NoteRecord[];
     onNavigate: (section: PanelSection) => void;
     onAddNote: (note: Omit<NoteRecord, 'id' | 'createdAt'>) => void;
+    onUpdateNote: (id: number, note: Omit<NoteRecord, 'id' | 'createdAt'>) => void;
     onRemoveNote: (id: number) => void;
 }) {
     const [composerOpen, setComposerOpen] = useState(notes.length === 0);
+    const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [linkedBlockKey, setLinkedBlockKey] = useState('');
@@ -932,16 +941,50 @@ function NotesPanel({
         event.preventDefault();
         if (!title.trim() || !content.trim()) return;
 
-        onAddNote({
+        const noteDraft = {
             title: title.trim(),
             content: content.trim(),
             goalId: linkedBlock?.goal.id,
             buildingBlockId: linkedBlock?.block.id,
-        });
+        };
+
+        if (editingNoteId === null) onAddNote(noteDraft);
+        else onUpdateNote(editingNoteId, noteDraft);
+
+        closeComposer();
+    };
+
+    const closeComposer = () => {
         setTitle('');
         setContent('');
         setLinkedBlockKey('');
+        setEditingNoteId(null);
         setComposerOpen(false);
+    };
+
+    const openNewNote = () => {
+        if (composerOpen && editingNoteId === null) {
+            closeComposer();
+            return;
+        }
+
+        setTitle('');
+        setContent('');
+        setLinkedBlockKey('');
+        setEditingNoteId(null);
+        setComposerOpen(true);
+    };
+
+    const editNote = (note: NoteRecord) => {
+        setTitle(note.title);
+        setContent(note.content);
+        setLinkedBlockKey(note.goalId !== undefined && note.buildingBlockId !== undefined ? `${note.goalId}:${note.buildingBlockId}` : '');
+        setEditingNoteId(note.id);
+        setComposerOpen(true);
+
+        window.requestAnimationFrame(() => {
+            document.getElementById('demo-note-composer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
     };
 
     return (
@@ -969,7 +1012,7 @@ function NotesPanel({
                         </div>
                         <button
                             type="button"
-                            onClick={() => setComposerOpen((open) => !open)}
+                            onClick={composerOpen ? closeComposer : openNewNote}
                             className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#007aff] px-6 text-[15px] font-semibold text-white shadow-[0_8px_24px_rgba(0,122,255,0.2)] transition active:scale-[0.98] sm:w-auto"
                         >
                             {composerOpen ? <X className="size-[18px]" /> : <Plus className="size-[18px]" strokeWidth={2.5} />}
@@ -979,6 +1022,7 @@ function NotesPanel({
 
                     {composerOpen && (
                         <form
+                            id="demo-note-composer"
                             onSubmit={submitNote}
                             onFocusCapture={(event) => {
                                 if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
@@ -1066,7 +1110,7 @@ function NotesPanel({
                                     disabled={!title.trim() || !content.trim()}
                                     className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition active:scale-[0.98] disabled:bg-[#d1d1d6]"
                                 >
-                                    {t('Notu Kaydet', 'Save Note')}
+                                    {editingNoteId === null ? t('Notu Kaydet', 'Save Note') : t('Değişiklikleri Kaydet', 'Save Changes')}
                                 </button>
                             </div>
                         </form>
@@ -1115,14 +1159,27 @@ function NotesPanel({
                                                         year: 'numeric',
                                                     }).format(new Date(note.createdAt))}
                                                 </time>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onRemoveNote(note.id)}
-                                                    className="grid size-8 place-items-center rounded-full text-[#aeaeb2] transition hover:bg-[#ff3b30]/8 hover:text-[#ff3b30]"
-                                                    aria-label={t('Notu sil', 'Delete note')}
-                                                >
-                                                    <Trash2 className="size-4" />
-                                                </button>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => editNote(note)}
+                                                        className="grid size-8 place-items-center rounded-full text-[#8e8e93] transition hover:bg-[#007aff]/8 hover:text-[#007aff]"
+                                                        aria-label={t('Notu düzenle', 'Edit note')}
+                                                    >
+                                                        <Pencil className="size-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (editingNoteId === note.id) closeComposer();
+                                                            onRemoveNote(note.id);
+                                                        }}
+                                                        className="grid size-8 place-items-center rounded-full text-[#aeaeb2] transition hover:bg-[#ff3b30]/8 hover:text-[#ff3b30]"
+                                                        aria-label={t('Notu sil', 'Delete note')}
+                                                    >
+                                                        <Trash2 className="size-4" />
+                                                    </button>
+                                                </div>
                                             </div>
                                         </article>
                                     );
