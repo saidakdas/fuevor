@@ -1522,6 +1522,7 @@ function PlanDateNavigator({
     date: string;
     onDateChange: (date: string) => void;
 }) {
+    const [calendarOpen, setCalendarOpen] = useState(false);
     const move = (direction: -1 | 1) => onDateChange(shiftPlanDate(date, range, direction));
 
     return (
@@ -1535,17 +1536,16 @@ function PlanDateNavigator({
                 <ChevronLeft className="size-5" />
             </button>
 
-            <label className="relative flex h-11 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full border border-black/[0.07] bg-white px-4 text-[13px] font-semibold shadow-[0_4px_16px_rgba(0,0,0,0.035)] sm:max-w-sm sm:text-[14px]">
+            <button
+                type="button"
+                onClick={() => setCalendarOpen(true)}
+                className="flex h-11 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-full border border-black/[0.07] bg-white px-4 text-[13px] font-semibold shadow-[0_4px_16px_rgba(0,0,0,0.035)] transition hover:border-[#007aff]/25 active:scale-[0.99] sm:max-w-sm sm:text-[14px]"
+                aria-haspopup="dialog"
+                aria-expanded={calendarOpen}
+            >
                 <CalendarDays className="size-[17px] shrink-0 text-[#007aff]" />
                 <span className="truncate capitalize">{formatPlanPeriod(range, locale, date)}</span>
-                <input
-                    type="date"
-                    value={date}
-                    onChange={(event) => onDateChange(event.target.value)}
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                    aria-label={t('Takvimden tarih seç', 'Choose a date from the calendar')}
-                />
-            </label>
+            </button>
 
             <button
                 type="button"
@@ -1555,6 +1555,162 @@ function PlanDateNavigator({
             >
                 <ChevronRight className="size-5" />
             </button>
+
+            {calendarOpen && (
+                <PlanCalendar
+                    t={t}
+                    locale={locale}
+                    selectedDate={date}
+                    onCancel={() => setCalendarOpen(false)}
+                    onSelect={(selectedDate) => {
+                        onDateChange(selectedDate);
+                        setCalendarOpen(false);
+                    }}
+                />
+            )}
+        </div>
+    );
+}
+
+function PlanCalendar({
+    t,
+    locale,
+    selectedDate,
+    onCancel,
+    onSelect,
+}: {
+    t: Translate;
+    locale: 'tr' | 'en';
+    selectedDate: string;
+    onCancel: () => void;
+    onSelect: (date: string) => void;
+}) {
+    const language = locale === 'tr' ? 'tr-TR' : 'en-US';
+    const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(parseDateKey(selectedDate)));
+    const today = formatDateKey(new Date());
+    const days = useMemo(() => calendarMonthDays(visibleMonth), [visibleMonth]);
+    const weekdays = useMemo(() => {
+        const monday = new Date(2026, 0, 5, 12);
+
+        return Array.from({ length: 7 }, (_, index) => {
+            const day = new Date(monday);
+            day.setDate(monday.getDate() + index);
+            return new Intl.DateTimeFormat(language, { weekday: 'short' }).format(day);
+        });
+    }, [language]);
+
+    const moveMonth = (direction: -1 | 1) => {
+        setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + direction, 1, 12));
+    };
+
+    return (
+        <div
+            className="apple-interface fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-5"
+            role="presentation"
+            onMouseDown={onCancel}
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="plan-calendar-title"
+                onMouseDown={(event) => event.stopPropagation()}
+                className="w-full max-w-md rounded-t-[30px] border border-black/[0.07] bg-[#f9f9fb] px-5 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_30px_90px_rgba(0,0,0,0.28)] sm:rounded-[30px] sm:px-7 sm:pb-6"
+            >
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-[12px] font-semibold text-[#007aff]">{t('Tarih seç', 'Choose date')}</p>
+                        <h2 id="plan-calendar-title" className="mt-1 text-[22px] font-semibold tracking-[-0.03em] capitalize">
+                            {new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' }).format(visibleMonth)}
+                        </h2>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                        aria-label={t('Takvimi kapat', 'Close calendar')}
+                    >
+                        <X className="size-[17px]" />
+                    </button>
+                </div>
+
+                <div className="mt-5 flex items-center justify-between rounded-full bg-black/[0.045] p-1">
+                    <button
+                        type="button"
+                        onClick={() => moveMonth(-1)}
+                        className="grid size-10 place-items-center rounded-full text-[#6e6e73] transition hover:bg-white hover:text-[#007aff]"
+                        aria-label={t('Önceki ay', 'Previous month')}
+                    >
+                        <ChevronLeft className="size-5" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setVisibleMonth(startOfMonth(new Date()))}
+                        className="rounded-full px-4 py-2 text-[13px] font-semibold text-[#007aff] transition hover:bg-white"
+                    >
+                        {t('Bu ay', 'This month')}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => moveMonth(1)}
+                        className="grid size-10 place-items-center rounded-full text-[#6e6e73] transition hover:bg-white hover:text-[#007aff]"
+                        aria-label={t('Sonraki ay', 'Next month')}
+                    >
+                        <ChevronRight className="size-5" />
+                    </button>
+                </div>
+
+                <div className="mt-5 grid grid-cols-7" aria-hidden="true">
+                    {weekdays.map((weekday) => (
+                        <span key={weekday} className="py-2 text-center text-[11px] font-semibold text-[#8e8e93]">
+                            {weekday}
+                        </span>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-y-1" role="grid">
+                    {days.map((day) => {
+                        const dayKey = formatDateKey(day);
+                        const selected = dayKey === selectedDate;
+                        const currentDay = dayKey === today;
+                        const outsideMonth = day.getMonth() !== visibleMonth.getMonth();
+
+                        return (
+                            <button
+                                key={dayKey}
+                                type="button"
+                                onClick={() => onSelect(dayKey)}
+                                className={`mx-auto grid size-10 place-items-center rounded-full text-[14px] font-medium transition active:scale-90 ${
+                                    selected
+                                        ? 'bg-[#007aff] text-white shadow-[0_5px_16px_rgba(0,122,255,0.25)]'
+                                        : currentDay
+                                          ? 'text-[#007aff] ring-1 ring-[#007aff]'
+                                          : outsideMonth
+                                            ? 'text-[#c7c7cc] hover:bg-black/[0.045]'
+                                            : 'text-[#1d1d1f] hover:bg-black/[0.045]'
+                                }`}
+                                aria-label={new Intl.DateTimeFormat(language, {
+                                    weekday: 'long',
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric',
+                                }).format(day)}
+                                aria-selected={selected}
+                                role="gridcell"
+                            >
+                                {day.getDate()}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() => onSelect(today)}
+                    className="mt-5 h-11 w-full rounded-full border border-black/[0.07] bg-white text-[14px] font-semibold text-[#007aff] transition active:scale-[0.98]"
+                >
+                    {t('Bugüne Git', 'Go to Today')}
+                </button>
+            </section>
         </div>
     );
 }
@@ -2276,6 +2432,23 @@ function startOfWeek(date: Date): Date {
     firstDay.setDate(date.getDate() - ((date.getDay() + 6) % 7));
 
     return firstDay;
+}
+
+function startOfMonth(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), 1, 12);
+}
+
+function calendarMonthDays(month: Date): Date[] {
+    const firstDay = startOfMonth(month);
+    const mondayOffset = (firstDay.getDay() + 6) % 7;
+    const calendarStart = new Date(firstDay);
+    calendarStart.setDate(firstDay.getDate() - mondayOffset);
+
+    return Array.from({ length: 42 }, (_, index) => {
+        const day = new Date(calendarStart);
+        day.setDate(calendarStart.getDate() + index);
+        return day;
+    });
 }
 
 function shiftPlanDate(date: string, range: PlanRange, direction: -1 | 1): string {
