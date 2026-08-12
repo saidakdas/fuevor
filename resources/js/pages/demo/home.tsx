@@ -2678,6 +2678,15 @@ function PlanPeriodControl({
     const [calendarOpen, setCalendarOpen] = useState(false);
     const move = (direction: -1 | 1) => onDateChange(shiftPlanDate(date, range, direction));
     const daySelected = range === 'today' || range === 'tomorrow';
+    const openDay = () => {
+        if (!daySelected) {
+            onRangeChange('today');
+            onDateChange(formatDateKey(new Date()));
+            return;
+        }
+
+        setCalendarOpen(true);
+    };
     const periodOptions: Array<{ value: 'week' | 'month' | 'year'; label: string }> = [
         { value: 'week', label: t('Hafta', 'Week') },
         { value: 'month', label: t('Ay', 'Month') },
@@ -2705,7 +2714,7 @@ function PlanPeriodControl({
 
                 <button
                     type="button"
-                    onClick={() => setCalendarOpen(true)}
+                    onClick={openDay}
                     className="flex min-w-0 flex-1 items-center justify-center gap-1.5 overflow-hidden text-[12px] font-semibold sm:text-[14px]"
                     aria-haspopup="dialog"
                     aria-expanded={calendarOpen}
