@@ -18,16 +18,22 @@ import {
     ChevronUp,
     CircleCheck,
     Globe2,
+    GraduationCap,
     GripVertical,
+    HeartPulse,
     Languages,
     Layers3,
     ListTodo,
     LockKeyhole,
     Mail,
     Moon,
+    NotebookPen,
     Phone,
     Plus,
+    Rocket,
     Search,
+    Shapes,
+    Sparkles,
     Sun,
     Target,
     Trash2,
@@ -38,6 +44,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 type Priority = 'urgent' | 'very-important' | 'important' | 'has-time';
+type GoalCategory = 'health' | 'work' | 'venture' | 'skill' | 'education' | 'other';
 
 type BuildingBlock = {
     completed?: boolean;
@@ -52,10 +59,11 @@ type GoalRecord = {
     buildingBlocks: BuildingBlock[];
     deadline: string;
     priority: Priority;
+    category: GoalCategory;
     createdAt: number;
 };
 
-type PanelSection = 'overview' | 'goals' | 'plan' | 'profile';
+type PanelSection = 'overview' | 'goals' | 'plan' | 'notes' | 'profile';
 type PlanRange = 'today' | 'tomorrow' | 'week' | 'month' | 'year';
 
 type PlanItem = {
@@ -68,6 +76,15 @@ type PlanItem = {
     completed: boolean;
     createdAt: number;
     scheduledFor: string;
+};
+
+type NoteRecord = {
+    id: number;
+    title: string;
+    content: string;
+    goalId?: number;
+    buildingBlockId?: number;
+    createdAt: number;
 };
 
 type ProfileData = {
@@ -95,9 +112,10 @@ type ImageDimensions = {
     height: number;
 };
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 const DEMO_GOALS_STORAGE_KEY = 'fuevor.demo.goals';
 const DEMO_PLAN_STORAGE_KEY = 'fuevor.demo.plan-items';
+const DEMO_NOTES_STORAGE_KEY = 'fuevor.demo.notes';
 const DEMO_PROFILE_STORAGE_KEY = 'fuevor.demo.profile';
 const DEMO_SETTINGS_STORAGE_KEY = 'fuevor.demo.settings';
 const COUNTRY_CODES = getCountries();
@@ -109,6 +127,7 @@ export default function DemoHome() {
     const t = (turkish: string, english: string) => (locale === 'tr' ? turkish : english);
     const [step, setStep] = useState(1);
     const [goal, setGoal] = useState('');
+    const [category, setCategory] = useState<GoalCategory | null>(null);
     const [gain, setGain] = useState('');
     const [buildingBlocks, setBuildingBlocks] = useState<BuildingBlock[]>([{ id: 1, title: '' }]);
     const [deadline, setDeadline] = useState('');
@@ -119,11 +138,13 @@ export default function DemoHome() {
     const [panelSection, setPanelSection] = useState<PanelSection>('overview');
     const [profileOpen, setProfileOpen] = useState(false);
     const [planItems, setPlanItems] = useState<PlanItem[]>(loadStoredPlanItems);
+    const [notes, setNotes] = useState<NoteRecord[]>(loadStoredNotes);
     const [planRange, setPlanRange] = useState<PlanRange>('today');
     const [planDate, setPlanDate] = useState(() => formatDateKey(new Date()));
     const [profile, setProfile] = useState<ProfileData>(loadStoredProfile);
     const nextBlockId = useRef(2);
     const nextPlanItemId = useRef(Math.max(0, ...planItems.map((item) => item.id)) + 1);
+    const nextNoteId = useRef(Math.max(0, ...notes.map((note) => note.id)) + 1);
 
     useEffect(() => {
         storeDemoData(DEMO_GOALS_STORAGE_KEY, goals);
@@ -132,6 +153,10 @@ export default function DemoHome() {
     useEffect(() => {
         storeDemoData(DEMO_PLAN_STORAGE_KEY, planItems);
     }, [planItems]);
+
+    useEffect(() => {
+        storeDemoData(DEMO_NOTES_STORAGE_KEY, notes);
+    }, [notes]);
 
     useEffect(() => {
         storeDemoData(DEMO_PROFILE_STORAGE_KEY, profile);
@@ -149,22 +174,23 @@ export default function DemoHome() {
 
     const canContinue = useMemo(() => {
         if (step === 1) return goal.trim() !== '';
-        if (step === 2) return gain.trim() !== '';
-        if (step === 3 || step === 4) return validBlocks.length > 0 && validBlocks.length === buildingBlocks.length;
-        if (step === 5) return deadline !== '';
-        if (step === 6) return priority !== null;
+        if (step === 2) return category !== null;
+        if (step === 3) return gain.trim() !== '';
+        if (step === 4 || step === 5) return validBlocks.length > 0 && validBlocks.length === buildingBlocks.length;
+        if (step === 6) return deadline !== '';
+        if (step === 7) return priority !== null;
 
         return false;
-    }, [buildingBlocks.length, deadline, gain, goal, priority, step, validBlocks.length]);
+    }, [buildingBlocks.length, category, deadline, gain, goal, priority, step, validBlocks.length]);
 
     const continueFlow = () => {
         if (!canContinue) return;
 
-        if (step === 3) {
+        if (step === 4) {
             setBuildingBlocks(validBlocks);
         }
 
-        if (step === TOTAL_STEPS && priority) {
+        if (step === TOTAL_STEPS && priority && category) {
             setGoals((currentGoals) => [
                 ...currentGoals,
                 {
@@ -174,6 +200,7 @@ export default function DemoHome() {
                     buildingBlocks: buildingBlocks.map((block) => ({ ...block, completed: false })),
                     deadline,
                     priority,
+                    category,
                     createdAt: Date.now(),
                 },
             ]);
@@ -226,6 +253,7 @@ export default function DemoHome() {
 
     const startNewGoal = () => {
         setGoal('');
+        setCategory(null);
         setGain('');
         setBuildingBlocks([{ id: 1, title: '' }]);
         setDeadline('');
@@ -273,6 +301,21 @@ export default function DemoHome() {
 
     const removePlanItem = (itemId: number) => {
         setPlanItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
+    };
+
+    const addNote = (note: Omit<NoteRecord, 'id' | 'createdAt'>) => {
+        setNotes((currentNotes) => [
+            {
+                ...note,
+                id: nextNoteId.current++,
+                createdAt: Date.now(),
+            },
+            ...currentNotes,
+        ]);
+    };
+
+    const removeNote = (noteId: number) => {
+        setNotes((currentNotes) => currentNotes.filter((note) => note.id !== noteId));
     };
 
     const changePlanRange = (range: PlanRange) => {
@@ -355,6 +398,23 @@ export default function DemoHome() {
             );
         }
 
+        if (panelSection === 'notes') {
+            return (
+                <>
+                    <NotesPanel
+                        t={t}
+                        locale={locale}
+                        goals={goals}
+                        notes={notes}
+                        onNavigate={navigatePanel}
+                        onAddNote={addNote}
+                        onRemoveNote={removeNote}
+                    />
+                    {profileSheet}
+                </>
+            );
+        }
+
         return (
             <>
                 <GoalsPanel t={t} locale={locale} goals={goals} onCreateGoal={startNewGoal} onNavigate={navigatePanel} />
@@ -392,8 +452,9 @@ export default function DemoHome() {
                             <form onSubmit={submitCurrentStep}>
                                 <div key={step} className="demo-step-enter">
                                     {step === 1 && <GoalStep t={t} value={goal} onChange={setGoal} />}
-                                    {step === 2 && <GainStep t={t} value={gain} onChange={setGain} />}
-                                    {step === 3 && (
+                                    {step === 2 && <CategoryStep t={t} value={category} onChange={setCategory} />}
+                                    {step === 3 && <GainStep t={t} value={gain} onChange={setGain} />}
+                                    {step === 4 && (
                                         <BuildingBlocksStep
                                             t={t}
                                             blocks={buildingBlocks}
@@ -402,7 +463,7 @@ export default function DemoHome() {
                                             onRemove={removeBuildingBlock}
                                         />
                                     )}
-                                    {step === 4 && (
+                                    {step === 5 && (
                                         <OrderingStep
                                             t={t}
                                             blocks={buildingBlocks}
@@ -413,8 +474,8 @@ export default function DemoHome() {
                                             onMove={moveBuildingBlock}
                                         />
                                     )}
-                                    {step === 5 && <DeadlineStep t={t} locale={locale} value={deadline} onChange={setDeadline} />}
-                                    {step === 6 && <PriorityStep t={t} value={priority} onChange={setPriority} />}
+                                    {step === 6 && <DeadlineStep t={t} locale={locale} value={deadline} onChange={setDeadline} />}
+                                    {step === 7 && <PriorityStep t={t} value={priority} onChange={setPriority} />}
                                 </div>
 
                                 <div className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.055] bg-[#f5f5f7]/80 px-5 py-4 backdrop-blur-2xl sm:px-8">
@@ -792,10 +853,13 @@ function GoalsPanel({
                                     className={`group grid gap-5 px-5 py-6 transition hover:bg-black/[0.018] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-7 ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
                                 >
                                     <div className="min-w-0">
-                                        <div className="flex items-center gap-2.5">
+                                        <div className="flex flex-wrap items-center gap-2.5">
                                             <span className={`size-2.5 shrink-0 rounded-full ${priorityStyle.dot}`} />
                                             <span className={`text-[12px] font-semibold ${priorityStyle.text}`}>
                                                 {priorityLabel(item.priority, t)}
+                                            </span>
+                                            <span className="rounded-full bg-black/[0.045] px-2.5 py-1 text-[11px] font-semibold text-[#6e6e73]">
+                                                {categoryLabel(item.category, t)}
                                             </span>
                                         </div>
                                         <h2 className="mt-3 truncate text-[21px] font-semibold tracking-[-0.025em] sm:text-[23px]">{item.title}</h2>
@@ -833,11 +897,243 @@ function GoalsPanel({
     );
 }
 
+function NotesPanel({
+    t,
+    locale,
+    goals,
+    notes,
+    onNavigate,
+    onAddNote,
+    onRemoveNote,
+}: {
+    t: Translate;
+    locale: 'tr' | 'en';
+    goals: GoalRecord[];
+    notes: NoteRecord[];
+    onNavigate: (section: PanelSection) => void;
+    onAddNote: (note: Omit<NoteRecord, 'id' | 'createdAt'>) => void;
+    onRemoveNote: (id: number) => void;
+}) {
+    const [composerOpen, setComposerOpen] = useState(notes.length === 0);
+    const [title, setTitle] = useState('');
+    const [content, setContent] = useState('');
+    const [linkedBlockKey, setLinkedBlockKey] = useState('');
+    const linkedBlock = useMemo(() => {
+        if (!linkedBlockKey) return null;
+
+        const [goalId, blockId] = linkedBlockKey.split(':').map(Number);
+        const linkedGoal = goals.find((goalRecord) => goalRecord.id === goalId);
+        const block = linkedGoal?.buildingBlocks.find((buildingBlock) => buildingBlock.id === blockId);
+
+        return linkedGoal && block ? { goal: linkedGoal, block } : null;
+    }, [goals, linkedBlockKey]);
+
+    const submitNote = (event: FormEvent) => {
+        event.preventDefault();
+        if (!title.trim() || !content.trim()) return;
+
+        onAddNote({
+            title: title.trim(),
+            content: content.trim(),
+            goalId: linkedBlock?.goal.id,
+            buildingBlockId: linkedBlock?.block.id,
+        });
+        setTitle('');
+        setContent('');
+        setLinkedBlockKey('');
+        setComposerOpen(false);
+    };
+
+    return (
+        <>
+            <Head title={t('Notlar', 'Notes')}>
+                <meta name="robots" content="noindex, nofollow" />
+            </Head>
+
+            <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
+                <PanelHeader t={t} active="notes" onNavigate={onNavigate} />
+
+                <main className="mx-auto max-w-5xl px-5 pt-24 pb-32 sm:px-8 sm:pt-36 sm:pb-16">
+                    <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <p className="text-[13px] font-semibold text-[#007aff]">{t('Fikirlerini yakala', 'Capture your ideas')}</p>
+                            <h1 className="mt-2 text-[clamp(2.35rem,6vw,4rem)] leading-none font-semibold tracking-[-0.05em]">
+                                {t('Notlar', 'Notes')}
+                            </h1>
+                            <p className="mt-4 max-w-xl text-[15px] leading-6 text-[#6e6e73]">
+                                {t(
+                                    'Serbest not al veya bir hedef maddesine bağlayarak düşüncelerini o adımda tut.',
+                                    'Write a free note or attach it to a goal item to keep your thoughts with that step.',
+                                )}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setComposerOpen((open) => !open)}
+                            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#007aff] px-6 text-[15px] font-semibold text-white shadow-[0_8px_24px_rgba(0,122,255,0.2)] transition active:scale-[0.98] sm:w-auto"
+                        >
+                            {composerOpen ? <X className="size-[18px]" /> : <Plus className="size-[18px]" strokeWidth={2.5} />}
+                            {composerOpen ? t('Vazgeç', 'Cancel') : t('Yeni Not', 'New Note')}
+                        </button>
+                    </div>
+
+                    {composerOpen && (
+                        <form
+                            onSubmit={submitNote}
+                            className="demo-step-enter mt-8 overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_14px_48px_rgba(0,0,0,0.055)]"
+                        >
+                            <div className="space-y-5 px-5 py-6 sm:px-7 sm:py-7">
+                                <label className="block">
+                                    <span className="mb-2 block text-[13px] font-semibold text-[#6e6e73]">{t('Not başlığı', 'Note title')}</span>
+                                    <input
+                                        autoFocus
+                                        value={title}
+                                        onChange={(event) => setTitle(event.target.value)}
+                                        placeholder={t('Başlık yaz', 'Write a title')}
+                                        className="h-[54px] w-full rounded-[17px] border border-black/[0.08] bg-[#f9f9fb] px-4 text-[16px] font-medium transition outline-none placeholder:text-[#aeaeb2] focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8"
+                                    />
+                                </label>
+
+                                <label className="block">
+                                    <span className="mb-2 block text-[13px] font-semibold text-[#6e6e73]">
+                                        {t('Hedef maddesi', 'Goal item')}
+                                        <span className="ml-1 font-normal text-[#aeaeb2]">{t('(isteğe bağlı)', '(optional)')}</span>
+                                    </span>
+                                    <span className="relative block">
+                                        <select
+                                            value={linkedBlockKey}
+                                            onChange={(event) => {
+                                                const value = event.target.value;
+                                                setLinkedBlockKey(value);
+
+                                                if (!title.trim() && value) {
+                                                    const [goalId, blockId] = value.split(':').map(Number);
+                                                    const block = goals
+                                                        .find((goalRecord) => goalRecord.id === goalId)
+                                                        ?.buildingBlocks.find((buildingBlock) => buildingBlock.id === blockId);
+                                                    if (block) setTitle(block.title);
+                                                }
+                                            }}
+                                            className="h-[54px] w-full appearance-none rounded-[17px] border border-black/[0.08] bg-[#f9f9fb] px-4 pr-11 text-[15px] font-medium transition outline-none focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8"
+                                        >
+                                            <option value="">{t('Serbest not', 'Free note')}</option>
+                                            {goals.map((goalRecord) => (
+                                                <optgroup key={goalRecord.id} label={goalRecord.title}>
+                                                    {goalRecord.buildingBlocks.map((block) => (
+                                                        <option key={block.id} value={`${goalRecord.id}:${block.id}`}>
+                                                            {block.title}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="pointer-events-none absolute top-1/2 right-4 size-[17px] -translate-y-1/2 text-[#8e8e93]" />
+                                    </span>
+                                </label>
+
+                                {linkedBlock && (
+                                    <div className="flex items-start gap-3 rounded-[17px] bg-[#007aff]/8 px-4 py-3.5 text-[#0066d6]">
+                                        <Target className="mt-0.5 size-[17px] shrink-0" />
+                                        <p className="min-w-0 text-[13px] leading-5">
+                                            <span className="font-semibold">{linkedBlock.goal.title}</span>
+                                            <span className="mx-1.5 text-[#007aff]/45">›</span>
+                                            <span>{linkedBlock.block.title}</span>
+                                        </p>
+                                    </div>
+                                )}
+
+                                <label className="block">
+                                    <span className="mb-2 block text-[13px] font-semibold text-[#6e6e73]">{t('Notun', 'Your note')}</span>
+                                    <textarea
+                                        value={content}
+                                        onChange={(event) => setContent(event.target.value)}
+                                        placeholder={t('Aklındakileri yaz…', 'Write what is on your mind…')}
+                                        rows={5}
+                                        className="w-full resize-none rounded-[19px] border border-black/[0.08] bg-[#f9f9fb] px-4 py-4 text-[15px] leading-6 transition outline-none placeholder:text-[#aeaeb2] focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8"
+                                    />
+                                </label>
+                            </div>
+                            <div className="flex justify-end border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
+                                <button
+                                    type="submit"
+                                    disabled={!title.trim() || !content.trim()}
+                                    className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition active:scale-[0.98] disabled:bg-[#d1d1d6]"
+                                >
+                                    {t('Notu Kaydet', 'Save Note')}
+                                </button>
+                            </div>
+                        </form>
+                    )}
+
+                    {notes.length === 0 && !composerOpen ? (
+                        <section className="mt-10 rounded-[28px] border border-dashed border-black/[0.12] px-6 py-16 text-center">
+                            <span className="mx-auto grid size-14 place-items-center rounded-[18px] bg-[#007aff]/10 text-[#007aff]">
+                                <NotebookPen className="size-6" />
+                            </span>
+                            <h2 className="mt-5 text-[19px] font-semibold">{t('Henüz notun yok', 'No notes yet')}</h2>
+                            <p className="mt-2 text-[14px] text-[#8e8e93]">
+                                {t('İlk notunu oluşturarak başla.', 'Start by creating your first note.')}
+                            </p>
+                        </section>
+                    ) : (
+                        <section className="mt-8 grid gap-4 sm:grid-cols-2" aria-label={t('Not listesi', 'Note list')}>
+                            {[...notes]
+                                .sort((first, second) => second.createdAt - first.createdAt)
+                                .map((note) => {
+                                    const linkedGoal = goals.find((goalRecord) => goalRecord.id === note.goalId);
+                                    const linkedItem = linkedGoal?.buildingBlocks.find((block) => block.id === note.buildingBlockId);
+
+                                    return (
+                                        <article
+                                            key={note.id}
+                                            className="group flex min-h-52 flex-col rounded-[26px] border border-black/[0.07] bg-white p-5 shadow-[0_10px_38px_rgba(0,0,0,0.04)] sm:p-6"
+                                        >
+                                            {linkedGoal && linkedItem && (
+                                                <div className="mb-4 flex items-center gap-2 text-[11px] font-semibold text-[#007aff]">
+                                                    <Target className="size-3.5 shrink-0" />
+                                                    <span className="truncate">{linkedGoal.title}</span>
+                                                    <span className="text-[#007aff]/40">›</span>
+                                                    <span className="truncate">{linkedItem.title}</span>
+                                                </div>
+                                            )}
+                                            <h2 className="text-[19px] font-semibold tracking-[-0.025em]">{note.title}</h2>
+                                            <p className="mt-3 line-clamp-5 flex-1 text-[14px] leading-6 whitespace-pre-wrap text-[#6e6e73]">
+                                                {note.content}
+                                            </p>
+                                            <div className="mt-5 flex items-center justify-between border-t border-black/[0.055] pt-4">
+                                                <time className="text-[11px] font-medium text-[#8e8e93]">
+                                                    {new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+                                                        day: 'numeric',
+                                                        month: 'short',
+                                                        year: 'numeric',
+                                                    }).format(new Date(note.createdAt))}
+                                                </time>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onRemoveNote(note.id)}
+                                                    className="grid size-8 place-items-center rounded-full text-[#aeaeb2] transition hover:bg-[#ff3b30]/8 hover:text-[#ff3b30]"
+                                                    aria-label={t('Notu sil', 'Delete note')}
+                                                >
+                                                    <Trash2 className="size-4" />
+                                                </button>
+                                            </div>
+                                        </article>
+                                    );
+                                })}
+                        </section>
+                    )}
+                </main>
+            </div>
+        </>
+    );
+}
+
 function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSection; onNavigate: (section: PanelSection) => void }) {
     const navigationItems = [
-        { section: 'overview' as const, label: t('Genel Bakış', 'Overview'), icon: Layers3 },
-        { section: 'goals' as const, label: t('Hedefler', 'Goals'), icon: Target },
-        { section: 'plan' as const, label: t('Planla', 'Plan'), icon: ListTodo },
+        { section: 'overview' as const, label: t('Genel Bakış', 'Overview'), mobileLabel: t('Genel', 'Home'), icon: Layers3 },
+        { section: 'goals' as const, label: t('Hedefler', 'Goals'), mobileLabel: t('Hedefler', 'Goals'), icon: Target },
+        { section: 'plan' as const, label: t('Planla', 'Plan'), mobileLabel: t('Planla', 'Plan'), icon: ListTodo },
+        { section: 'notes' as const, label: t('Notlar', 'Notes'), mobileLabel: t('Notlar', 'Notes'), icon: NotebookPen },
     ];
     const storedProfile = loadStoredProfile();
     const profileInitial = storedProfile.name.trim().charAt(0).toLocaleUpperCase('tr-TR') || 'K';
@@ -854,7 +1150,7 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
                         className="hidden items-center rounded-full bg-black/[0.045] p-1 sm:flex"
                         aria-label={t('Panel bölümleri', 'Panel sections')}
                     >
-                        {navigationItems.slice(0, 3).map((item) => (
+                        {navigationItems.map((item) => (
                             <button
                                 key={item.section}
                                 type="button"
@@ -886,7 +1182,7 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
 
             <div className="demo-mobile-dock fixed inset-x-0 bottom-0 z-40 flex items-end gap-2.5 px-3 sm:hidden">
                 <nav
-                    className="demo-mobile-navigation grid min-w-0 flex-1 grid-cols-3 rounded-[29px] border border-white/48 bg-white/45 p-1.5 shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px]"
+                    className="demo-mobile-navigation grid min-w-0 flex-1 grid-cols-4 rounded-[29px] border border-white/48 bg-white/45 p-1.5 shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px]"
                     aria-label={t('Mobil panel bölümleri', 'Mobile panel sections')}
                 >
                     {navigationItems.map((item) => {
@@ -902,7 +1198,7 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
                                 aria-current={selected ? 'page' : undefined}
                             >
                                 <Icon className="relative z-10 size-[21px]" strokeWidth={selected ? 2.5 : 2} />
-                                <span className="relative z-10 max-w-full truncate px-1">{item.label}</span>
+                                <span className="relative z-10 max-w-full truncate px-1">{item.mobileLabel}</span>
                             </button>
                         );
                     })}
@@ -2776,6 +3072,96 @@ function GoalStep({ t, value, onChange }: { t: Translate; value: string; onChang
     );
 }
 
+function CategoryStep({ t, value, onChange }: { t: Translate; value: GoalCategory | null; onChange: (value: GoalCategory) => void }) {
+    const categories: Array<{ value: GoalCategory; label: string; description: string; icon: typeof Target; color: string }> = [
+        {
+            value: 'health',
+            label: t('Sağlık', 'Health'),
+            description: t('Beden ve zihin', 'Body and mind'),
+            icon: HeartPulse,
+            color: 'bg-[#ff3b30]/10 text-[#ff3b30]',
+        },
+        {
+            value: 'work',
+            label: t('İş', 'Work'),
+            description: t('Kariyer ve projeler', 'Career and projects'),
+            icon: BriefcaseBusiness,
+            color: 'bg-[#5856d6]/10 text-[#5856d6]',
+        },
+        {
+            value: 'venture',
+            label: t('Girişim', 'Venture'),
+            description: t('Yeni fikir ve işler', 'New ideas and business'),
+            icon: Rocket,
+            color: 'bg-[#ff9500]/10 text-[#ff9500]',
+        },
+        {
+            value: 'skill',
+            label: t('Yetenek', 'Skill'),
+            description: t('Kendini geliştir', 'Improve yourself'),
+            icon: Sparkles,
+            color: 'bg-[#af52de]/10 text-[#af52de]',
+        },
+        {
+            value: 'education',
+            label: t('Eğitim', 'Education'),
+            description: t('Öğrenme ve akademi', 'Learning and academics'),
+            icon: GraduationCap,
+            color: 'bg-[#007aff]/10 text-[#007aff]',
+        },
+        {
+            value: 'other',
+            label: t('Diğer', 'Other'),
+            description: t('Diğer hedeflerin', 'Your other goals'),
+            icon: Shapes,
+            color: 'bg-[#8e8e93]/12 text-[#6e6e73]',
+        },
+    ];
+
+    return (
+        <section>
+            <StepHeading
+                eyebrow={t('Kategori', 'Category')}
+                title={t('Bu hedef hangi alana ait?', 'Which area does this goal belong to?')}
+                description={t('Hedeflerini daha düzenli takip etmek için bir kategori seç.', 'Choose a category to keep your goals organized.')}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+                {categories.map((category) => {
+                    const Icon = category.icon;
+                    const selected = value === category.value;
+
+                    return (
+                        <button
+                            key={category.value}
+                            type="button"
+                            onClick={() => onChange(category.value)}
+                            className={`flex items-center gap-4 rounded-[21px] border bg-white p-4 text-left shadow-[0_7px_28px_rgba(0,0,0,0.035)] transition active:scale-[0.99] ${
+                                selected ? 'border-[#007aff]/45 ring-4 ring-[#007aff]/8' : 'border-black/[0.07] hover:border-black/[0.14]'
+                            }`}
+                            aria-pressed={selected}
+                        >
+                            <span className={`grid size-12 shrink-0 place-items-center rounded-[15px] ${category.color}`}>
+                                <Icon className="size-[21px]" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-[16px] font-semibold">{category.label}</span>
+                                <span className="mt-1 block text-[12px] text-[#8e8e93]">{category.description}</span>
+                            </span>
+                            <span
+                                className={`grid size-6 shrink-0 place-items-center rounded-full border transition ${
+                                    selected ? 'border-[#007aff] bg-[#007aff] text-white' : 'border-black/[0.12] text-transparent'
+                                }`}
+                            >
+                                <Check className="size-3.5" strokeWidth={3} />
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
+
 function GainStep({ t, value, onChange }: { t: Translate; value: string; onChange: (value: string) => void }) {
     return (
         <section>
@@ -3074,6 +3460,17 @@ function priorityLabel(priority: Priority, t: Translate): string {
     }[priority];
 }
 
+function categoryLabel(category: GoalCategory, t: Translate): string {
+    return {
+        health: t('Sağlık', 'Health'),
+        work: t('İş', 'Work'),
+        venture: t('Girişim', 'Venture'),
+        skill: t('Yetenek', 'Skill'),
+        education: t('Eğitim', 'Education'),
+        other: t('Diğer', 'Other'),
+    }[category];
+}
+
 function professionOptions(t: Translate): Array<{ value: string; label: string }> {
     return [
         { value: 'student', label: t('Öğrenci', 'Student') },
@@ -3355,7 +3752,10 @@ function isPlanItemInPeriod(item: PlanItem, range: PlanRange, date: string): boo
 }
 
 function loadStoredGoals(): GoalRecord[] {
-    return loadStoredArray<GoalRecord>(DEMO_GOALS_STORAGE_KEY);
+    return loadStoredArray<GoalRecord>(DEMO_GOALS_STORAGE_KEY).map((goalRecord) => ({
+        ...goalRecord,
+        category: isGoalCategory(goalRecord.category) ? goalRecord.category : 'other',
+    }));
 }
 
 function loadStoredPlanItems(): PlanItem[] {
@@ -3367,6 +3767,16 @@ function loadStoredPlanItems(): PlanItem[] {
 
         return { ...item, scheduledFor: formatDateKey(legacyDate) };
     });
+}
+
+function loadStoredNotes(): NoteRecord[] {
+    return loadStoredArray<NoteRecord>(DEMO_NOTES_STORAGE_KEY).filter(
+        (note) => typeof note.title === 'string' && typeof note.content === 'string' && Number.isFinite(note.id),
+    );
+}
+
+function isGoalCategory(value: unknown): value is GoalCategory {
+    return value === 'health' || value === 'work' || value === 'venture' || value === 'skill' || value === 'education' || value === 'other';
 }
 
 function loadStoredProfile(): ProfileData {
