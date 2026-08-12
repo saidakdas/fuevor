@@ -1,6 +1,8 @@
 import BrandLogo from '@/components/brand-logo';
 import { useLocale } from '@/hooks/use-locale';
 import { Head } from '@inertiajs/react';
+import { AsYouType, getCountries, getCountryCallingCode, getExampleNumber, validatePhoneNumberLength, type CountryCode } from 'libphonenumber-js';
+import mobilePhoneExamples from 'libphonenumber-js/examples.mobile.json';
 import {
     ArrowLeft,
     ArrowRight,
@@ -25,6 +27,7 @@ import {
     Moon,
     Phone,
     Plus,
+    Search,
     Settings,
     Sun,
     Target,
@@ -98,6 +101,7 @@ const DEMO_GOALS_STORAGE_KEY = 'fuevor.demo.goals';
 const DEMO_PLAN_STORAGE_KEY = 'fuevor.demo.plan-items';
 const DEMO_PROFILE_STORAGE_KEY = 'fuevor.demo.profile';
 const DEMO_SETTINGS_STORAGE_KEY = 'fuevor.demo.settings';
+const COUNTRY_CODES = getCountries();
 
 export default function DemoHome() {
     const { locale: detectedLocale } = useLocale();
@@ -291,7 +295,7 @@ export default function DemoHome() {
         }
 
         if (panelSection === 'profile') {
-            return <ProfilePanel t={t} profile={profile} onNavigate={setPanelSection} onSave={setProfile} />;
+            return <ProfilePanel t={t} locale={locale} profile={profile} onNavigate={setPanelSection} onSave={setProfile} />;
         }
 
         if (panelSection === 'overview') {
@@ -1005,11 +1009,13 @@ function SettingOption({
 
 function ProfilePanel({
     t,
+    locale,
     profile,
     onNavigate,
     onSave,
 }: {
     t: Translate;
+    locale: 'tr' | 'en';
     profile: ProfileData;
     onNavigate: (section: PanelSection) => void;
     onSave: (profile: ProfileData) => void;
@@ -1023,6 +1029,8 @@ function ProfilePanel({
     const [passwordMessage, setPasswordMessage] = useState<'success' | 'mismatch' | null>(null);
     const [cropSource, setCropSource] = useState<string | null>(null);
     const profileInitial = draft.name.trim().charAt(0).toLocaleUpperCase('tr-TR') || 'K';
+    const selectedCountry = isCountryCode(draft.country) ? draft.country : null;
+    const phoneIsValid = selectedCountry ? isNationalPhoneLengthValid(draft.phone, selectedCountry) : false;
 
     const savePersonalInformation = (event: FormEvent) => {
         event.preventDefault();
@@ -1031,7 +1039,7 @@ function ProfilePanel({
             email: draft.email.trim(),
             phone: draft.phone.trim(),
             birthDate: draft.birthDate,
-            country: draft.country.trim(),
+            country: draft.country,
             profession: draft.profession,
             avatar: draft.avatar,
         });
@@ -1183,33 +1191,29 @@ function ProfilePanel({
                                     icon={Mail}
                                     required
                                 />
-                                <ProfileField
-                                    label={t('Telefon', 'Phone')}
+                                <CountryPickerField
+                                    t={t}
+                                    locale={locale}
+                                    value={selectedCountry}
+                                    onChange={(country) =>
+                                        setDraft((current) => ({
+                                            ...current,
+                                            country,
+                                            phone: normalizeNationalPhone(current.phone, country),
+                                        }))
+                                    }
+                                />
+                                <ProfilePhoneField
+                                    t={t}
+                                    country={selectedCountry}
                                     value={draft.phone}
-                                    onChange={(value) => setDraft((current) => ({ ...current, phone: value }))}
-                                    autoComplete="tel"
-                                    type="tel"
-                                    icon={Phone}
-                                    required
+                                    onChange={(phone) => setDraft((current) => ({ ...current, phone }))}
                                 />
-                                <ProfileField
-                                    label={t('Doğum Tarihi', 'Date of Birth')}
+                                <BirthDateField
+                                    t={t}
+                                    locale={locale}
                                     value={draft.birthDate}
-                                    onChange={(value) => setDraft((current) => ({ ...current, birthDate: value }))}
-                                    autoComplete="bday"
-                                    type="date"
-                                    icon={CakeSlice}
-                                    max={formatDateKey(new Date())}
-                                    required
-                                />
-                                <ProfileField
-                                    label={t('Ülke', 'Country')}
-                                    value={draft.country}
-                                    onChange={(value) => setDraft((current) => ({ ...current, country: value }))}
-                                    autoComplete="country-name"
-                                    icon={Globe2}
-                                    placeholder={t('Yaşadığın ülkeyi yaz', 'Enter your country')}
-                                    required
+                                    onChange={(birthDate) => setDraft((current) => ({ ...current, birthDate }))}
                                 />
                                 <ProfileSelect
                                     label={t('Meslek', 'Profession')}
@@ -1226,9 +1230,7 @@ function ProfilePanel({
                                 {saved && <span className="text-[13px] font-medium text-[#28a745]">{t('Kaydedildi', 'Saved')}</span>}
                                 <button
                                     type="submit"
-                                    disabled={
-                                        !draft.name.trim() || !draft.email.trim() || !draft.phone.trim() || !draft.birthDate || !draft.country.trim()
-                                    }
+                                    disabled={!draft.name.trim() || !draft.email.trim() || !phoneIsValid || !draft.birthDate || !selectedCountry}
                                     className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition hover:bg-[#006ee6] active:scale-[0.98] disabled:bg-[#d1d1d6]"
                                 >
                                     {t('Değişiklikleri Kaydet', 'Save Changes')}
@@ -1560,6 +1562,414 @@ function ProfileField({
                 />
             </span>
         </label>
+    );
+}
+
+function CountryPickerField({
+    t,
+    locale,
+    value,
+    onChange,
+}: {
+    t: Translate;
+    locale: 'tr' | 'en';
+    value: CountryCode | null;
+    onChange: (country: CountryCode) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const country = value ? getCountryOption(value, locale) : null;
+
+    return (
+        <>
+            <label className="block">
+                <span className="mb-2 block text-[13px] font-medium text-[#6e6e73]">
+                    {t('Ülke', 'Country')}
+                    <span className="ml-1 text-[#ff3b30]">*</span>
+                </span>
+                <button
+                    type="button"
+                    onClick={() => setOpen(true)}
+                    className="flex h-[54px] w-full items-center gap-3 rounded-[16px] border border-black/[0.08] bg-[#f9f9fb] px-4 text-left transition hover:bg-white focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8 focus:outline-none"
+                    aria-haspopup="dialog"
+                    aria-expanded={open}
+                >
+                    {country ? (
+                        <span className="text-[22px] leading-none" aria-hidden="true">
+                            {country.flag}
+                        </span>
+                    ) : (
+                        <Globe2 className="size-[17px] shrink-0 text-[#8e8e93]" />
+                    )}
+                    <span className={`min-w-0 flex-1 truncate text-[15px] font-medium ${country ? '' : 'text-[#8e8e93]'}`}>
+                        {country?.name ?? t('Ülke seç', 'Choose a country')}
+                    </span>
+                    {country && <span className="text-[13px] font-medium text-[#8e8e93]">+{country.callingCode}</span>}
+                    <ChevronDown className="size-4 shrink-0 text-[#8e8e93]" />
+                </button>
+            </label>
+
+            {open && <CountryPicker t={t} locale={locale} value={value} onCancel={() => setOpen(false)} onChange={onChange} />}
+        </>
+    );
+}
+
+function CountryPicker({
+    t,
+    locale,
+    value,
+    onCancel,
+    onChange,
+}: {
+    t: Translate;
+    locale: 'tr' | 'en';
+    value: CountryCode | null;
+    onCancel: () => void;
+    onChange: (country: CountryCode) => void;
+}) {
+    const [query, setQuery] = useState('');
+    const countries = useMemo(() => getCountryOptions(locale), [locale]);
+    const normalizedQuery = query.trim().toLocaleLowerCase(locale === 'tr' ? 'tr-TR' : 'en-US');
+    const results = useMemo(
+        () =>
+            normalizedQuery
+                ? countries.filter((country) => {
+                      const searchable = `${country.name} ${country.code} +${country.callingCode}`.toLocaleLowerCase(
+                          locale === 'tr' ? 'tr-TR' : 'en-US',
+                      );
+                      return searchable.includes(normalizedQuery);
+                  })
+                : countries,
+        [countries, locale, normalizedQuery],
+    );
+
+    return (
+        <div
+            className="apple-interface fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-5"
+            role="presentation"
+            onMouseDown={onCancel}
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="country-picker-title"
+                onMouseDown={(event) => event.stopPropagation()}
+                className="flex max-h-[88svh] w-full max-w-lg flex-col overflow-hidden rounded-t-[30px] border border-black/[0.07] bg-[#f9f9fb] shadow-[0_30px_90px_rgba(0,0,0,0.28)] sm:rounded-[30px]"
+            >
+                <div className="flex items-center justify-between px-5 pt-5 sm:px-6">
+                    <div>
+                        <p className="text-[12px] font-semibold text-[#007aff]">{t('Kişisel bilgiler', 'Personal information')}</p>
+                        <h2 id="country-picker-title" className="mt-1 text-[22px] font-semibold tracking-[-0.03em]">
+                            {t('Ülke seç', 'Choose a country')}
+                        </h2>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                        aria-label={t('Kapat', 'Close')}
+                    >
+                        <X className="size-[17px]" />
+                    </button>
+                </div>
+
+                <label className="mx-5 mt-5 flex h-12 items-center gap-3 rounded-[15px] bg-black/[0.045] px-4 sm:mx-6">
+                    <Search className="size-[17px] shrink-0 text-[#8e8e93]" />
+                    <input
+                        autoFocus
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder={t('Ülke veya telefon kodu ara', 'Search country or calling code')}
+                        className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-[#8e8e93]"
+                    />
+                    {query && (
+                        <button
+                            type="button"
+                            onClick={() => setQuery('')}
+                            className="grid size-7 place-items-center rounded-full bg-black/[0.07] text-[#8e8e93]"
+                            aria-label={t('Aramayı temizle', 'Clear search')}
+                        >
+                            <X className="size-3.5" />
+                        </button>
+                    )}
+                </label>
+
+                <div className="mt-4 min-h-0 flex-1 overflow-y-auto border-t border-black/[0.055] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                    {results.length === 0 ? (
+                        <p className="px-6 py-12 text-center text-[14px] text-[#8e8e93]">{t('Ülke bulunamadı.', 'No country found.')}</p>
+                    ) : (
+                        results.map((country) => (
+                            <button
+                                key={country.code}
+                                type="button"
+                                onClick={() => {
+                                    onChange(country.code);
+                                    onCancel();
+                                }}
+                                className="flex w-full items-center gap-3 border-b border-black/[0.045] px-5 py-3.5 text-left transition hover:bg-black/[0.025] sm:px-6"
+                            >
+                                <span className="w-8 shrink-0 text-[23px] leading-none" aria-hidden="true">
+                                    {country.flag}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{country.name}</span>
+                                <span className="text-[13px] text-[#8e8e93]">+{country.callingCode}</span>
+                                <span
+                                    className={`grid size-6 shrink-0 place-items-center rounded-full ${value === country.code ? 'bg-[#007aff] text-white' : 'text-transparent'}`}
+                                >
+                                    <Check className="size-3.5 stroke-[3]" />
+                                </span>
+                            </button>
+                        ))
+                    )}
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function ProfilePhoneField({
+    t,
+    country,
+    value,
+    onChange,
+}: {
+    t: Translate;
+    country: CountryCode | null;
+    value: string;
+    onChange: (phone: string) => void;
+}) {
+    const length = country ? getNationalPhoneLength(country) : null;
+    const invalid = Boolean(value && country && !isNationalPhoneLengthValid(value, country));
+    const formattedValue = country ? new AsYouType(country).input(value) : value;
+
+    return (
+        <label className="block">
+            <span className="mb-2 block text-[13px] font-medium text-[#6e6e73]">
+                {t('Telefon', 'Phone')}
+                <span className="ml-1 text-[#ff3b30]">*</span>
+            </span>
+            <span
+                className={`flex items-center rounded-[16px] border bg-[#f9f9fb] transition focus-within:border-[#007aff]/40 focus-within:bg-white focus-within:ring-4 focus-within:ring-[#007aff]/8 ${invalid ? 'border-[#ff3b30]/45' : 'border-black/[0.08]'}`}
+            >
+                <span className="flex h-[52px] shrink-0 items-center gap-2 border-r border-black/[0.07] px-4 text-[15px] font-semibold">
+                    <Phone className="size-[17px] text-[#8e8e93]" />
+                    {country ? `+${getCountryCallingCode(country)}` : '—'}
+                </span>
+                <input
+                    type="tel"
+                    inputMode="numeric"
+                    value={formattedValue}
+                    disabled={!country}
+                    onChange={(event) => onChange(normalizeNationalPhone(event.target.value, country))}
+                    autoComplete="tel-national"
+                    placeholder={country ? t('0 olmadan numaranı yaz', 'Enter number without leading 0') : t('Önce ülke seç', 'Choose country first')}
+                    className="h-[52px] min-w-0 flex-1 bg-transparent px-4 text-[15px] font-medium outline-none placeholder:text-[#aeaeb2] disabled:cursor-not-allowed"
+                />
+            </span>
+            <span className={`mt-2 block text-[11px] ${invalid ? 'font-medium text-[#ff3b30]' : 'text-[#8e8e93]'}`}>
+                {country && length
+                    ? invalid
+                        ? t(`Numara ${phoneLengthLabel(length, 'tr')} olmalı.`, `Number must be ${phoneLengthLabel(length, 'en')}.`)
+                        : t(
+                              `Ülke kodundan sonra 0 olmadan ${phoneLengthLabel(length, 'tr')} gir.`,
+                              `Enter ${phoneLengthLabel(length, 'en')} without a leading 0.`,
+                          )
+                    : t('Telefon kodu ülke seçimine göre belirlenir.', 'Calling code is determined by your country.')}
+            </span>
+        </label>
+    );
+}
+
+function BirthDateField({ t, locale, value, onChange }: { t: Translate; locale: 'tr' | 'en'; value: string; onChange: (date: string) => void }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <>
+            <label className="block">
+                <span className="mb-2 block text-[13px] font-medium text-[#6e6e73]">
+                    {t('Doğum Tarihi', 'Date of Birth')}
+                    <span className="ml-1 text-[#ff3b30]">*</span>
+                </span>
+                <button
+                    type="button"
+                    onClick={() => setOpen(true)}
+                    className="flex h-[54px] w-full items-center gap-3 rounded-[16px] border border-black/[0.08] bg-[#f9f9fb] px-4 text-left transition hover:bg-white focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8 focus:outline-none"
+                >
+                    <CakeSlice className="size-[17px] shrink-0 text-[#8e8e93]" />
+                    <span className={`min-w-0 flex-1 text-[15px] font-medium ${value ? '' : 'text-[#8e8e93]'}`}>
+                        {value ? formatBirthDate(value, locale) : t('Doğum tarihini seç', 'Choose your date of birth')}
+                    </span>
+                    <CalendarDays className="size-[17px] shrink-0 text-[#007aff]" />
+                </button>
+            </label>
+
+            {open && (
+                <BirthDateCalendar
+                    t={t}
+                    locale={locale}
+                    selectedDate={value}
+                    onCancel={() => setOpen(false)}
+                    onSelect={(date) => {
+                        onChange(date);
+                        setOpen(false);
+                    }}
+                />
+            )}
+        </>
+    );
+}
+
+function BirthDateCalendar({
+    t,
+    locale,
+    selectedDate,
+    onCancel,
+    onSelect,
+}: {
+    t: Translate;
+    locale: 'tr' | 'en';
+    selectedDate: string;
+    onCancel: () => void;
+    onSelect: (date: string) => void;
+}) {
+    const language = locale === 'tr' ? 'tr-TR' : 'en-US';
+    const initialDate = selectedDate ? parseDateKey(selectedDate) : new Date(new Date().getFullYear() - 25, new Date().getMonth(), 1, 12);
+    const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(initialDate));
+    const today = formatDateKey(new Date());
+    const days = useMemo(() => calendarMonthDays(visibleMonth), [visibleMonth]);
+    const monthNames = useMemo(
+        () => Array.from({ length: 12 }, (_, month) => new Intl.DateTimeFormat(language, { month: 'long' }).format(new Date(2026, month, 1, 12))),
+        [language],
+    );
+    const years = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        return Array.from({ length: currentYear - 1899 }, (_, index) => currentYear - index);
+    }, []);
+    const weekdays = useMemo(() => calendarWeekdayLabels(language), [language]);
+
+    return (
+        <div
+            className="apple-interface fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-5"
+            role="presentation"
+            onMouseDown={onCancel}
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="birth-calendar-title"
+                onMouseDown={(event) => event.stopPropagation()}
+                className="w-full max-w-md rounded-t-[30px] border border-black/[0.07] bg-[#f9f9fb] px-5 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_30px_90px_rgba(0,0,0,0.28)] sm:rounded-[30px] sm:px-7 sm:pb-6"
+            >
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-[12px] font-semibold text-[#007aff]">{t('Kişisel bilgiler', 'Personal information')}</p>
+                        <h2 id="birth-calendar-title" className="mt-1 text-[22px] font-semibold tracking-[-0.03em]">
+                            {t('Doğum tarihini seç', 'Choose date of birth')}
+                        </h2>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                        aria-label={t('Kapat', 'Close')}
+                    >
+                        <X className="size-[17px]" />
+                    </button>
+                </div>
+
+                <div className="mt-5 grid grid-cols-[40px_1fr_1fr_40px] items-center gap-2 rounded-[17px] bg-black/[0.045] p-1.5">
+                    <button
+                        type="button"
+                        onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1, 12))}
+                        disabled={visibleMonth.getFullYear() === 1900 && visibleMonth.getMonth() === 0}
+                        className="grid size-10 place-items-center rounded-full text-[#6e6e73] transition hover:bg-white hover:text-[#007aff] disabled:opacity-25"
+                        aria-label={t('Önceki ay', 'Previous month')}
+                    >
+                        <ChevronLeft className="size-5" />
+                    </button>
+                    <select
+                        value={visibleMonth.getMonth()}
+                        onChange={(event) => setVisibleMonth(new Date(visibleMonth.getFullYear(), Number(event.target.value), 1, 12))}
+                        className="h-10 min-w-0 rounded-full bg-white px-3 text-[13px] font-semibold capitalize outline-none"
+                        aria-label={t('Ay', 'Month')}
+                    >
+                        {monthNames.map((month, index) => (
+                            <option
+                                key={month}
+                                value={index}
+                                disabled={visibleMonth.getFullYear() === new Date().getFullYear() && index > new Date().getMonth()}
+                            >
+                                {month}
+                            </option>
+                        ))}
+                    </select>
+                    <select
+                        value={visibleMonth.getFullYear()}
+                        onChange={(event) => {
+                            const year = Number(event.target.value);
+                            const month =
+                                year === new Date().getFullYear()
+                                    ? Math.min(visibleMonth.getMonth(), new Date().getMonth())
+                                    : visibleMonth.getMonth();
+                            setVisibleMonth(new Date(year, month, 1, 12));
+                        }}
+                        className="h-10 min-w-0 rounded-full bg-white px-3 text-[13px] font-semibold outline-none"
+                        aria-label={t('Yıl', 'Year')}
+                    >
+                        {years.map((year) => (
+                            <option key={year} value={year}>
+                                {year}
+                            </option>
+                        ))}
+                    </select>
+                    <button
+                        type="button"
+                        onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1, 12))}
+                        disabled={visibleMonth.getFullYear() === new Date().getFullYear() && visibleMonth.getMonth() === new Date().getMonth()}
+                        className="grid size-10 place-items-center rounded-full text-[#6e6e73] transition hover:bg-white hover:text-[#007aff] disabled:opacity-25"
+                        aria-label={t('Sonraki ay', 'Next month')}
+                    >
+                        <ChevronRight className="size-5" />
+                    </button>
+                </div>
+
+                <div className="mt-5 grid grid-cols-7" aria-hidden="true">
+                    {weekdays.map((weekday) => (
+                        <span key={weekday} className="py-2 text-center text-[11px] font-semibold text-[#8e8e93]">
+                            {weekday}
+                        </span>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-y-1" role="grid">
+                    {days.map((day) => {
+                        const dayKey = formatDateKey(day);
+                        const selected = dayKey === selectedDate;
+                        const future = dayKey > today;
+                        const outsideMonth = day.getMonth() !== visibleMonth.getMonth();
+
+                        return (
+                            <button
+                                key={dayKey}
+                                type="button"
+                                disabled={future}
+                                onClick={() => onSelect(dayKey)}
+                                className={`mx-auto grid size-10 place-items-center rounded-full text-[14px] font-medium transition active:scale-90 disabled:pointer-events-none disabled:opacity-20 ${
+                                    selected
+                                        ? 'bg-[#007aff] text-white shadow-[0_5px_16px_rgba(0,122,255,0.25)]'
+                                        : outsideMonth
+                                          ? 'text-[#c7c7cc] hover:bg-black/[0.045]'
+                                          : 'text-[#1d1d1f] hover:bg-black/[0.045]'
+                                }`}
+                                aria-selected={selected}
+                                role="gridcell"
+                            >
+                                {day.getDate()}
+                            </button>
+                        );
+                    })}
+                </div>
+            </section>
+        </div>
     );
 }
 
@@ -2462,6 +2872,125 @@ function professionOptions(t: Translate): Array<{ value: string; label: string }
     ];
 }
 
+type CountryOption = {
+    code: CountryCode;
+    name: string;
+    callingCode: string;
+    flag: string;
+};
+
+function getCountryOptions(locale: 'tr' | 'en'): CountryOption[] {
+    const language = locale === 'tr' ? 'tr-TR' : 'en-US';
+    const names = new Intl.DisplayNames([language], { type: 'region' });
+
+    return COUNTRY_CODES.map((code) => ({
+        code,
+        name: names.of(code) ?? code,
+        callingCode: getCountryCallingCode(code),
+        flag: countryFlag(code),
+    })).sort((first, second) => first.name.localeCompare(second.name, language));
+}
+
+function getCountryOption(country: CountryCode, locale: 'tr' | 'en'): CountryOption {
+    const language = locale === 'tr' ? 'tr-TR' : 'en-US';
+    const names = new Intl.DisplayNames([language], { type: 'region' });
+
+    return {
+        code: country,
+        name: names.of(country) ?? country,
+        callingCode: getCountryCallingCode(country),
+        flag: countryFlag(country),
+    };
+}
+
+function countryFlag(country: CountryCode): string {
+    return country
+        .toUpperCase()
+        .split('')
+        .map((character) => String.fromCodePoint(127397 + character.charCodeAt(0)))
+        .join('');
+}
+
+function isCountryCode(value: string): value is CountryCode {
+    return COUNTRY_CODES.includes(value.toUpperCase() as CountryCode);
+}
+
+function normalizeStoredCountry(value: string): CountryCode | '' {
+    const normalizedCode = value.trim().toUpperCase();
+    if (isCountryCode(normalizedCode)) return normalizedCode;
+
+    const normalizedName = value.trim().toLocaleLowerCase('tr-TR');
+    for (const locale of ['tr', 'en'] as const) {
+        const match = getCountryOptions(locale).find((country) => country.name.toLocaleLowerCase('tr-TR') === normalizedName);
+        if (match) return match.code;
+    }
+
+    return '';
+}
+
+function getNationalPhoneLength(country: CountryCode): { min: number; max: number } {
+    const mobileExample = getExampleNumber(country, mobilePhoneExamples);
+    if (mobileExample) {
+        const length = mobileExample.nationalNumber.length;
+        return { min: length, max: length };
+    }
+
+    const validLengths: number[] = [];
+
+    for (let length = 1; length <= 15; length += 1) {
+        if (validatePhoneNumberLength(`1${'0'.repeat(length - 1)}`, country) === undefined) validLengths.push(length);
+    }
+
+    if (validLengths.length === 0) {
+        return { min: 4, max: Math.max(4, 15 - getCountryCallingCode(country).length) };
+    }
+
+    return { min: Math.min(...validLengths), max: Math.max(...validLengths) };
+}
+
+function isNationalPhoneLengthValid(value: string, country: CountryCode): boolean {
+    const length = getNationalPhoneLength(country);
+    return value.length >= length.min && value.length <= length.max;
+}
+
+function normalizeNationalPhone(value: string, country: CountryCode | null): string {
+    let digits = value.replace(/\D/g, '');
+
+    if (country && value.trim().startsWith('+')) {
+        const callingCode = getCountryCallingCode(country);
+        if (digits.startsWith(callingCode)) digits = digits.slice(callingCode.length);
+    }
+
+    digits = digits.replace(/^0+/, '');
+    if (!country) return digits.slice(0, 15);
+
+    return digits.slice(0, getNationalPhoneLength(country).max);
+}
+
+function phoneLengthLabel(length: { min: number; max: number }, locale: 'tr' | 'en'): string {
+    if (length.min === length.max) return locale === 'tr' ? `${length.max} rakam` : `${length.max} digits`;
+
+    return locale === 'tr' ? `${length.min}–${length.max} rakam` : `${length.min}–${length.max} digits`;
+}
+
+function formatBirthDate(date: string, locale: 'tr' | 'en'): string {
+    return new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    }).format(parseDateKey(date));
+}
+
+function calendarWeekdayLabels(language: string): string[] {
+    const monday = new Date(2026, 0, 5, 12);
+
+    return Array.from({ length: 7 }, (_, index) => {
+        const day = new Date(monday);
+        day.setDate(monday.getDate() + index);
+        return new Intl.DateTimeFormat(language, { weekday: 'short' }).format(day);
+    });
+}
+
 function formatGoalDate(date: string, locale: 'tr' | 'en'): string {
     return new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
         day: 'numeric',
@@ -2629,12 +3158,13 @@ function loadStoredProfile(): ProfileData {
         if (!value || typeof value !== 'object') return emptyProfile;
 
         const profile = value as Partial<ProfileData>;
+        const country = normalizeStoredCountry(typeof profile.country === 'string' ? profile.country : '');
         return {
             name: typeof profile.name === 'string' ? profile.name : '',
             email: typeof profile.email === 'string' ? profile.email : '',
-            phone: typeof profile.phone === 'string' ? profile.phone : '',
+            phone: normalizeNationalPhone(typeof profile.phone === 'string' ? profile.phone : '', country || null),
             birthDate: typeof profile.birthDate === 'string' ? profile.birthDate : '',
-            country: typeof profile.country === 'string' ? profile.country : '',
+            country,
             profession: typeof profile.profession === 'string' ? profile.profession : '',
             avatar: typeof profile.avatar === 'string' ? profile.avatar : '',
         };
