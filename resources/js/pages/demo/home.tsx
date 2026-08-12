@@ -28,7 +28,6 @@ import {
     Phone,
     Plus,
     Search,
-    Settings,
     Sun,
     Target,
     Trash2,
@@ -56,7 +55,7 @@ type GoalRecord = {
     createdAt: number;
 };
 
-type PanelSection = 'overview' | 'goals' | 'plan' | 'profile' | 'settings';
+type PanelSection = 'overview' | 'goals' | 'plan' | 'profile';
 type PlanRange = 'today' | 'tomorrow' | 'week' | 'month' | 'year';
 
 type PlanItem = {
@@ -290,12 +289,18 @@ export default function DemoHome() {
     };
 
     if (showPanel) {
-        if (panelSection === 'settings') {
-            return <SettingsPanel t={t} settings={settings} onNavigate={setPanelSection} onChange={setSettings} />;
-        }
-
         if (panelSection === 'profile') {
-            return <ProfilePanel t={t} locale={locale} profile={profile} onNavigate={setPanelSection} onSave={setProfile} />;
+            return (
+                <ProfilePanel
+                    t={t}
+                    locale={locale}
+                    profile={profile}
+                    settings={settings}
+                    onNavigate={setPanelSection}
+                    onSave={setProfile}
+                    onSettingsChange={setSettings}
+                />
+            );
         }
 
         if (panelSection === 'overview') {
@@ -813,7 +818,6 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
         { section: 'overview' as const, label: t('Genel Bakış', 'Overview'), icon: Layers3 },
         { section: 'goals' as const, label: t('Hedefler', 'Goals'), icon: Target },
         { section: 'plan' as const, label: t('Planla', 'Plan'), icon: ListTodo },
-        { section: 'settings' as const, label: t('Ayarlar', 'Settings'), icon: Settings },
         { section: 'profile' as const, label: t('Profil', 'Profile'), icon: UserRound },
     ];
 
@@ -861,7 +865,7 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
             </header>
 
             <nav
-                className="demo-mobile-navigation fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-black/[0.055] bg-[#f5f5f7]/80 px-1 pt-2 backdrop-blur-2xl sm:hidden"
+                className="demo-mobile-navigation fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-black/[0.055] bg-[#f5f5f7]/80 px-1 pt-2 backdrop-blur-2xl sm:hidden"
                 aria-label={t('Mobil panel bölümleri', 'Mobile panel sections')}
             >
                 {navigationItems.map((item) => {
@@ -886,85 +890,55 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
     );
 }
 
-function SettingsPanel({
-    t,
-    settings,
-    onNavigate,
-    onChange,
-}: {
-    t: Translate;
-    settings: SettingsData;
-    onNavigate: (section: PanelSection) => void;
-    onChange: (settings: SettingsData) => void;
-}) {
+function ProfilePreferences({ t, settings, onChange }: { t: Translate; settings: SettingsData; onChange: (settings: SettingsData) => void }) {
     return (
-        <>
-            <Head title={t('Ayarlar', 'Settings')}>
-                <meta name="robots" content="noindex, nofollow" />
-            </Head>
+        <div>
+            <section>
+                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Görünüm', 'Appearance')}</h2>
+                <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.04)]">
+                    <SettingOption
+                        icon={Sun}
+                        label={t('Açık', 'Light')}
+                        description={t('Aydınlık ve ferah görünüm', 'Bright and airy appearance')}
+                        selected={settings.appearance === 'light'}
+                        onSelect={() => onChange({ ...settings, appearance: 'light' })}
+                    />
+                    <SettingOption
+                        icon={Moon}
+                        label={t('Koyu', 'Dark')}
+                        description={t('Düşük ışık için koyu görünüm', 'Dark appearance for low light')}
+                        selected={settings.appearance === 'dark'}
+                        onSelect={() => onChange({ ...settings, appearance: 'dark' })}
+                        divided
+                    />
+                </div>
+            </section>
 
-            <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
-                <PanelHeader t={t} active="settings" onNavigate={onNavigate} />
+            <section className="mt-8">
+                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Dil', 'Language')}</h2>
+                <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.04)]">
+                    <SettingOption
+                        icon={Languages}
+                        label="Türkçe"
+                        description="Fuevor’u Türkçe kullan"
+                        selected={settings.language === 'tr'}
+                        onSelect={() => onChange({ ...settings, language: 'tr' })}
+                    />
+                    <SettingOption
+                        icon={Languages}
+                        label="English"
+                        description="Use Fuevor in English"
+                        selected={settings.language === 'en'}
+                        onSelect={() => onChange({ ...settings, language: 'en' })}
+                        divided
+                    />
+                </div>
+            </section>
 
-                <main className="mx-auto max-w-4xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
-                    <div>
-                        <p className="text-[13px] font-semibold text-[#007aff]">{t('Tercihlerin', 'Your preferences')}</p>
-                        <h1 className="mt-2 text-[clamp(2.35rem,6vw,4rem)] leading-none font-semibold tracking-[-0.05em]">
-                            {t('Ayarlar', 'Settings')}
-                        </h1>
-                        <p className="mt-4 text-[15px] text-[#6e6e73]">
-                            {t('Fuevor’u sana en uygun şekilde kullan.', 'Use Fuevor in the way that suits you best.')}
-                        </p>
-                    </div>
-
-                    <section className="mt-10">
-                        <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Görünüm', 'Appearance')}</h2>
-                        <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.04)]">
-                            <SettingOption
-                                icon={Sun}
-                                label={t('Açık', 'Light')}
-                                description={t('Aydınlık ve ferah görünüm', 'Bright and airy appearance')}
-                                selected={settings.appearance === 'light'}
-                                onSelect={() => onChange({ ...settings, appearance: 'light' })}
-                            />
-                            <SettingOption
-                                icon={Moon}
-                                label={t('Koyu', 'Dark')}
-                                description={t('Düşük ışık için koyu görünüm', 'Dark appearance for low light')}
-                                selected={settings.appearance === 'dark'}
-                                onSelect={() => onChange({ ...settings, appearance: 'dark' })}
-                                divided
-                            />
-                        </div>
-                    </section>
-
-                    <section className="mt-8">
-                        <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Dil', 'Language')}</h2>
-                        <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.04)]">
-                            <SettingOption
-                                icon={Languages}
-                                label="Türkçe"
-                                description="Fuevor’u Türkçe kullan"
-                                selected={settings.language === 'tr'}
-                                onSelect={() => onChange({ ...settings, language: 'tr' })}
-                            />
-                            <SettingOption
-                                icon={Languages}
-                                label="English"
-                                description="Use Fuevor in English"
-                                selected={settings.language === 'en'}
-                                onSelect={() => onChange({ ...settings, language: 'en' })}
-                                divided
-                            />
-                        </div>
-                    </section>
-
-                    <p className="mt-5 px-1 text-[12px] leading-relaxed text-[#8e8e93]">
-                        {t('Değişiklikler anında uygulanır ve bu cihazda saklanır.', 'Changes apply instantly and are saved on this device.')}
-                    </p>
-                </main>
-            </div>
-        </>
+            <p className="mt-5 px-1 text-[12px] leading-relaxed text-[#8e8e93]">
+                {t('Değişiklikler anında uygulanır ve bu cihazda saklanır.', 'Changes apply instantly and are saved on this device.')}
+            </p>
+        </div>
     );
 }
 
@@ -1011,16 +985,20 @@ function ProfilePanel({
     t,
     locale,
     profile,
+    settings,
     onNavigate,
     onSave,
+    onSettingsChange,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
     profile: ProfileData;
+    settings: SettingsData;
     onNavigate: (section: PanelSection) => void;
     onSave: (profile: ProfileData) => void;
+    onSettingsChange: (settings: SettingsData) => void;
 }) {
-    const [tab, setTab] = useState<'personal' | 'security'>('personal');
+    const [tab, setTab] = useState<'personal' | 'settings'>('personal');
     const [draft, setDraft] = useState(profile);
     const [saved, setSaved] = useState(false);
     const [currentPassword, setCurrentPassword] = useState('');
@@ -1028,6 +1006,9 @@ function ProfilePanel({
     const [passwordConfirmation, setPasswordConfirmation] = useState('');
     const [passwordMessage, setPasswordMessage] = useState<'success' | 'mismatch' | null>(null);
     const [cropSource, setCropSource] = useState<string | null>(null);
+    const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+    const [resetEmail, setResetEmail] = useState(profile.email);
+    const [resetSent, setResetSent] = useState(false);
     const profileInitial = draft.name.trim().charAt(0).toLocaleUpperCase('tr-TR') || 'K';
     const selectedCountry = isCountryCode(draft.country) ? draft.country : null;
     const phoneIsValid = selectedCountry ? isNationalPhoneLengthValid(draft.phone, selectedCountry) : false;
@@ -1092,10 +1073,10 @@ function ProfilePanel({
                         </button>
                         <button
                             type="button"
-                            onClick={() => setTab('security')}
-                            className={`flex-1 rounded-full px-5 py-2.5 text-[14px] font-medium whitespace-nowrap transition sm:flex-none ${tab === 'security' ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73]'}`}
+                            onClick={() => setTab('settings')}
+                            className={`flex-1 rounded-full px-5 py-2.5 text-[14px] font-medium whitespace-nowrap transition sm:flex-none ${tab === 'settings' ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73]'}`}
                         >
-                            {t('Güvenlik', 'Security')}
+                            {t('Ayarlar', 'Settings')}
                         </button>
                     </div>
 
@@ -1238,73 +1219,109 @@ function ProfilePanel({
                             </div>
                         </form>
                     ) : (
-                        <form
-                            onSubmit={updatePassword}
-                            className="demo-step-enter mt-6 overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
-                        >
-                            <div className="flex items-center gap-4 border-b border-black/[0.055] px-5 py-6 sm:px-7">
-                                <span className="grid size-12 shrink-0 place-items-center rounded-[15px] bg-[#007aff]/10 text-[#007aff]">
-                                    <LockKeyhole className="size-[21px]" />
-                                </span>
-                                <div>
-                                    <h2 className="text-[19px] font-semibold tracking-[-0.02em]">{t('Şifreyi değiştir', 'Change password')}</h2>
-                                    <p className="mt-1 text-[13px] text-[#8e8e93]">
-                                        {t('Hesabın için güçlü ve benzersiz bir şifre kullan.', 'Use a strong, unique password for your account.')}
-                                    </p>
-                                </div>
-                            </div>
+                        <div className="demo-step-enter mt-6">
+                            <ProfilePreferences t={t} settings={settings} onChange={onSettingsChange} />
 
-                            <div className="space-y-5 px-5 py-6 sm:px-7">
-                                <ProfileField
-                                    label={t('Mevcut Şifre', 'Current Password')}
-                                    value={currentPassword}
-                                    onChange={setCurrentPassword}
-                                    autoComplete="current-password"
-                                    type="password"
-                                    icon={LockKeyhole}
-                                />
-                                <ProfileField
-                                    label={t('Yeni Şifre', 'New Password')}
-                                    value={newPassword}
-                                    onChange={(value) => {
-                                        setNewPassword(value);
-                                        setPasswordMessage(null);
-                                    }}
-                                    autoComplete="new-password"
-                                    type="password"
-                                    icon={LockKeyhole}
-                                />
-                                <ProfileField
-                                    label={t('Yeni Şifre Tekrar', 'Confirm New Password')}
-                                    value={passwordConfirmation}
-                                    onChange={(value) => {
-                                        setPasswordConfirmation(value);
-                                        setPasswordMessage(null);
-                                    }}
-                                    autoComplete="new-password"
-                                    type="password"
-                                    icon={LockKeyhole}
-                                />
-                                {passwordMessage === 'mismatch' && (
-                                    <p className="text-[13px] font-medium text-[#ff3b30]">
-                                        {t('Yeni şifreler birbiriyle eşleşmiyor.', 'The new passwords do not match.')}
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="flex items-center justify-end gap-4 border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
-                                {passwordMessage === 'success' && (
-                                    <span className="text-[13px] font-medium text-[#28a745]">{t('Şifre güncellendi', 'Password updated')}</span>
-                                )}
-                                <button
-                                    type="submit"
-                                    disabled={!currentPassword || newPassword.length < 8 || !passwordConfirmation}
-                                    className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition hover:bg-[#006ee6] active:scale-[0.98] disabled:bg-[#d1d1d6]"
+                            <section className="mt-8">
+                                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Güvenlik', 'Security')}</h2>
+                                <form
+                                    onSubmit={updatePassword}
+                                    className="overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
                                 >
-                                    {t('Şifreyi Güncelle', 'Update Password')}
-                                </button>
-                            </div>
-                        </form>
+                                    <div className="flex items-center gap-4 border-b border-black/[0.055] px-5 py-6 sm:px-7">
+                                        <span className="grid size-12 shrink-0 place-items-center rounded-[15px] bg-[#007aff]/10 text-[#007aff]">
+                                            <LockKeyhole className="size-[21px]" />
+                                        </span>
+                                        <div>
+                                            <h2 className="text-[19px] font-semibold tracking-[-0.02em]">
+                                                {t('Şifreyi değiştir', 'Change password')}
+                                            </h2>
+                                            <p className="mt-1 text-[13px] text-[#8e8e93]">
+                                                {t(
+                                                    'Hesabın için güçlü ve benzersiz bir şifre kullan.',
+                                                    'Use a strong, unique password for your account.',
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-5 px-5 py-6 sm:px-7">
+                                        <ProfileField
+                                            label={t('Mevcut Şifre', 'Current Password')}
+                                            value={currentPassword}
+                                            onChange={setCurrentPassword}
+                                            autoComplete="current-password"
+                                            type="password"
+                                            icon={LockKeyhole}
+                                        />
+                                        <ProfileField
+                                            label={t('Yeni Şifre', 'New Password')}
+                                            value={newPassword}
+                                            onChange={(value) => {
+                                                setNewPassword(value);
+                                                setPasswordMessage(null);
+                                            }}
+                                            autoComplete="new-password"
+                                            type="password"
+                                            icon={LockKeyhole}
+                                        />
+                                        <ProfileField
+                                            label={t('Yeni Şifre Tekrar', 'Confirm New Password')}
+                                            value={passwordConfirmation}
+                                            onChange={(value) => {
+                                                setPasswordConfirmation(value);
+                                                setPasswordMessage(null);
+                                            }}
+                                            autoComplete="new-password"
+                                            type="password"
+                                            icon={LockKeyhole}
+                                        />
+                                        {passwordMessage === 'mismatch' && (
+                                            <p className="text-[13px] font-medium text-[#ff3b30]">
+                                                {t('Yeni şifreler birbiriyle eşleşmiyor.', 'The new passwords do not match.')}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center justify-end gap-4 border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
+                                        {passwordMessage === 'success' && (
+                                            <span className="text-[13px] font-medium text-[#28a745]">
+                                                {t('Şifre güncellendi', 'Password updated')}
+                                            </span>
+                                        )}
+                                        <button
+                                            type="submit"
+                                            disabled={!currentPassword || newPassword.length < 8 || !passwordConfirmation}
+                                            className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition hover:bg-[#006ee6] active:scale-[0.98] disabled:bg-[#d1d1d6]"
+                                        >
+                                            {t('Şifreyi Güncelle', 'Update Password')}
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-4 border-t border-black/[0.055] px-5 py-5 sm:px-7">
+                                        <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#ff9500]/10 text-[#ff9500]">
+                                            <Mail className="size-[19px]" />
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <h3 className="text-[15px] font-semibold">{t('Şifreni mi unuttun?', 'Forgot your password?')}</h3>
+                                            <p className="mt-1 text-[12px] leading-5 text-[#8e8e93]">
+                                                {t('E-postana güvenli bir sıfırlama bağlantısı gönder.', 'Send a secure reset link to your email.')}
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setResetEmail(draft.email);
+                                                setResetSent(false);
+                                                setForgotPasswordOpen(true);
+                                            }}
+                                            className="shrink-0 rounded-full bg-[#007aff]/10 px-4 py-2 text-[13px] font-semibold text-[#007aff] transition active:scale-95"
+                                        >
+                                            {t('Sıfırla', 'Reset')}
+                                        </button>
+                                    </div>
+                                </form>
+                            </section>
+                        </div>
                     )}
                 </main>
             </div>
@@ -1320,7 +1337,126 @@ function ProfilePanel({
                     }}
                 />
             )}
+
+            {forgotPasswordOpen && (
+                <ForgotPasswordDialog
+                    t={t}
+                    email={resetEmail}
+                    sent={resetSent}
+                    onEmailChange={setResetEmail}
+                    onCancel={() => setForgotPasswordOpen(false)}
+                    onSubmit={() => setResetSent(true)}
+                />
+            )}
         </>
+    );
+}
+
+function ForgotPasswordDialog({
+    t,
+    email,
+    sent,
+    onEmailChange,
+    onCancel,
+    onSubmit,
+}: {
+    t: Translate;
+    email: string;
+    sent: boolean;
+    onEmailChange: (email: string) => void;
+    onCancel: () => void;
+    onSubmit: () => void;
+}) {
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+    return (
+        <div
+            className="apple-interface fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-5"
+            role="presentation"
+            onMouseDown={onCancel}
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="forgot-password-title"
+                onMouseDown={(event) => event.stopPropagation()}
+                className="w-full max-w-md rounded-t-[30px] border border-black/[0.07] bg-[#f9f9fb] px-5 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_30px_90px_rgba(0,0,0,0.28)] sm:rounded-[30px] sm:px-7 sm:pb-7"
+            >
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <p className="text-[12px] font-semibold text-[#007aff]">{t('Hesap kurtarma', 'Account recovery')}</p>
+                        <h2 id="forgot-password-title" className="mt-1 text-[22px] font-semibold tracking-[-0.03em]">
+                            {sent ? t('E-postanı kontrol et', 'Check your email') : t('Şifremi Unuttum', 'Forgot Password')}
+                        </h2>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                        aria-label={t('Kapat', 'Close')}
+                    >
+                        <X className="size-[17px]" />
+                    </button>
+                </div>
+
+                {sent ? (
+                    <div className="py-7 text-center">
+                        <span className="mx-auto grid size-16 place-items-center rounded-full bg-[#34c759]/10 text-[#28a745]">
+                            <Mail className="size-7" />
+                        </span>
+                        <p className="mx-auto mt-5 max-w-sm text-[14px] leading-6 text-[#6e6e73]">
+                            {t(
+                                `${email.trim()} adresine şifre sıfırlama bağlantısı gönderildi.`,
+                                `A password reset link was sent to ${email.trim()}.`,
+                            )}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            className="mt-6 h-12 w-full rounded-full bg-[#007aff] text-[14px] font-semibold text-white transition active:scale-[0.98]"
+                        >
+                            {t('Tamam', 'Done')}
+                        </button>
+                    </div>
+                ) : (
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            if (validEmail) onSubmit();
+                        }}
+                        className="mt-6"
+                    >
+                        <p className="text-[13px] leading-5 text-[#6e6e73]">
+                            {t(
+                                'Hesabına bağlı e-posta adresini yaz. Sana güvenli bir sıfırlama bağlantısı gönderelim.',
+                                'Enter the email linked to your account and we’ll send you a secure reset link.',
+                            )}
+                        </p>
+                        <label className="mt-5 block">
+                            <span className="mb-2 block text-[13px] font-medium text-[#6e6e73]">{t('E-posta', 'Email')}</span>
+                            <span className="flex items-center gap-3 rounded-[16px] border border-black/[0.08] bg-white px-4 transition focus-within:border-[#007aff]/40 focus-within:ring-4 focus-within:ring-[#007aff]/8">
+                                <Mail className="size-[17px] text-[#8e8e93]" />
+                                <input
+                                    autoFocus
+                                    type="email"
+                                    value={email}
+                                    onChange={(event) => onEmailChange(event.target.value)}
+                                    autoComplete="email"
+                                    className="h-[52px] min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none"
+                                />
+                            </span>
+                        </label>
+                        <button
+                            type="submit"
+                            disabled={!validEmail}
+                            className="mt-6 h-12 w-full rounded-full bg-[#007aff] text-[14px] font-semibold text-white transition active:scale-[0.98] disabled:bg-[#d1d1d6]"
+                        >
+                            {t('Sıfırlama Bağlantısı Gönder', 'Send Reset Link')}
+                        </button>
+                    </form>
+                )}
+            </section>
+        </div>
     );
 }
 
