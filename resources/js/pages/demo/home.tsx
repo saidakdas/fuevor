@@ -50,6 +50,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 type Priority = 'urgent' | 'very-important' | 'important' | 'has-time';
 type GoalCategory = 'health' | 'work' | 'venture' | 'skill' | 'education' | 'other';
 type EducationLevel = '' | 'high-school' | 'associate' | 'bachelor' | 'master' | 'doctorate';
+type SavedEducationLevel = Exclude<EducationLevel, ''>;
 
 type BuildingBlock = {
     completed?: boolean;
@@ -105,9 +106,15 @@ type ProfileData = {
     country: string;
     profession: string;
     about: string;
-    educationLevel: EducationLevel;
-    university: string;
+    educations: EducationRecord[];
     avatar: string;
+};
+
+type EducationRecord = {
+    id: number;
+    level: SavedEducationLevel;
+    university: string;
+    department: string;
 };
 
 type UniversityOption = {
@@ -2380,8 +2387,6 @@ function ProfilePanel({
     const selectedCountry = isCountryCode(draft.country) ? draft.country : null;
     const phoneIsValid = selectedCountry ? isNationalPhoneLengthValid(draft.phone, selectedCountry) : false;
     const usernameIsValid = /^[\p{L}\p{N}._]{3,30}$/u.test(draft.username.trim());
-    const universityIsRequired = Boolean(draft.educationLevel && draft.educationLevel !== 'high-school');
-    const educationIsValid = Boolean(draft.educationLevel) && (!universityIsRequired || Boolean(draft.university.trim()));
 
     useEffect(() => {
         const previousOverflow = document.body.style.overflow;
@@ -2409,8 +2414,7 @@ function ProfilePanel({
             country: draft.country,
             profession: draft.profession,
             about: draft.about.trim(),
-            educationLevel: draft.educationLevel,
-            university: universityIsRequired ? draft.university.trim() : '',
+            educations: draft.educations,
             avatar: draft.avatar,
         });
         setSaved(true);
@@ -2634,60 +2638,34 @@ function ProfilePanel({
                                         placeholder={t('Meslek seç', 'Choose a profession')}
                                         options={professionOptions(t)}
                                     />
+                                    <div className="border-t border-black/[0.055] pt-6">
+                                        <div className="flex items-center gap-3">
+                                            <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#007aff]/10 text-[#007aff]">
+                                                <NotebookPen className="size-5" />
+                                            </span>
+                                            <div>
+                                                <h3 className="text-[16px] font-semibold tracking-[-0.015em]">{t('Hakkımda', 'About Me')}</h3>
+                                                <p className="mt-0.5 text-[12px] text-[#8e8e93]">
+                                                    {t(
+                                                        'Kısa tanıtımın ve eklediğin eğitimler burada yer alır.',
+                                                        'Your introduction and added education appear here.',
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <ProfileAboutField
                                         t={t}
                                         value={draft.about}
                                         onChange={(about) => setDraft((current) => ({ ...current, about }))}
                                     />
 
-                                    <div className="border-t border-black/[0.055] pt-6">
-                                        <div className="flex items-center gap-3">
-                                            <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#5856d6]/10 text-[#5856d6]">
-                                                <GraduationCap className="size-5" />
-                                            </span>
-                                            <div>
-                                                <h3 className="text-[16px] font-semibold tracking-[-0.015em]">
-                                                    {t('Eğitim Bilgileri', 'Education')}
-                                                </h3>
-                                                <p className="mt-0.5 text-[12px] text-[#8e8e93]">
-                                                    {t('Mezuniyet seviyeni ve okulunu ekle.', 'Add your graduation level and university.')}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <ProfileSelect
-                                        label={t('Mezuniyet', 'Graduation Level')}
-                                        value={draft.educationLevel}
-                                        onChange={(educationLevel) =>
-                                            setDraft((current) => ({
-                                                ...current,
-                                                educationLevel: educationLevel as EducationLevel,
-                                                university: educationLevel === 'high-school' || !educationLevel ? '' : current.university,
-                                            }))
-                                        }
-                                        icon={GraduationCap}
-                                        placeholder={t('Mezuniyet seviyesini seç', 'Choose graduation level')}
-                                        options={educationLevelOptions(t)}
-                                        required
+                                    <ProfileEducationSection
+                                        t={t}
+                                        educations={draft.educations}
+                                        onChange={(educations) => setDraft((current) => ({ ...current, educations }))}
                                     />
-
-                                    {draft.educationLevel === 'high-school' && (
-                                        <div className="rounded-[16px] bg-[#5856d6]/8 px-4 py-3 text-[12px] leading-relaxed text-[#6e6e73]">
-                                            {t(
-                                                'Lise mezuniyeti için okul adı girmen gerekmiyor.',
-                                                'You do not need to enter a school name for high school graduation.',
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {universityIsRequired && (
-                                        <UniversitySearchField
-                                            t={t}
-                                            value={draft.university}
-                                            onChange={(university) => setDraft((current) => ({ ...current, university }))}
-                                        />
-                                    )}
                                 </div>
 
                                 <div className="flex items-center justify-end gap-4 border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
@@ -2700,8 +2678,7 @@ function ProfilePanel({
                                             !draft.email.trim() ||
                                             !phoneIsValid ||
                                             !draft.birthDate ||
-                                            !selectedCountry ||
-                                            !educationIsValid
+                                            !selectedCountry
                                         }
                                         className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition hover:bg-[#006ee6] active:scale-[0.98] disabled:bg-[#d1d1d6]"
                                     >
@@ -3241,7 +3218,7 @@ function ProfileAboutField({ t, value, onChange }: { t: Translate; value: string
     return (
         <label className="block">
             <span className="mb-2 flex items-center justify-between gap-3 text-[13px] font-medium text-[#6e6e73]">
-                <span>{t('Hakkımda', 'About Me')}</span>
+                <span>{t('Kısa Tanıtım', 'Introduction')}</span>
                 <span className="text-[11px] font-normal text-[#8e8e93]">{t('İsteğe bağlı', 'Optional')}</span>
             </span>
             <span className="flex items-start gap-3 rounded-[16px] border border-black/[0.08] bg-[#f9f9fb] px-4 py-3 transition focus-within:border-[#007aff]/40 focus-within:bg-white focus-within:ring-4 focus-within:ring-[#007aff]/8">
@@ -3261,6 +3238,198 @@ function ProfileAboutField({ t, value, onChange }: { t: Translate; value: string
                 {value.length}/{limit}
             </span>
         </label>
+    );
+}
+
+function ProfileEducationSection({
+    t,
+    educations,
+    onChange,
+}: {
+    t: Translate;
+    educations: EducationRecord[];
+    onChange: (educations: EducationRecord[]) => void;
+}) {
+    const [editorOpen, setEditorOpen] = useState(false);
+    const [editingId, setEditingId] = useState<number | null>(null);
+    const [level, setLevel] = useState<EducationLevel>('');
+    const [university, setUniversity] = useState('');
+    const [department, setDepartment] = useState('');
+    const universityDetailsRequired = Boolean(level && level !== 'high-school');
+    const entryIsValid = Boolean(level) && (!universityDetailsRequired || Boolean(university.trim() && department.trim()));
+
+    const resetEditor = () => {
+        setEditorOpen(false);
+        setEditingId(null);
+        setLevel('');
+        setUniversity('');
+        setDepartment('');
+    };
+
+    const openNewEducation = () => {
+        setEditingId(null);
+        setLevel('');
+        setUniversity('');
+        setDepartment('');
+        setEditorOpen(true);
+    };
+
+    const editEducation = (education: EducationRecord) => {
+        setEditingId(education.id);
+        setLevel(education.level);
+        setUniversity(education.university);
+        setDepartment(education.department);
+        setEditorOpen(true);
+    };
+
+    const addEducation = () => {
+        if (!entryIsValid || !level) return;
+
+        const education: EducationRecord = {
+            id: editingId ?? Date.now(),
+            level,
+            university: level === 'high-school' ? '' : university.trim(),
+            department: level === 'high-school' ? '' : department.trim(),
+        };
+
+        onChange(editingId === null ? [...educations, education] : educations.map((item) => (item.id === editingId ? education : item)));
+        resetEditor();
+    };
+
+    return (
+        <section className="overflow-hidden rounded-[20px] border border-black/[0.07] bg-[#f9f9fb]">
+            <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
+                <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#5856d6]/10 text-[#5856d6]">
+                        <GraduationCap className="size-5" />
+                    </span>
+                    <div className="min-w-0">
+                        <h4 className="text-[15px] font-semibold">{t('Eğitim Bilgileri', 'Education')}</h4>
+                        <p className="mt-0.5 text-[11px] text-[#8e8e93]">
+                            {t('İsteğe bağlı · Birden fazla eklenebilir', 'Optional · Add multiple entries')}
+                        </p>
+                    </div>
+                </div>
+                {!editorOpen && (
+                    <button
+                        type="button"
+                        onClick={openNewEducation}
+                        className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-[#007aff] px-3.5 text-[12px] font-semibold text-white transition active:scale-95"
+                    >
+                        <Plus className="size-3.5" />
+                        {t('Ekle', 'Add')}
+                    </button>
+                )}
+            </div>
+
+            {educations.length > 0 && (
+                <div className="border-t border-black/[0.055] bg-white">
+                    {educations.map((education) => (
+                        <div key={education.id} className="flex items-center gap-3 border-b border-black/[0.045] px-4 py-4 last:border-b-0 sm:px-5">
+                            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#5856d6]/10 text-[#5856d6]">
+                                <GraduationCap className="size-[18px]" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-[14px] font-semibold">{educationLevelLabel(education.level, t)}</p>
+                                {education.level !== 'high-school' && (
+                                    <>
+                                        <p className="mt-0.5 truncate text-[12px] text-[#6e6e73]">{education.university}</p>
+                                        {education.department && <p className="mt-0.5 truncate text-[11px] text-[#8e8e93]">{education.department}</p>}
+                                    </>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => editEducation(education)}
+                                className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.045] text-[#6e6e73] transition hover:bg-black/[0.075]"
+                                aria-label={t('Eğitimi düzenle', 'Edit education')}
+                            >
+                                <Pencil className="size-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onChange(educations.filter((item) => item.id !== education.id));
+                                    if (editingId === education.id) resetEditor();
+                                }}
+                                className="grid size-9 shrink-0 place-items-center rounded-full bg-[#ff3b30]/8 text-[#ff3b30] transition hover:bg-[#ff3b30]/12"
+                                aria-label={t('Eğitimi kaldır', 'Remove education')}
+                            >
+                                <Trash2 className="size-4" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {editorOpen && (
+                <div className="space-y-5 border-t border-black/[0.055] bg-white px-4 py-5 sm:px-5">
+                    <div className="flex items-center justify-between gap-3">
+                        <h5 className="text-[14px] font-semibold">
+                            {editingId === null ? t('Yeni Eğitim', 'New Education') : t('Eğitimi Düzenle', 'Edit Education')}
+                        </h5>
+                        <button
+                            type="button"
+                            onClick={resetEditor}
+                            className="grid size-8 place-items-center rounded-full bg-black/[0.05] text-[#6e6e73]"
+                            aria-label={t('Vazgeç', 'Cancel')}
+                        >
+                            <X className="size-4" />
+                        </button>
+                    </div>
+
+                    <ProfileSelect
+                        label={t('Mezuniyet', 'Graduation Level')}
+                        value={level}
+                        onChange={(educationLevel) => {
+                            const nextLevel = educationLevel as EducationLevel;
+                            setLevel(nextLevel);
+                            if (!nextLevel || nextLevel === 'high-school') {
+                                setUniversity('');
+                                setDepartment('');
+                            }
+                        }}
+                        icon={GraduationCap}
+                        placeholder={t('Mezuniyet seviyesini seç', 'Choose graduation level')}
+                        options={educationLevelOptions(t)}
+                        required
+                    />
+
+                    {level === 'high-school' && (
+                        <div className="rounded-[16px] bg-[#5856d6]/8 px-4 py-3 text-[12px] leading-relaxed text-[#6e6e73]">
+                            {t(
+                                'Lise mezuniyeti için okul veya bölüm adı girmen gerekmiyor.',
+                                'You do not need to enter a school or department for high school graduation.',
+                            )}
+                        </div>
+                    )}
+
+                    {universityDetailsRequired && (
+                        <>
+                            <UniversitySearchField t={t} value={university} onChange={setUniversity} />
+                            <ProfileField
+                                label={t('Bölüm', 'Department / Major')}
+                                value={department}
+                                onChange={setDepartment}
+                                autoComplete="off"
+                                icon={GraduationCap}
+                                placeholder={t('Bölümünü yaz', 'Enter your department or major')}
+                                required
+                            />
+                        </>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={addEducation}
+                        disabled={!entryIsValid}
+                        className="h-11 w-full rounded-full bg-[#007aff] px-5 text-[13px] font-semibold text-white transition active:scale-[0.98] disabled:bg-[#d1d1d6]"
+                    >
+                        {editingId === null ? t('Hakkımda Alanına Ekle', 'Add to About') : t('Eğitimi Güncelle', 'Update Education')}
+                    </button>
+                </div>
+            )}
+        </section>
     );
 }
 
@@ -5512,6 +5681,10 @@ function educationLevelOptions(t: Translate): Array<{ value: EducationLevel; lab
     ];
 }
 
+function educationLevelLabel(level: SavedEducationLevel, t: Translate): string {
+    return educationLevelOptions(t).find((option) => option.value === level)?.label ?? level;
+}
+
 function normalizeUsernameInput(value: string): string {
     return value
         .trimStart()
@@ -5535,6 +5708,34 @@ function suggestedUsername(name: string, email: string): string {
 
 function isEducationLevel(value: unknown): value is EducationLevel {
     return value === '' || value === 'high-school' || value === 'associate' || value === 'bachelor' || value === 'master' || value === 'doctorate';
+}
+
+function isSavedEducationLevel(value: unknown): value is SavedEducationLevel {
+    return isEducationLevel(value) && value !== '';
+}
+
+function normalizeStoredEducations(value: unknown): EducationRecord[] {
+    if (!Array.isArray(value)) return [];
+
+    return value.flatMap((education, index) => {
+        if (!education || typeof education !== 'object') return [];
+
+        const record = education as Partial<EducationRecord>;
+        if (!isSavedEducationLevel(record.level)) return [];
+
+        const university = typeof record.university === 'string' ? record.university.trim() : '';
+        const department = typeof record.department === 'string' ? record.department.trim() : '';
+        if (record.level !== 'high-school' && !university) return [];
+
+        return [
+            {
+                id: Number.isFinite(record.id) ? Number(record.id) : index + 1,
+                level: record.level,
+                university: record.level === 'high-school' ? '' : university,
+                department: record.level === 'high-school' ? '' : department,
+            },
+        ];
+    });
 }
 
 function isUniversityApiRecord(value: unknown): value is { name: string; country: string; alpha_two_code: string } {
@@ -5934,8 +6135,7 @@ function loadStoredProfile(): ProfileData {
         country: '',
         profession: '',
         about: '',
-        educationLevel: '',
-        university: '',
+        educations: [],
         avatar: '',
     };
     if (typeof window === 'undefined') return emptyProfile;
@@ -5944,11 +6144,20 @@ function loadStoredProfile(): ProfileData {
         const value: unknown = JSON.parse(window.localStorage.getItem(DEMO_PROFILE_STORAGE_KEY) ?? 'null');
         if (!value || typeof value !== 'object') return emptyProfile;
 
-        const profile = value as Partial<ProfileData>;
+        const profile = value as Partial<ProfileData> & { educationLevel?: unknown; university?: unknown };
         const country = normalizeStoredCountry(typeof profile.country === 'string' ? profile.country : '');
         const name = typeof profile.name === 'string' ? profile.name : '';
         const email = typeof profile.email === 'string' ? profile.email : '';
-        const educationLevel = isEducationLevel(profile.educationLevel) ? profile.educationLevel : '';
+        const educations = normalizeStoredEducations(profile.educations);
+        const legacyEducationLevel = isSavedEducationLevel(profile.educationLevel) ? profile.educationLevel : null;
+        if (educations.length === 0 && legacyEducationLevel) {
+            educations.push({
+                id: 1,
+                level: legacyEducationLevel,
+                university: legacyEducationLevel !== 'high-school' && typeof profile.university === 'string' ? profile.university.trim() : '',
+                department: '',
+            });
+        }
         return {
             name,
             username:
@@ -5961,8 +6170,7 @@ function loadStoredProfile(): ProfileData {
             country,
             profession: typeof profile.profession === 'string' ? profile.profession : '',
             about: typeof profile.about === 'string' ? profile.about.slice(0, 500) : '',
-            educationLevel,
-            university: educationLevel && educationLevel !== 'high-school' && typeof profile.university === 'string' ? profile.university : '',
+            educations,
             avatar: typeof profile.avatar === 'string' ? profile.avatar : '',
         };
     } catch {
