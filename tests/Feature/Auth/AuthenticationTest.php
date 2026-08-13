@@ -17,6 +17,12 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_common_admin_login_addresses_redirect_to_the_login_screen(): void
+    {
+        $this->get('/admin/login')->assertRedirect('/login');
+        $this->get('/giris')->assertRedirect('/login');
+    }
+
     public function test_regular_users_cannot_open_a_session_while_the_panel_is_hidden()
     {
         $user = User::factory()->create();

@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('register', fn () => abort(404));
 
+Route::redirect('admin/login', '/login');
+Route::redirect('giris', '/login');
+
 Route::post('register', [RegisteredUserController::class, 'store'])
     ->middleware('throttle:10,1')
     ->name('register');
