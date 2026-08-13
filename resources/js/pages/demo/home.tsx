@@ -154,6 +154,7 @@ export default function DemoHome() {
     const [profile, setProfile] = useState<ProfileData>(loadStoredProfile);
     const [activeReminder, setActiveReminder] = useState<PlanItem | null>(null);
     const [standaloneReminderDate, setStandaloneReminderDate] = useState<string | null>(null);
+    const [completedGoalId, setCompletedGoalId] = useState<number | null>(null);
     const nextBlockId = useRef(2);
     const nextPlanItemId = useRef(Math.max(0, ...planItems.map((item) => item.id)) + 1);
     const nextNoteId = useRef(Math.max(0, ...notes.map((note) => note.id)) + 1);
@@ -366,6 +367,12 @@ export default function DemoHome() {
         if (!item) return;
 
         const completed = !item.completed;
+        const linkedGoal = item.goalId === undefined ? undefined : goals.find((goalRecord) => goalRecord.id === item.goalId);
+        const completesGoal =
+            completed &&
+            linkedGoal !== undefined &&
+            item.buildingBlockId !== undefined &&
+            linkedGoal.buildingBlocks.every((block) => block.id === item.buildingBlockId || block.completed);
         setPlanItems((currentItems) => currentItems.map((planItem) => (planItem.id === itemId ? { ...planItem, completed } : planItem)));
 
         if (item.source === 'goal' && item.goalId !== undefined && item.buildingBlockId !== undefined) {
@@ -382,13 +389,17 @@ export default function DemoHome() {
                 ),
             );
         }
+
+        if (completesGoal) setCompletedGoalId(linkedGoal.id);
     };
 
     const toggleGoalBlock = (goalId: number, buildingBlockId: number) => {
-        const block = goals.find((goalRecord) => goalRecord.id === goalId)?.buildingBlocks.find((item) => item.id === buildingBlockId);
-        if (!block) return;
+        const selectedGoal = goals.find((goalRecord) => goalRecord.id === goalId);
+        const block = selectedGoal?.buildingBlocks.find((item) => item.id === buildingBlockId);
+        if (!selectedGoal || !block) return;
 
         const completed = !block.completed;
+        const completesGoal = completed && selectedGoal.buildingBlocks.every((item) => item.id === buildingBlockId || item.completed);
         setGoals((currentGoals) =>
             currentGoals.map((goalRecord) =>
                 goalRecord.id === goalId
@@ -402,6 +413,7 @@ export default function DemoHome() {
         setPlanItems((currentItems) =>
             currentItems.map((item) => (item.goalId === goalId && item.buildingBlockId === buildingBlockId ? { ...item, completed } : item)),
         );
+        if (completesGoal) setCompletedGoalId(goalId);
     };
 
     const removePlanItem = (itemId: number) => {
@@ -517,6 +529,20 @@ export default function DemoHome() {
             onSave={addStandaloneReminder}
         />
     ) : null;
+    const completedGoal = completedGoalId === null ? undefined : goals.find((goalRecord) => goalRecord.id === completedGoalId);
+    const goalCompletionDialog = completedGoal ? (
+        <GoalCompletionDialog
+            t={t}
+            goals={goals}
+            completedGoal={completedGoal}
+            onClose={() => setCompletedGoalId(null)}
+            onOpenGoals={() => {
+                setCompletedGoalId(null);
+                setProfileOpen(false);
+                setPanelSection('goals');
+            }}
+        />
+    ) : null;
 
     if (showPanel) {
         if (panelSection === 'overview') {
@@ -539,6 +565,7 @@ export default function DemoHome() {
                     {profileSheet}
                     {reminderAlert}
                     {standaloneReminderDialog}
+                    {goalCompletionDialog}
                 </>
             );
         }
@@ -568,6 +595,7 @@ export default function DemoHome() {
                     {profileSheet}
                     {reminderAlert}
                     {standaloneReminderDialog}
+                    {goalCompletionDialog}
                 </>
             );
         }
@@ -588,6 +616,7 @@ export default function DemoHome() {
                     {profileSheet}
                     {reminderAlert}
                     {standaloneReminderDialog}
+                    {goalCompletionDialog}
                 </>
             );
         }
@@ -605,6 +634,7 @@ export default function DemoHome() {
                 {profileSheet}
                 {reminderAlert}
                 {standaloneReminderDialog}
+                {goalCompletionDialog}
             </>
         );
     }
@@ -991,6 +1021,18 @@ function GoalsPanel({
         [goals],
     );
     const selectedGoal = selectedGoalId === null ? undefined : goals.find((goalRecord) => goalRecord.id === selectedGoalId);
+    const toggleSelectedGoalBlock = (buildingBlockId: number) => {
+        if (!selectedGoal) return;
+
+        const selectedBlock = selectedGoal.buildingBlocks.find((block) => block.id === buildingBlockId);
+        const completesGoal =
+            selectedBlock !== undefined &&
+            !selectedBlock.completed &&
+            selectedGoal.buildingBlocks.every((block) => block.id === buildingBlockId || block.completed);
+
+        onToggleBlock(selectedGoal.id, buildingBlockId);
+        if (completesGoal) setSelectedGoalId(null);
+    };
 
     return (
         <>
@@ -1023,8 +1065,10 @@ function GoalsPanel({
                         </button>
                     </div>
 
+                    <GoalRoadmap t={t} goals={sortedGoals} onSelect={(goalId) => setSelectedGoalId(goalId)} className="mt-10" />
+
                     <section
-                        className="mt-10 overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
+                        className="mt-5 overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
                         aria-label={t('Hedef listesi', 'Goal list')}
                     >
                         {sortedGoals.map((item, index) => {
@@ -1048,7 +1092,11 @@ function GoalsPanel({
                                                 {categoryLabel(item.category, t)}
                                             </span>
                                         </div>
-                                        <h2 className="mt-3 truncate text-[21px] font-semibold tracking-[-0.025em] sm:text-[23px]">{item.title}</h2>
+                                        <h2
+                                            className={`mt-3 truncate text-[21px] font-semibold tracking-[-0.025em] sm:text-[23px] ${isGoalCompleted(item) ? 'text-[#8e8e93] line-through' : ''}`}
+                                        >
+                                            {item.title}
+                                        </h2>
                                         <p className="mt-1.5 line-clamp-1 text-[14px] leading-6 text-[#6e6e73]">{item.gain}</p>
 
                                         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] font-medium text-[#8e8e93]">
@@ -1067,9 +1115,15 @@ function GoalsPanel({
                                         <span className="text-[12px] font-medium text-[#8e8e93] sm:hidden">{t('İlerleme', 'Progress')}</span>
                                         <div
                                             className="relative grid size-16 place-items-center rounded-full before:absolute before:inset-1.5 before:rounded-full before:bg-white"
-                                            style={{ background: `conic-gradient(#007aff ${goalProgress}%, #e5e5ea 0)` }}
+                                            style={{
+                                                background: `conic-gradient(${isGoalCompleted(item) ? '#34c759' : '#007aff'} ${goalProgress}%, #e5e5ea 0)`,
+                                            }}
                                         >
-                                            <span className="relative text-[13px] font-semibold tabular-nums">%{goalProgress}</span>
+                                            <span
+                                                className={`relative text-[13px] font-semibold tabular-nums ${isGoalCompleted(item) ? 'text-[#248a3d]' : ''}`}
+                                            >
+                                                %{goalProgress}
+                                            </span>
                                         </div>
                                         <ArrowRight className="hidden size-[18px] text-[#c7c7cc] transition-transform group-hover:translate-x-0.5 group-hover:text-[#8e8e93] sm:block" />
                                     </div>
@@ -1086,10 +1140,170 @@ function GoalsPanel({
                     locale={locale}
                     goal={selectedGoal}
                     onClose={() => setSelectedGoalId(null)}
-                    onToggleBlock={(buildingBlockId) => onToggleBlock(selectedGoal.id, buildingBlockId)}
+                    onToggleBlock={toggleSelectedGoalBlock}
                 />
             )}
         </>
+    );
+}
+
+function GoalRoadmap({
+    t,
+    goals,
+    onSelect,
+    featuredGoalId,
+    className = '',
+}: {
+    t: Translate;
+    goals: GoalRecord[];
+    onSelect?: (goalId: number) => void;
+    featuredGoalId?: number;
+    className?: string;
+}) {
+    const completedCount = goals.filter(isGoalCompleted).length;
+
+    return (
+        <section
+            className={`${className} overflow-hidden rounded-[26px] border border-black/[0.07] bg-white p-5 shadow-[0_12px_45px_rgba(0,0,0,0.045)] sm:p-6`}
+            aria-label={t('Hedef yol haritası', 'Goal roadmap')}
+        >
+            <div className="flex items-end justify-between gap-4">
+                <div>
+                    <p className="text-[11px] font-semibold text-[#007aff]">{t('İLERLEYİŞİN', 'YOUR JOURNEY')}</p>
+                    <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.03em]">{t('Yol Haritası', 'Roadmap')}</h2>
+                </div>
+                <p className="text-[12px] font-semibold text-[#8e8e93]">
+                    {completedCount}/{goals.length} {t('tamamlandı', 'completed')}
+                </p>
+            </div>
+
+            <div className="relative mt-6">
+                <span className="absolute top-6 bottom-6 left-[23px] w-px bg-[#d1d1d6] sm:right-6 sm:bottom-auto sm:left-6 sm:h-px sm:w-auto" />
+                <div className="relative grid gap-5 sm:flex sm:gap-0 sm:overflow-x-auto sm:pb-2">
+                    {goals.map((goalRecord, index) => {
+                        const completed = isGoalCompleted(goalRecord);
+                        const featured = goalRecord.id === featuredGoalId;
+                        const progress = calculateGoalProgress(goalRecord);
+
+                        return (
+                            <button
+                                key={goalRecord.id}
+                                type="button"
+                                onClick={() => onSelect?.(goalRecord.id)}
+                                disabled={!onSelect}
+                                className={`group grid min-w-0 grid-cols-[48px_minmax(0,1fr)] items-center gap-3 text-left sm:min-w-[150px] sm:flex-1 sm:grid-cols-none sm:flex-col sm:items-center sm:px-2 sm:text-center ${onSelect ? 'cursor-pointer' : 'cursor-default'}`}
+                            >
+                                <span
+                                    className={`relative z-10 grid size-12 shrink-0 place-items-center rounded-full border-[3px] bg-white text-[13px] font-bold shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition group-active:scale-95 ${
+                                        completed
+                                            ? 'border-[#34c759] bg-[#34c759] text-white'
+                                            : featured
+                                              ? 'border-[#007aff] text-[#007aff] ring-4 ring-[#007aff]/10'
+                                              : 'border-[#d1d1d6] text-[#8e8e93]'
+                                    }`}
+                                >
+                                    {completed ? <Check className="size-5" strokeWidth={3} /> : index + 1}
+                                </span>
+                                <span className="min-w-0">
+                                    <span
+                                        className={`block truncate text-[13px] font-semibold ${completed ? 'text-[#8e8e93] line-through' : 'text-[#1d1d1f]'}`}
+                                    >
+                                        {goalRecord.title}
+                                    </span>
+                                    <span className={`mt-1 block text-[10px] font-semibold ${completed ? 'text-[#34a853]' : 'text-[#8e8e93]'}`}>
+                                        {completed ? t('Tamamlandı', 'Completed') : `%${progress}`}
+                                    </span>
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        </section>
+    );
+}
+
+function GoalCompletionDialog({
+    t,
+    goals,
+    completedGoal,
+    onClose,
+    onOpenGoals,
+}: {
+    t: Translate;
+    goals: GoalRecord[];
+    completedGoal: GoalRecord;
+    onClose: () => void;
+    onOpenGoals: () => void;
+}) {
+    const roadmapGoals = [...goals].sort(
+        (first, second) => PRIORITY_RANK[first.priority] - PRIORITY_RANK[second.priority] || first.createdAt - second.createdAt,
+    );
+
+    return (
+        <div
+            className="apple-interface fixed inset-0 z-[80] flex items-end justify-center bg-black/30 p-0 backdrop-blur-md sm:items-center sm:p-6"
+            role="presentation"
+            onMouseDown={onClose}
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="goal-complete-title"
+                onMouseDown={(event) => event.stopPropagation()}
+                className="max-h-[94svh] w-full max-w-2xl overflow-y-auto rounded-t-[32px] bg-[#f5f5f7] px-5 pt-6 pb-[max(1.75rem,env(safe-area-inset-bottom))] shadow-[0_35px_100px_rgba(0,0,0,0.3)] sm:max-h-[90svh] sm:rounded-[32px] sm:px-7 sm:py-7"
+            >
+                <div className="flex justify-end">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                        aria-label={t('Kapat', 'Close')}
+                    >
+                        <X className="size-[17px]" />
+                    </button>
+                </div>
+
+                <div className="-mt-3 text-center">
+                    <span className="mx-auto grid size-20 place-items-center rounded-full bg-[#34c759] text-white shadow-[0_14px_36px_rgba(52,199,89,0.3)]">
+                        <Sparkles className="size-9" strokeWidth={2.2} />
+                    </span>
+                    <p className="mt-6 text-[12px] font-semibold text-[#34a853]">{t('HEDEF TAMAMLANDI', 'GOAL COMPLETED')}</p>
+                    <h2
+                        id="goal-complete-title"
+                        className="mx-auto mt-2 max-w-lg text-[clamp(2rem,7vw,3rem)] leading-[1.04] font-semibold tracking-[-0.05em]"
+                    >
+                        {t('Harika iş çıkardın!', 'You did an amazing job!')}
+                    </h2>
+                    <p className="mx-auto mt-3 max-w-md text-[15px] leading-6 text-[#6e6e73]">
+                        <span className="font-semibold text-[#1d1d1f]">“{completedGoal.title}”</span>{' '}
+                        {t(
+                            'hedefini tamamladın. Şimdi yolundaki diğer hedeflere devam edebilirsin.',
+                            'is complete. Now you can continue with the other goals on your path.',
+                        )}
+                    </p>
+                </div>
+
+                <GoalRoadmap t={t} goals={roadmapGoals} featuredGoalId={completedGoal.id} className="mt-7" />
+
+                <div className="mt-5 grid grid-cols-2 gap-2">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="h-12 rounded-full bg-white text-[14px] font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
+                    >
+                        {t('Kapat', 'Close')}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onOpenGoals}
+                        className="h-12 rounded-full bg-[#007aff] text-[14px] font-semibold text-white shadow-[0_8px_22px_rgba(0,122,255,0.22)]"
+                    >
+                        {t('Hedeflerime Git', 'View My Goals')}
+                    </button>
+                </div>
+            </section>
+        </div>
     );
 }
 
@@ -4685,6 +4899,10 @@ function calculateGoalProgress(goal: GoalRecord): number {
 
     const completed = goal.buildingBlocks.filter((block) => block.completed).length;
     return Math.round((completed / goal.buildingBlocks.length) * 100);
+}
+
+function isGoalCompleted(goal: GoalRecord): boolean {
+    return goal.buildingBlocks.length > 0 && goal.buildingBlocks.every((block) => block.completed);
 }
 
 function planRangeLabel(range: PlanRange, t: Translate, date?: string): string {
