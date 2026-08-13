@@ -49,6 +49,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 type Priority = 'urgent' | 'very-important' | 'important' | 'has-time';
 type GoalCategory = 'health' | 'work' | 'venture' | 'skill' | 'education' | 'other';
+type EducationLevel = '' | 'high-school' | 'associate' | 'bachelor' | 'master' | 'doctorate';
 
 type BuildingBlock = {
     completed?: boolean;
@@ -97,12 +98,22 @@ type NoteRecord = {
 
 type ProfileData = {
     name: string;
+    username: string;
     email: string;
     phone: string;
     birthDate: string;
     country: string;
     profession: string;
+    about: string;
+    educationLevel: EducationLevel;
+    university: string;
     avatar: string;
+};
+
+type UniversityOption = {
+    name: string;
+    country: string;
+    countryCode: string;
 };
 
 type SettingsData = {
@@ -2368,6 +2379,9 @@ function ProfilePanel({
     const profileInitial = draft.name.trim().charAt(0).toLocaleUpperCase('tr-TR') || 'K';
     const selectedCountry = isCountryCode(draft.country) ? draft.country : null;
     const phoneIsValid = selectedCountry ? isNationalPhoneLengthValid(draft.phone, selectedCountry) : false;
+    const usernameIsValid = /^[\p{L}\p{N}._]{3,30}$/u.test(draft.username.trim());
+    const universityIsRequired = Boolean(draft.educationLevel && draft.educationLevel !== 'high-school');
+    const educationIsValid = Boolean(draft.educationLevel) && (!universityIsRequired || Boolean(draft.university.trim()));
 
     useEffect(() => {
         const previousOverflow = document.body.style.overflow;
@@ -2388,11 +2402,15 @@ function ProfilePanel({
         event.preventDefault();
         onSave({
             name: draft.name.trim(),
+            username: normalizeUsernameInput(draft.username),
             email: draft.email.trim(),
             phone: draft.phone.trim(),
             birthDate: draft.birthDate,
             country: draft.country,
             profession: draft.profession,
+            about: draft.about.trim(),
+            educationLevel: draft.educationLevel,
+            university: universityIsRequired ? draft.university.trim() : '',
             avatar: draft.avatar,
         });
         setSaved(true);
@@ -2486,7 +2504,10 @@ function ProfilePanel({
                             </div>
                             <div className="min-w-0 flex-1">
                                 <h2 className="truncate text-[20px] font-semibold tracking-[-0.025em]">{draft.name || t('Ad Soyad', 'Full Name')}</h2>
-                                <p className="mt-1 truncate text-[13px] text-[#8e8e93]">{draft.email || t('E-posta adresi', 'Email address')}</p>
+                                <p className="mt-1 truncate text-[13px] font-medium text-[#6e6e73]">
+                                    {draft.username ? `@${draft.username}` : t('Kullanıcı adı', 'Username')}
+                                </p>
+                                <p className="mt-0.5 truncate text-[12px] text-[#8e8e93]">{draft.email || t('E-posta adresi', 'Email address')}</p>
                                 <p className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#007aff]">
                                     <TrendingUp className="size-3.5" />
                                     {t('Genel ilerleme', 'Overall progress')} · %{overallProgress}
@@ -2565,6 +2586,12 @@ function ProfilePanel({
                                         icon={UserRound}
                                         required
                                     />
+                                    <ProfileUsernameField
+                                        t={t}
+                                        value={draft.username}
+                                        valid={usernameIsValid}
+                                        onChange={(username) => setDraft((current) => ({ ...current, username }))}
+                                    />
                                     <ProfileField
                                         label={t('E-posta', 'Email')}
                                         value={draft.email}
@@ -2607,13 +2634,75 @@ function ProfilePanel({
                                         placeholder={t('Meslek seç', 'Choose a profession')}
                                         options={professionOptions(t)}
                                     />
+                                    <ProfileAboutField
+                                        t={t}
+                                        value={draft.about}
+                                        onChange={(about) => setDraft((current) => ({ ...current, about }))}
+                                    />
+
+                                    <div className="border-t border-black/[0.055] pt-6">
+                                        <div className="flex items-center gap-3">
+                                            <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#5856d6]/10 text-[#5856d6]">
+                                                <GraduationCap className="size-5" />
+                                            </span>
+                                            <div>
+                                                <h3 className="text-[16px] font-semibold tracking-[-0.015em]">
+                                                    {t('Eğitim Bilgileri', 'Education')}
+                                                </h3>
+                                                <p className="mt-0.5 text-[12px] text-[#8e8e93]">
+                                                    {t('Mezuniyet seviyeni ve okulunu ekle.', 'Add your graduation level and university.')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <ProfileSelect
+                                        label={t('Mezuniyet', 'Graduation Level')}
+                                        value={draft.educationLevel}
+                                        onChange={(educationLevel) =>
+                                            setDraft((current) => ({
+                                                ...current,
+                                                educationLevel: educationLevel as EducationLevel,
+                                                university: educationLevel === 'high-school' || !educationLevel ? '' : current.university,
+                                            }))
+                                        }
+                                        icon={GraduationCap}
+                                        placeholder={t('Mezuniyet seviyesini seç', 'Choose graduation level')}
+                                        options={educationLevelOptions(t)}
+                                        required
+                                    />
+
+                                    {draft.educationLevel === 'high-school' && (
+                                        <div className="rounded-[16px] bg-[#5856d6]/8 px-4 py-3 text-[12px] leading-relaxed text-[#6e6e73]">
+                                            {t(
+                                                'Lise mezuniyeti için okul adı girmen gerekmiyor.',
+                                                'You do not need to enter a school name for high school graduation.',
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {universityIsRequired && (
+                                        <UniversitySearchField
+                                            t={t}
+                                            value={draft.university}
+                                            onChange={(university) => setDraft((current) => ({ ...current, university }))}
+                                        />
+                                    )}
                                 </div>
 
                                 <div className="flex items-center justify-end gap-4 border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
                                     {saved && <span className="text-[13px] font-medium text-[#28a745]">{t('Kaydedildi', 'Saved')}</span>}
                                     <button
                                         type="submit"
-                                        disabled={!draft.name.trim() || !draft.email.trim() || !phoneIsValid || !draft.birthDate || !selectedCountry}
+                                        disabled={
+                                            !draft.name.trim() ||
+                                            !usernameIsValid ||
+                                            !draft.email.trim() ||
+                                            !phoneIsValid ||
+                                            !draft.birthDate ||
+                                            !selectedCountry ||
+                                            !educationIsValid
+                                        }
                                         className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition hover:bg-[#006ee6] active:scale-[0.98] disabled:bg-[#d1d1d6]"
                                     >
                                         {t('Değişiklikleri Kaydet', 'Save Changes')}
@@ -3108,6 +3197,239 @@ function ProfileField({
     );
 }
 
+function ProfileUsernameField({ t, value, valid, onChange }: { t: Translate; value: string; valid: boolean; onChange: (value: string) => void }) {
+    const showError = Boolean(value && !valid);
+
+    return (
+        <label className="block">
+            <span className="mb-2 block text-[13px] font-medium text-[#6e6e73]">
+                {t('Kullanıcı Adı', 'Username')}
+                <span className="ml-1 text-[#ff3b30]">*</span>
+            </span>
+            <span
+                className={`flex items-center rounded-[16px] border bg-[#f9f9fb] transition focus-within:border-[#007aff]/40 focus-within:bg-white focus-within:ring-4 focus-within:ring-[#007aff]/8 ${showError ? 'border-[#ff3b30]/45' : 'border-black/[0.08]'}`}
+            >
+                <span className="flex h-[52px] shrink-0 items-center border-r border-black/[0.07] px-4 text-[15px] font-semibold text-[#8e8e93]">
+                    @
+                </span>
+                <input
+                    type="text"
+                    value={value}
+                    onChange={(event) => onChange(normalizeUsernameInput(event.target.value))}
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    inputMode="text"
+                    minLength={3}
+                    maxLength={30}
+                    required
+                    placeholder={t('kullaniciadi', 'username')}
+                    className="h-[52px] min-w-0 flex-1 bg-transparent px-4 text-[15px] font-medium outline-none placeholder:text-[#aeaeb2]"
+                />
+            </span>
+            <span className={`mt-2 block text-[11px] ${showError ? 'font-medium text-[#ff3b30]' : 'text-[#8e8e93]'}`}>
+                {t('3–30 karakter; harf, rakam, nokta ve alt çizgi kullanabilirsin.', 'Use 3–30 letters, numbers, periods, or underscores.')}
+            </span>
+        </label>
+    );
+}
+
+function ProfileAboutField({ t, value, onChange }: { t: Translate; value: string; onChange: (value: string) => void }) {
+    const limit = 500;
+
+    return (
+        <label className="block">
+            <span className="mb-2 flex items-center justify-between gap-3 text-[13px] font-medium text-[#6e6e73]">
+                <span>{t('Hakkımda', 'About Me')}</span>
+                <span className="text-[11px] font-normal text-[#8e8e93]">{t('İsteğe bağlı', 'Optional')}</span>
+            </span>
+            <span className="flex items-start gap-3 rounded-[16px] border border-black/[0.08] bg-[#f9f9fb] px-4 py-3 transition focus-within:border-[#007aff]/40 focus-within:bg-white focus-within:ring-4 focus-within:ring-[#007aff]/8">
+                <NotebookPen className="mt-1 size-[17px] shrink-0 text-[#8e8e93]" />
+                <textarea
+                    value={value}
+                    onChange={(event) => onChange(event.target.value.slice(0, limit))}
+                    autoCapitalize="sentences"
+                    autoCorrect="on"
+                    maxLength={limit}
+                    rows={4}
+                    placeholder={t('Kendinden kısaca bahset', 'Tell us a little about yourself')}
+                    className="min-h-24 min-w-0 flex-1 resize-y bg-transparent text-[15px] leading-relaxed font-medium outline-none placeholder:text-[#aeaeb2]"
+                />
+            </span>
+            <span className="mt-2 block text-right text-[11px] text-[#8e8e93]">
+                {value.length}/{limit}
+            </span>
+        </label>
+    );
+}
+
+function UniversitySearchField({ t, value, onChange }: { t: Translate; value: string; onChange: (value: string) => void }) {
+    const [focused, setFocused] = useState(false);
+    const [results, setResults] = useState<UniversityOption[]>([]);
+    const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+    const query = value.trim();
+
+    useEffect(() => {
+        if (!focused || query.length < 2) {
+            setResults([]);
+            setStatus('idle');
+            return;
+        }
+
+        const controller = new AbortController();
+        const timer = window.setTimeout(async () => {
+            setStatus('loading');
+
+            try {
+                const response = await fetch(`/demo/universities?q=${encodeURIComponent(query)}`, {
+                    signal: controller.signal,
+                    headers: { Accept: 'application/json' },
+                });
+                if (!response.ok) throw new Error('University search failed');
+
+                const payload: unknown = await response.json();
+                const nextResults = Array.isArray(payload)
+                    ? payload
+                          .filter(isUniversityApiRecord)
+                          .map((university) => ({
+                              name: university.name.trim(),
+                              country: university.country.trim(),
+                              countryCode: university.alpha_two_code.trim().toUpperCase(),
+                          }))
+                          .filter(
+                              (university, index, universities) =>
+                                  university.name &&
+                                  universities.findIndex(
+                                      (candidate) =>
+                                          candidate.name.toLocaleLowerCase() === university.name.toLocaleLowerCase() &&
+                                          candidate.countryCode === university.countryCode,
+                                  ) === index,
+                          )
+                          .slice(0, 12)
+                    : [];
+
+                setResults(nextResults);
+                setStatus('ready');
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') return;
+                setResults([]);
+                setStatus('error');
+            }
+        }, 350);
+
+        return () => {
+            window.clearTimeout(timer);
+            controller.abort();
+        };
+    }, [focused, query]);
+
+    const exactMatch = results.some((university) => university.name.toLocaleLowerCase() === query.toLocaleLowerCase());
+    const showOptions = focused && query.length >= 2;
+
+    return (
+        <div className="block">
+            <label htmlFor="demo-profile-university" className="mb-2 block text-[13px] font-medium text-[#6e6e73]">
+                {t('Üniversite', 'University')}
+                <span className="ml-1 text-[#ff3b30]">*</span>
+            </label>
+            <div
+                className={`overflow-hidden rounded-[16px] border bg-[#f9f9fb] transition focus-within:border-[#007aff]/40 focus-within:bg-white focus-within:ring-4 focus-within:ring-[#007aff]/8 ${showOptions ? 'border-[#007aff]/30 bg-white' : 'border-black/[0.08]'}`}
+            >
+                <div className="flex items-center gap-3 px-4">
+                    <Search className="size-[17px] shrink-0 text-[#8e8e93]" />
+                    <input
+                        id="demo-profile-university"
+                        type="text"
+                        value={value}
+                        onChange={(event) => onChange(event.target.value)}
+                        onFocus={() => setFocused(true)}
+                        onBlur={() => window.setTimeout(() => setFocused(false), 120)}
+                        autoComplete="off"
+                        autoCapitalize="words"
+                        autoCorrect="off"
+                        required
+                        placeholder={t('Üniversite adını aramaya başla', 'Start typing a university name')}
+                        className="h-[52px] min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:text-[#aeaeb2]"
+                    />
+                    {status === 'loading' && <span className="size-4 animate-spin rounded-full border-2 border-[#007aff]/20 border-t-[#007aff]" />}
+                </div>
+
+                {showOptions && (
+                    <div className="max-h-72 overflow-y-auto border-t border-black/[0.055] bg-white" role="listbox">
+                        {results.map((university) => (
+                            <button
+                                key={`${university.name}-${university.countryCode}`}
+                                type="button"
+                                role="option"
+                                aria-selected={university.name === value}
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => {
+                                    onChange(university.name);
+                                    setFocused(false);
+                                }}
+                                className="flex w-full items-center gap-3 border-b border-black/[0.045] px-4 py-3 text-left transition hover:bg-[#007aff]/5"
+                            >
+                                <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-[#5856d6]/10 text-[#5856d6]">
+                                    <GraduationCap className="size-[17px]" />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-[14px] font-semibold">{university.name}</span>
+                                    <span className="mt-0.5 block truncate text-[11px] text-[#8e8e93]">
+                                        {university.country} · {university.countryCode}
+                                    </span>
+                                </span>
+                                <ChevronRight className="size-4 shrink-0 text-[#c7c7cc]" />
+                            </button>
+                        ))}
+
+                        {!exactMatch && (
+                            <button
+                                type="button"
+                                role="option"
+                                aria-selected="false"
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => setFocused(false)}
+                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#007aff]/5"
+                            >
+                                <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-[#007aff]/10 text-[#007aff]">
+                                    <Plus className="size-[17px]" />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block text-[14px] font-semibold">“{query}”</span>
+                                    <span className="mt-0.5 block text-[11px] text-[#8e8e93]">
+                                        {t('Listede yoksa yazdığın adla ekle', 'Not listed? Add the name you entered')}
+                                    </span>
+                                </span>
+                            </button>
+                        )}
+
+                        {status === 'ready' && results.length === 0 && exactMatch && (
+                            <p className="px-4 py-3 text-[12px] text-[#8e8e93]">
+                                {t('Eşleşen üniversite bulunamadı.', 'No matching university found.')}
+                            </p>
+                        )}
+                        {status === 'error' && (
+                            <p className="px-4 py-3 text-[12px] text-[#8e8e93]">
+                                {t(
+                                    'Havuz şu an yüklenemedi; okul adını manuel ekleyebilirsin.',
+                                    'The directory is unavailable; you can add the university manually.',
+                                )}
+                            </p>
+                        )}
+                    </div>
+                )}
+            </div>
+            <span className="mt-2 block text-[11px] text-[#8e8e93]">
+                {t(
+                    'Dünya genelindeki üniversite havuzunda ara veya kendi okul adını yaz.',
+                    'Search the worldwide university directory or enter your school manually.',
+                )}
+            </span>
+        </div>
+    );
+}
+
 function CountryPickerField({
     t,
     locale,
@@ -3530,26 +3852,32 @@ function ProfileSelect({
     placeholder,
     optionalLabel,
     options,
+    required = false,
 }: {
     label: string;
     value: string;
     onChange: (value: string) => void;
     icon: typeof UserRound;
     placeholder: string;
-    optionalLabel: string;
+    optionalLabel?: string;
     options: Array<{ value: string; label: string }>;
+    required?: boolean;
 }) {
     return (
         <label className="block">
             <span className="mb-2 flex items-center justify-between gap-3 text-[13px] font-medium text-[#6e6e73]">
-                <span>{label}</span>
-                <span className="text-[11px] font-normal text-[#8e8e93]">{optionalLabel}</span>
+                <span>
+                    {label}
+                    {required && <span className="ml-1 text-[#ff3b30]">*</span>}
+                </span>
+                {optionalLabel && <span className="text-[11px] font-normal text-[#8e8e93]">{optionalLabel}</span>}
             </span>
             <span className="relative flex items-center gap-3 rounded-[16px] border border-black/[0.08] bg-[#f9f9fb] px-4 transition focus-within:border-[#007aff]/40 focus-within:bg-white focus-within:ring-4 focus-within:ring-[#007aff]/8">
                 <Icon className="size-[17px] shrink-0 text-[#8e8e93]" />
                 <select
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
+                    required={required}
                     className={`h-[52px] min-w-0 flex-1 appearance-none bg-transparent pr-7 text-[15px] font-medium outline-none ${value ? '' : 'text-[#8e8e93]'}`}
                 >
                     <option value="">{placeholder}</option>
@@ -5174,6 +5502,48 @@ function professionOptions(t: Translate): Array<{ value: string; label: string }
     ];
 }
 
+function educationLevelOptions(t: Translate): Array<{ value: EducationLevel; label: string }> {
+    return [
+        { value: 'high-school', label: t('Lise', 'High School') },
+        { value: 'associate', label: t('Önlisans', 'Associate Degree') },
+        { value: 'bachelor', label: t('Lisans', "Bachelor's Degree") },
+        { value: 'master', label: t('Yüksek Lisans', "Master's Degree") },
+        { value: 'doctorate', label: t('Doktora', 'Doctorate') },
+    ];
+}
+
+function normalizeUsernameInput(value: string): string {
+    return value
+        .trimStart()
+        .replace(/^@+/, '')
+        .replace(/\s+/g, '')
+        .replace(/[^\p{L}\p{N}._]/gu, '')
+        .slice(0, 30);
+}
+
+function suggestedUsername(name: string, email: string): string {
+    const emailName = email.split('@')[0] ?? '';
+    const nameSuggestion = name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase('en-US')
+        .replace(/\s+/g, '.');
+    const suggestion = normalizeUsernameInput(emailName || nameSuggestion);
+
+    return suggestion.length >= 3 ? suggestion : '';
+}
+
+function isEducationLevel(value: unknown): value is EducationLevel {
+    return value === '' || value === 'high-school' || value === 'associate' || value === 'bachelor' || value === 'master' || value === 'doctorate';
+}
+
+function isUniversityApiRecord(value: unknown): value is { name: string; country: string; alpha_two_code: string } {
+    if (!value || typeof value !== 'object') return false;
+
+    const record = value as Record<string, unknown>;
+    return typeof record.name === 'string' && typeof record.country === 'string' && typeof record.alpha_two_code === 'string';
+}
+
 type CountryOption = {
     code: CountryCode;
     name: string;
@@ -5555,7 +5925,19 @@ function isPriority(value: unknown): value is Priority {
 }
 
 function loadStoredProfile(): ProfileData {
-    const emptyProfile = { name: '', email: '', phone: '', birthDate: '', country: '', profession: '', avatar: '' };
+    const emptyProfile: ProfileData = {
+        name: '',
+        username: '',
+        email: '',
+        phone: '',
+        birthDate: '',
+        country: '',
+        profession: '',
+        about: '',
+        educationLevel: '',
+        university: '',
+        avatar: '',
+    };
     if (typeof window === 'undefined') return emptyProfile;
 
     try {
@@ -5564,13 +5946,23 @@ function loadStoredProfile(): ProfileData {
 
         const profile = value as Partial<ProfileData>;
         const country = normalizeStoredCountry(typeof profile.country === 'string' ? profile.country : '');
+        const name = typeof profile.name === 'string' ? profile.name : '';
+        const email = typeof profile.email === 'string' ? profile.email : '';
+        const educationLevel = isEducationLevel(profile.educationLevel) ? profile.educationLevel : '';
         return {
-            name: typeof profile.name === 'string' ? profile.name : '',
-            email: typeof profile.email === 'string' ? profile.email : '',
+            name,
+            username:
+                typeof profile.username === 'string' && normalizeUsernameInput(profile.username).length >= 3
+                    ? normalizeUsernameInput(profile.username)
+                    : suggestedUsername(name, email),
+            email,
             phone: normalizeNationalPhone(typeof profile.phone === 'string' ? profile.phone : '', country || null),
             birthDate: typeof profile.birthDate === 'string' ? profile.birthDate : '',
             country,
             profession: typeof profile.profession === 'string' ? profile.profession : '',
+            about: typeof profile.about === 'string' ? profile.about.slice(0, 500) : '',
+            educationLevel,
+            university: educationLevel && educationLevel !== 'high-school' && typeof profile.university === 'string' ? profile.university : '',
             avatar: typeof profile.avatar === 'string' ? profile.avatar : '',
         };
     } catch {

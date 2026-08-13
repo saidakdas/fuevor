@@ -8,6 +8,7 @@ use App\Http\Controllers\MilestoneController;
 use App\Http\Controllers\TaskController;
 use App\Models\GameScore;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -15,6 +16,46 @@ $demoHome = fn () => Inertia::render('demo/home');
 
 if (app()->environment('local', 'testing')) {
     Route::get('demo', $demoHome)->name('demo.preview');
+
+    Route::get('demo/universities', function (Request $request) {
+        $query = trim((string) $request->query('q', ''));
+
+        if (mb_strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->timeout(6)
+                ->get('http://universities.hipolabs.com/search', [
+                    'name' => mb_substr($query, 0, 100),
+                ]);
+
+            if ($response->failed() || ! is_array($response->json())) {
+                return response()->json([], 503);
+            }
+
+            $universities = collect($response->json())
+                ->filter(fn ($university) => is_array($university)
+                    && is_string($university['name'] ?? null)
+                    && is_string($university['country'] ?? null)
+                    && is_string($university['alpha_two_code'] ?? null))
+                ->map(fn ($university) => [
+                    'name' => trim($university['name']),
+                    'country' => trim($university['country']),
+                    'alpha_two_code' => strtoupper(trim($university['alpha_two_code'])),
+                ])
+                ->unique(fn ($university) => mb_strtolower($university['name']).'|'.$university['alpha_two_code'])
+                ->take(20)
+                ->values();
+
+            return response()
+                ->json($universities)
+                ->header('Cache-Control', 'private, max-age=86400');
+        } catch (Throwable) {
+            return response()->json([], 503);
+        }
+    })->middleware('throttle:30,1')->name('demo.universities');
 }
 
 Route::get('/', function (Request $request) {
