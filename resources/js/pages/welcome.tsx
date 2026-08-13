@@ -54,6 +54,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
     const { locale, t } = useLocale();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const gameAreaRef = useRef<HTMLDivElement>(null);
+    const gameSectionRef = useRef<HTMLElement>(null);
     const statusRef = useRef<GameStatus>('ready');
     const elapsedRef = useRef(0);
     const finalScoreRef = useRef(0);
@@ -75,6 +76,18 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
         password: '',
         password_confirmation: '',
     });
+
+    useEffect(() => {
+        if (!registrationSuccess) {
+            return;
+        }
+
+        const scrollTimer = window.setTimeout(() => {
+            gameSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 120);
+
+        return () => window.clearTimeout(scrollTimer);
+    }, [registrationSuccess]);
 
     const submitRegistration: FormEventHandler<HTMLFormElement> = (event) => {
         event.preventDefault();
@@ -599,8 +612,30 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                         </div>
                     </section>
 
-                    <section className="mx-auto w-full max-w-6xl px-5 pb-16 sm:px-8 sm:pb-24">
+                    <section ref={gameSectionRef} className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 pb-16 sm:scroll-mt-24 sm:px-8 sm:pb-24">
                         <div className="overflow-hidden rounded-[32px] border border-black/[0.055] bg-white p-3 shadow-[0_24px_80px_rgba(0,0,0,0.08)] sm:p-5">
+                            {registrationSuccess && (
+                                <div
+                                    className="mb-3 flex items-center gap-3 rounded-[20px] border border-[#34c759]/14 bg-[#34c759]/8 px-4 py-3.5 sm:mb-5 sm:px-5 sm:py-4"
+                                    role="status"
+                                    aria-live="polite"
+                                >
+                                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#34c759] text-white shadow-[0_7px_18px_rgba(52,199,89,0.22)]">
+                                        <Check className="size-4.5" aria-hidden="true" />
+                                    </span>
+                                    <div>
+                                        <p className="text-[15px] font-semibold tracking-[-0.015em] text-[#1d1d1f]">
+                                            {t('Erken erişim listesindesiniz', 'You are on the early access list')}
+                                        </p>
+                                        <p className="mt-0.5 text-[12px] text-[#6e6e73]">
+                                            {t(
+                                                'Kaydınız tamamlandı. Şimdi yolculuğa başlayabilirsiniz.',
+                                                'Registration complete. You can start the journey now.',
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                             <div className="flex flex-col gap-3 px-2 pt-3 pb-5 sm:flex-row sm:items-end sm:justify-between sm:px-3 sm:pt-2 sm:pb-6">
                                 <div>
                                     <span className="text-[11px] font-semibold tracking-[0.16em] text-[#007aff] uppercase">
@@ -620,7 +655,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
 
                             <div
                                 ref={gameAreaRef}
-                                className="relative min-h-[350px] cursor-pointer touch-none overflow-hidden rounded-[26px] bg-[#043f48] bg-[radial-gradient(circle_at_76%_10%,rgba(42,183,218,0.32),transparent_34%),linear-gradient(135deg,#022f35_0%,#075662_60%,#078da4_100%)] outline-none select-none sm:min-h-[430px]"
+                                className="relative min-h-[500px] cursor-pointer touch-none overflow-hidden rounded-[26px] bg-[#043f48] bg-[radial-gradient(circle_at_76%_10%,rgba(42,183,218,0.32),transparent_34%),linear-gradient(135deg,#022f35_0%,#075662_60%,#078da4_100%)] outline-none select-none sm:min-h-[450px]"
                                 role="button"
                                 tabIndex={0}
                                 aria-label={t(
@@ -721,24 +756,6 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                 <footer className="border-t border-black/[0.055] px-5 py-6 text-center text-xs text-[#8e8e93]">
                     © {new Date().getFullYear()} Fuevor · {t('Gelecekteki kendini inşa et.', 'Build your future self.')}
                 </footer>
-
-                {registrationSuccess && (
-                    <div
-                        className="fixed inset-0 z-50 grid place-items-center bg-black/25 px-5 backdrop-blur-md"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-label={t('Üyelik mesajı', 'Membership message')}
-                    >
-                        <div className="max-w-lg rounded-[30px] border border-white bg-[#f9f9fb]/95 px-7 py-9 text-center shadow-[0_30px_100px_rgba(0,0,0,0.25)] backdrop-blur-2xl sm:px-11 sm:py-12">
-                            <span className="mx-auto grid size-14 place-items-center rounded-full bg-[#34c759] text-white shadow-[0_8px_22px_rgba(52,199,89,0.24)]">
-                                <Check className="size-6" aria-hidden="true" />
-                            </span>
-                            <p className="mt-5 text-xl leading-relaxed font-semibold tracking-[-0.025em] text-[#1d1d1f] sm:text-2xl">
-                                {registrationSuccess}
-                            </p>
-                        </div>
-                    </div>
-                )}
             </div>
         </>
     );
