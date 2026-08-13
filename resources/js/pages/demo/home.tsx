@@ -1065,11 +1065,15 @@ function GoalsPanel({
     onAddBlock: (goalId: number, title: string) => void;
 }) {
     const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
+    const [goalTab, setGoalTab] = useState<'active' | 'completed'>('active');
     const sortedGoals = useMemo(
         () =>
             [...goals].sort((first, second) => PRIORITY_RANK[first.priority] - PRIORITY_RANK[second.priority] || first.createdAt - second.createdAt),
         [goals],
     );
+    const activeGoals = useMemo(() => sortedGoals.filter((goalRecord) => !isGoalCompleted(goalRecord)), [sortedGoals]);
+    const completedGoals = useMemo(() => sortedGoals.filter(isGoalCompleted), [sortedGoals]);
+    const visibleGoals = goalTab === 'active' ? activeGoals : completedGoals;
     const selectedGoal = selectedGoalId === null ? undefined : goals.find((goalRecord) => goalRecord.id === selectedGoalId);
     const toggleSelectedGoalBlock = (buildingBlockId: number) => {
         if (!selectedGoal) return;
@@ -1117,11 +1121,69 @@ function GoalsPanel({
 
                     <GoalRoadmap t={t} goals={sortedGoals} onSelect={(goalId) => setSelectedGoalId(goalId)} className="mt-10" />
 
+                    <div
+                        className="mt-5 grid grid-cols-2 rounded-[18px] bg-black/[0.045] p-1"
+                        role="tablist"
+                        aria-label={t('Hedef durumu', 'Goal status')}
+                    >
+                        {[
+                            { value: 'active' as const, label: t('Aktif', 'Active'), count: activeGoals.length },
+                            { value: 'completed' as const, label: t('Tamamlanan', 'Completed'), count: completedGoals.length },
+                        ].map((tab) => (
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={goalTab === tab.value}
+                                key={tab.value}
+                                onClick={() => setGoalTab(tab.value)}
+                                className={`flex h-11 items-center justify-center gap-2 rounded-[14px] text-[14px] font-semibold transition ${
+                                    goalTab === tab.value
+                                        ? 'bg-white text-[#1d1d1f] shadow-[0_3px_12px_rgba(0,0,0,0.08)]'
+                                        : 'text-[#6e6e73] hover:text-[#1d1d1f]'
+                                }`}
+                            >
+                                {tab.label}
+                                <span
+                                    className={`grid min-w-6 place-items-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+                                        goalTab === tab.value ? 'bg-[#007aff]/10 text-[#007aff]' : 'bg-black/[0.055] text-[#8e8e93]'
+                                    }`}
+                                >
+                                    {tab.count}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
                     <section
                         className="mt-5 overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
-                        aria-label={t('Hedef listesi', 'Goal list')}
+                        aria-label={goalTab === 'active' ? t('Aktif hedefler', 'Active goals') : t('Tamamlanan hedefler', 'Completed goals')}
                     >
-                        {sortedGoals.map((item, index) => {
+                        {visibleGoals.length === 0 && (
+                            <div className="px-6 py-14 text-center sm:py-16">
+                                <span
+                                    className={`mx-auto grid size-14 place-items-center rounded-[18px] ${
+                                        goalTab === 'active' ? 'bg-[#007aff]/9 text-[#007aff]' : 'bg-[#34c759]/10 text-[#248a3d]'
+                                    }`}
+                                >
+                                    {goalTab === 'active' ? <Target className="size-6" /> : <CircleCheck className="size-6" />}
+                                </span>
+                                <h2 className="mt-4 text-[18px] font-semibold tracking-[-0.02em]">
+                                    {goalTab === 'active'
+                                        ? t('Aktif hedefin bulunmuyor', 'You have no active goals')
+                                        : t('Henüz tamamlanan hedef yok', 'No completed goals yet')}
+                                </h2>
+                                <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-5 text-[#8e8e93]">
+                                    {goalTab === 'active'
+                                        ? t('Yeni bir hedef oluşturarak yolculuğuna başlayabilirsin.', 'Create a new goal to begin your journey.')
+                                        : t(
+                                              'Tüm yapı taşlarını bitirdiğinde hedefin burada görünecek.',
+                                              'Your goal will appear here when every building block is done.',
+                                          )}
+                                </p>
+                            </div>
+                        )}
+
+                        {visibleGoals.map((item, index) => {
                             const priorityStyle = PRIORITY_STYLES[item.priority];
                             const goalProgress = calculateGoalProgress(item);
 
