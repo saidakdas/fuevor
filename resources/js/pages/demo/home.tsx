@@ -416,6 +416,25 @@ export default function DemoHome() {
         if (completesGoal) setCompletedGoalId(goalId);
     };
 
+    const updateGoal = (goalId: number, updates: Pick<GoalRecord, 'title' | 'gain' | 'deadline' | 'priority' | 'category'>) => {
+        setGoals((currentGoals) => currentGoals.map((goalRecord) => (goalRecord.id === goalId ? { ...goalRecord, ...updates } : goalRecord)));
+    };
+
+    const addGoalBlockToGoal = (goalId: number, title: string) => {
+        setGoals((currentGoals) =>
+            currentGoals.map((goalRecord) => {
+                if (goalRecord.id !== goalId) return goalRecord;
+
+                const buildingBlock: BuildingBlock = {
+                    id: Math.max(0, ...goalRecord.buildingBlocks.map((block) => block.id)) + 1,
+                    title,
+                    completed: false,
+                };
+                return { ...goalRecord, buildingBlocks: [...goalRecord.buildingBlocks, buildingBlock] };
+            }),
+        );
+    };
+
     const removePlanItem = (itemId: number) => {
         setPlanItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
     };
@@ -561,6 +580,9 @@ export default function DemoHome() {
                         onDateChange={changePlanDate}
                         onToggleItem={togglePlanItem}
                         onCreateReminder={setStandaloneReminderDate}
+                        onToggleGoalBlock={toggleGoalBlock}
+                        onUpdateGoal={updateGoal}
+                        onAddGoalBlock={addGoalBlockToGoal}
                     />
                     {profileSheet}
                     {reminderAlert}
@@ -630,6 +652,8 @@ export default function DemoHome() {
                     onCreateGoal={startNewGoal}
                     onNavigate={navigatePanel}
                     onToggleBlock={toggleGoalBlock}
+                    onUpdateGoal={updateGoal}
+                    onAddBlock={addGoalBlockToGoal}
                 />
                 {profileSheet}
                 {reminderAlert}
@@ -737,6 +761,9 @@ function OverviewPanel({
     onDateChange,
     onToggleItem,
     onCreateReminder,
+    onToggleGoalBlock,
+    onUpdateGoal,
+    onAddGoalBlock,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
@@ -750,7 +777,11 @@ function OverviewPanel({
     onDateChange: (date: string) => void;
     onToggleItem: (id: number) => void;
     onCreateReminder: (date: string) => void;
+    onToggleGoalBlock: (goalId: number, buildingBlockId: number) => void;
+    onUpdateGoal: (goalId: number, updates: Pick<GoalRecord, 'title' | 'gain' | 'deadline' | 'priority' | 'category'>) => void;
+    onAddGoalBlock: (goalId: number, title: string) => void;
 }) {
+    const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
     const periodItems = useMemo(() => sortPlanItems(items.filter((item) => isPlanItemInPeriod(item, range, date))), [date, items, range]);
     const priorityGoals = useMemo(
         () =>
@@ -765,6 +796,7 @@ function OverviewPanel({
         goals.length === 0 ? 0 : Math.round(goals.reduce((total, goalRecord) => total + calculateGoalProgress(goalRecord), 0) / goals.length);
     const periodCompleted = periodItems.filter((item) => item.completed).length;
     const periodProgress = periodItems.length === 0 ? 0 : Math.round((periodCompleted / periodItems.length) * 100);
+    const selectedGoal = selectedGoalId === null ? undefined : goals.find((goalRecord) => goalRecord.id === selectedGoalId);
     return (
         <>
             <Head title={t('Genel Bakış', 'Overview')}>
@@ -840,6 +872,8 @@ function OverviewPanel({
                         onDateChange={onDateChange}
                         onAddReminder={onCreateReminder}
                     />
+
+                    <GoalRoadmap t={t} goals={goals} onSelect={setSelectedGoalId} className="mt-5" />
 
                     <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
                         <section className="overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
@@ -981,6 +1015,18 @@ function OverviewPanel({
                     </div>
                 </main>
             </div>
+
+            {selectedGoal && (
+                <GoalDetailPanel
+                    t={t}
+                    locale={locale}
+                    goal={selectedGoal}
+                    onClose={() => setSelectedGoalId(null)}
+                    onToggleBlock={(buildingBlockId) => onToggleGoalBlock(selectedGoal.id, buildingBlockId)}
+                    onUpdate={(updates) => onUpdateGoal(selectedGoal.id, updates)}
+                    onAddBlock={(title) => onAddGoalBlock(selectedGoal.id, title)}
+                />
+            )}
         </>
     );
 }
@@ -1006,6 +1052,8 @@ function GoalsPanel({
     onCreateGoal,
     onNavigate,
     onToggleBlock,
+    onUpdateGoal,
+    onAddBlock,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
@@ -1013,6 +1061,8 @@ function GoalsPanel({
     onCreateGoal: () => void;
     onNavigate: (section: PanelSection) => void;
     onToggleBlock: (goalId: number, buildingBlockId: number) => void;
+    onUpdateGoal: (goalId: number, updates: Pick<GoalRecord, 'title' | 'gain' | 'deadline' | 'priority' | 'category'>) => void;
+    onAddBlock: (goalId: number, title: string) => void;
 }) {
     const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
     const sortedGoals = useMemo(
@@ -1141,6 +1191,8 @@ function GoalsPanel({
                     goal={selectedGoal}
                     onClose={() => setSelectedGoalId(null)}
                     onToggleBlock={toggleSelectedGoalBlock}
+                    onUpdate={(updates) => onUpdateGoal(selectedGoal.id, updates)}
+                    onAddBlock={(title) => onAddBlock(selectedGoal.id, title)}
                 />
             )}
         </>
@@ -1160,7 +1212,11 @@ function GoalRoadmap({
     featuredGoalId?: number;
     className?: string;
 }) {
-    const completedCount = goals.filter(isGoalCompleted).length;
+    const roadmapGoals = useMemo(
+        () => [...goals].sort((first, second) => first.deadline.localeCompare(second.deadline) || first.createdAt - second.createdAt),
+        [goals],
+    );
+    const completedCount = roadmapGoals.filter(isGoalCompleted).length;
 
     return (
         <section
@@ -1173,14 +1229,14 @@ function GoalRoadmap({
                     <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.03em]">{t('Yol Haritası', 'Roadmap')}</h2>
                 </div>
                 <p className="text-[12px] font-semibold text-[#8e8e93]">
-                    {completedCount}/{goals.length} {t('tamamlandı', 'completed')}
+                    {completedCount}/{roadmapGoals.length} {t('tamamlandı', 'completed')}
                 </p>
             </div>
 
-            <div className="relative mt-6">
-                <span className="absolute top-6 bottom-6 left-[23px] w-px bg-[#d1d1d6] sm:right-6 sm:bottom-auto sm:left-6 sm:h-px sm:w-auto" />
-                <div className="relative grid gap-5 sm:flex sm:gap-0 sm:overflow-x-auto sm:pb-2">
-                    {goals.map((goalRecord, index) => {
+            <div className="relative mt-6 overflow-x-auto pb-2">
+                <span className="absolute top-6 right-6 left-6 h-px bg-[#d1d1d6]" />
+                <div className="relative flex min-w-max">
+                    {roadmapGoals.map((goalRecord, index) => {
                         const completed = isGoalCompleted(goalRecord);
                         const featured = goalRecord.id === featuredGoalId;
                         const progress = calculateGoalProgress(goalRecord);
@@ -1191,7 +1247,7 @@ function GoalRoadmap({
                                 type="button"
                                 onClick={() => onSelect?.(goalRecord.id)}
                                 disabled={!onSelect}
-                                className={`group grid min-w-0 grid-cols-[48px_minmax(0,1fr)] items-center gap-3 text-left sm:min-w-[150px] sm:flex-1 sm:grid-cols-none sm:flex-col sm:items-center sm:px-2 sm:text-center ${onSelect ? 'cursor-pointer' : 'cursor-default'}`}
+                                className={`group flex w-[145px] min-w-[145px] flex-col items-center px-2 text-center sm:w-[170px] sm:min-w-[170px] ${onSelect ? 'cursor-pointer' : 'cursor-default'}`}
                             >
                                 <span
                                     className={`relative z-10 grid size-12 shrink-0 place-items-center rounded-full border-[3px] bg-white text-[13px] font-bold shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition group-active:scale-95 ${
@@ -1313,116 +1369,282 @@ function GoalDetailPanel({
     goal,
     onClose,
     onToggleBlock,
+    onUpdate,
+    onAddBlock,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
     goal: GoalRecord;
     onClose: () => void;
     onToggleBlock: (buildingBlockId: number) => void;
+    onUpdate: (updates: Pick<GoalRecord, 'title' | 'gain' | 'deadline' | 'priority' | 'category'>) => void;
+    onAddBlock: (title: string) => void;
 }) {
+    const [editing, setEditing] = useState(false);
+    const [editTitle, setEditTitle] = useState(goal.title);
+    const [editGain, setEditGain] = useState(goal.gain);
+    const [editDeadline, setEditDeadline] = useState(goal.deadline);
+    const [editPriority, setEditPriority] = useState(goal.priority);
+    const [editCategory, setEditCategory] = useState(goal.category);
+    const [editCalendarOpen, setEditCalendarOpen] = useState(false);
+    const [newBlockTitle, setNewBlockTitle] = useState('');
     const progress = calculateGoalProgress(goal);
     const completedCount = goal.buildingBlocks.filter((block) => block.completed).length;
     const priorityStyle = PRIORITY_STYLES[goal.priority];
+    const saveGoal = (event: FormEvent) => {
+        event.preventDefault();
+        if (!editTitle.trim() || !editGain.trim() || !isDateKey(editDeadline)) return;
+
+        onUpdate({
+            title: editTitle.trim(),
+            gain: editGain.trim(),
+            deadline: editDeadline,
+            priority: editPriority,
+            category: editCategory,
+        });
+        setEditing(false);
+    };
+
+    const addBlock = (event: FormEvent) => {
+        event.preventDefault();
+        const title = newBlockTitle.trim();
+        if (!title) return;
+
+        onAddBlock(title);
+        setNewBlockTitle('');
+    };
 
     return (
-        <div
-            className="apple-interface fixed inset-0 z-50 flex items-end justify-center bg-black/25 p-0 backdrop-blur-sm sm:items-center sm:p-6"
-            role="presentation"
-            onMouseDown={onClose}
-        >
-            <section
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="goal-detail-title"
-                onMouseDown={(event) => event.stopPropagation()}
-                className="flex max-h-[94svh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[32px] border border-black/[0.07] bg-[#f5f5f7] shadow-[0_30px_90px_rgba(0,0,0,0.25)] sm:max-h-[88svh] sm:rounded-[32px]"
+        <>
+            <div
+                className="apple-interface fixed inset-0 z-50 flex items-end justify-center bg-black/25 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+                role="presentation"
+                onMouseDown={onClose}
             >
-                <header className="flex shrink-0 items-center justify-between border-b border-black/[0.055] bg-[#f5f5f7]/90 px-5 py-4 backdrop-blur-2xl sm:px-7">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <span className={`size-2.5 shrink-0 rounded-full ${priorityStyle.dot}`} />
-                        <p className="truncate text-[13px] font-semibold text-[#6e6e73]">{t('Hedef Detayı', 'Goal Details')}</p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73] transition hover:bg-black/[0.09]"
-                        aria-label={t('Kapat', 'Close')}
-                    >
-                        <X className="size-[17px]" />
-                    </button>
-                </header>
-
-                <div className="overflow-y-auto px-5 pt-7 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-7 sm:pt-8 sm:pb-8">
-                    <div className="flex items-start gap-5">
-                        <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className={`text-[11px] font-semibold ${priorityStyle.text}`}>{priorityLabel(goal.priority, t)}</span>
-                                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#6e6e73] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-                                    {categoryLabel(goal.category, t)}
-                                </span>
-                            </div>
-                            <h2
-                                id="goal-detail-title"
-                                className="mt-3 text-[clamp(1.8rem,6vw,2.8rem)] leading-[1.05] font-semibold tracking-[-0.045em]"
+                <section
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="goal-detail-title"
+                    onMouseDown={(event) => event.stopPropagation()}
+                    className="flex max-h-[94svh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[32px] border border-black/[0.07] bg-[#f5f5f7] shadow-[0_30px_90px_rgba(0,0,0,0.25)] sm:max-h-[88svh] sm:rounded-[32px]"
+                >
+                    <header className="flex shrink-0 items-center justify-between border-b border-black/[0.055] bg-[#f5f5f7]/90 px-5 py-4 backdrop-blur-2xl sm:px-7">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <span className={`size-2.5 shrink-0 rounded-full ${priorityStyle.dot}`} />
+                            <p className="truncate text-[13px] font-semibold text-[#6e6e73]">{t('Hedef Detayı', 'Goal Details')}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setEditing((current) => !current)}
+                                className={`grid size-9 place-items-center rounded-full transition ${editing ? 'bg-[#007aff] text-white' : 'bg-black/[0.055] text-[#6e6e73] hover:bg-black/[0.09]'}`}
+                                aria-label={editing ? t('Düzenlemeyi kapat', 'Close editing') : t('Hedefi düzenle', 'Edit goal')}
                             >
-                                {goal.title}
-                            </h2>
-                            <p className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-medium text-[#8e8e93]">
-                                <CalendarDays className="size-4" />
-                                {formatGoalDate(goal.deadline, locale)}
-                            </p>
+                                <Pencil className="size-[16px]" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73] transition hover:bg-black/[0.09]"
+                                aria-label={t('Kapat', 'Close')}
+                            >
+                                <X className="size-[17px]" />
+                            </button>
                         </div>
+                    </header>
 
-                        <div
-                            className="relative grid size-20 shrink-0 place-items-center rounded-full before:absolute before:inset-2 before:rounded-full before:bg-[#f5f5f7]"
-                            style={{ background: `conic-gradient(#007aff ${progress}%, #e5e5ea 0)` }}
-                            aria-label={t(`Yüzde ${progress} tamamlandı`, `${progress} percent complete`)}
-                        >
-                            <span className="relative text-[16px] font-semibold tabular-nums">%{progress}</span>
-                        </div>
-                    </div>
-
-                    <section className="mt-7 rounded-[24px] border border-black/[0.06] bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.035)] sm:p-6">
-                        <p className="text-[11px] font-semibold text-[#007aff]">{t('Kazanımın', 'Your Outcome')}</p>
-                        <p className="mt-2 text-[16px] leading-7 font-medium tracking-[-0.01em] text-[#3a3a3c]">{goal.gain}</p>
-                    </section>
-
-                    <section className="mt-5 overflow-hidden rounded-[24px] border border-black/[0.06] bg-white shadow-[0_8px_30px_rgba(0,0,0,0.035)]">
-                        <div className="flex items-end justify-between gap-4 border-b border-black/[0.055] px-5 py-5 sm:px-6">
-                            <div>
-                                <h3 className="text-[18px] font-semibold tracking-[-0.025em]">{t('Yapı Taşları', 'Building Blocks')}</h3>
-                                <p className="mt-1 text-[12px] text-[#8e8e93]">
-                                    {t(
-                                        `${completedCount} / ${goal.buildingBlocks.length} tamamlandı`,
-                                        `${completedCount} of ${goal.buildingBlocks.length} completed`,
-                                    )}
+                    <div className="overflow-y-auto px-5 pt-7 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-7 sm:pt-8 sm:pb-8">
+                        <div className="flex items-start gap-5">
+                            <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`text-[11px] font-semibold ${priorityStyle.text}`}>{priorityLabel(goal.priority, t)}</span>
+                                    <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#6e6e73] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+                                        {categoryLabel(goal.category, t)}
+                                    </span>
+                                </div>
+                                <h2
+                                    id="goal-detail-title"
+                                    className="mt-3 text-[clamp(1.8rem,6vw,2.8rem)] leading-[1.05] font-semibold tracking-[-0.045em]"
+                                >
+                                    {goal.title}
+                                </h2>
+                                <p className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-medium text-[#8e8e93]">
+                                    <CalendarDays className="size-4" />
+                                    {formatGoalDate(goal.deadline, locale)}
                                 </p>
                             </div>
-                            <span className="text-[12px] font-semibold text-[#007aff]">%{progress}</span>
+
+                            <div
+                                className="relative grid size-20 shrink-0 place-items-center rounded-full before:absolute before:inset-2 before:rounded-full before:bg-[#f5f5f7]"
+                                style={{ background: `conic-gradient(#007aff ${progress}%, #e5e5ea 0)` }}
+                                aria-label={t(`Yüzde ${progress} tamamlandı`, `${progress} percent complete`)}
+                            >
+                                <span className="relative text-[16px] font-semibold tabular-nums">%{progress}</span>
+                            </div>
                         </div>
 
-                        {goal.buildingBlocks.map((block, index) => (
-                            <button
-                                key={block.id}
-                                type="button"
-                                onClick={() => onToggleBlock(block.id)}
-                                className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-black/[0.02] active:bg-black/[0.04] sm:px-6 ${index !== 0 ? 'border-t border-black/[0.05]' : ''}`}
+                        {editing ? (
+                            <form
+                                onSubmit={saveGoal}
+                                className="mt-7 rounded-[24px] border border-[#007aff]/15 bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.035)] sm:p-6"
                             >
-                                <span
-                                    className={`grid size-7 shrink-0 place-items-center rounded-full border transition ${block.completed ? 'border-[#34c759] bg-[#34c759] text-white' : 'border-[#c7c7cc] text-transparent'}`}
+                                <p className="text-[12px] font-semibold text-[#007aff]">{t('Hedefi Düzenle', 'Edit Goal')}</p>
+
+                                <label className="mt-5 block">
+                                    <span className="mb-2 block text-[11px] font-semibold text-[#8e8e93]">{t('Hedef', 'Goal')}</span>
+                                    <input
+                                        autoCapitalize="sentences"
+                                        value={editTitle}
+                                        onChange={(event) => setEditTitle(event.target.value)}
+                                        className="h-12 w-full rounded-[16px] border border-black/[0.07] bg-[#f9f9fb] px-4 text-[15px] font-medium outline-none focus:border-[#007aff]/35 focus:ring-4 focus:ring-[#007aff]/8"
+                                    />
+                                </label>
+
+                                <label className="mt-4 block">
+                                    <span className="mb-2 block text-[11px] font-semibold text-[#8e8e93]">{t('Kazanım', 'Outcome')}</span>
+                                    <textarea
+                                        autoCapitalize="sentences"
+                                        value={editGain}
+                                        onChange={(event) => setEditGain(event.target.value)}
+                                        rows={3}
+                                        className="w-full resize-none rounded-[16px] border border-black/[0.07] bg-[#f9f9fb] px-4 py-3 text-[14px] leading-6 font-medium outline-none focus:border-[#007aff]/35 focus:ring-4 focus:ring-[#007aff]/8"
+                                    />
+                                </label>
+
+                                <p className="mt-4 mb-2 text-[11px] font-semibold text-[#8e8e93]">{t('Kategori', 'Category')}</p>
+                                <div className="grid grid-cols-3 gap-1 rounded-[16px] bg-black/[0.045] p-1">
+                                    {(['health', 'work', 'venture', 'skill', 'education', 'other'] as GoalCategory[]).map((category) => (
+                                        <button
+                                            key={category}
+                                            type="button"
+                                            onClick={() => setEditCategory(category)}
+                                            className={`rounded-[12px] px-1 py-2 text-[10px] font-semibold transition ${editCategory === category ? 'bg-white text-[#1d1d1f] shadow-[0_1px_5px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73]'}`}
+                                        >
+                                            {categoryLabel(category, t)}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <p className="mt-4 mb-2 text-[11px] font-semibold text-[#8e8e93]">{t('Öncelik', 'Priority')}</p>
+                                <div className="grid grid-cols-4 gap-1 rounded-[16px] bg-black/[0.045] p-1">
+                                    {(['urgent', 'very-important', 'important', 'has-time'] as Priority[]).map((priority) => (
+                                        <button
+                                            key={priority}
+                                            type="button"
+                                            onClick={() => setEditPriority(priority)}
+                                            className={`min-w-0 rounded-[12px] px-1 py-2 text-[10px] font-semibold transition ${editPriority === priority ? 'bg-white shadow-[0_1px_5px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73]'}`}
+                                        >
+                                            <span className={`mr-1 inline-block size-1.5 rounded-full ${PRIORITY_STYLES[priority].dot}`} />
+                                            <span className="truncate">{priorityLabel(priority, t)}</span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setEditCalendarOpen(true)}
+                                    className="mt-4 flex h-12 w-full items-center gap-3 rounded-[16px] border border-black/[0.07] bg-[#f9f9fb] px-4 text-left"
                                 >
-                                    <Check className="size-4" strokeWidth={3} />
-                                </span>
-                                <span className={`min-w-0 flex-1 text-[15px] font-medium ${block.completed ? 'text-[#8e8e93] line-through' : ''}`}>
-                                    {block.title}
-                                </span>
-                                <span className="text-[11px] font-semibold text-[#aeaeb2] tabular-nums">{index + 1}</span>
-                            </button>
-                        ))}
-                    </section>
-                </div>
-            </section>
-        </div>
+                                    <CalendarDays className="size-[17px] text-[#007aff]" />
+                                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{formatGoalDate(editDeadline, locale)}</span>
+                                    <ChevronRight className="size-4 text-[#aeaeb2]" />
+                                </button>
+
+                                <div className="mt-5 grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditing(false)}
+                                        className="h-11 rounded-full bg-black/[0.055] text-[13px] font-semibold"
+                                    >
+                                        {t('Vazgeç', 'Cancel')}
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={!editTitle.trim() || !editGain.trim() || !isDateKey(editDeadline)}
+                                        className="h-11 rounded-full bg-[#007aff] text-[13px] font-semibold text-white disabled:bg-[#d1d1d6]"
+                                    >
+                                        {t('Kaydet', 'Save')}
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <section className="mt-7 rounded-[24px] border border-black/[0.06] bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.035)] sm:p-6">
+                                <p className="text-[11px] font-semibold text-[#007aff]">{t('Kazanımın', 'Your Outcome')}</p>
+                                <p className="mt-2 text-[16px] leading-7 font-medium tracking-[-0.01em] text-[#3a3a3c]">{goal.gain}</p>
+                            </section>
+                        )}
+
+                        <section className="mt-5 overflow-hidden rounded-[24px] border border-black/[0.06] bg-white shadow-[0_8px_30px_rgba(0,0,0,0.035)]">
+                            <div className="flex items-end justify-between gap-4 border-b border-black/[0.055] px-5 py-5 sm:px-6">
+                                <div>
+                                    <h3 className="text-[18px] font-semibold tracking-[-0.025em]">{t('Yapı Taşları', 'Building Blocks')}</h3>
+                                    <p className="mt-1 text-[12px] text-[#8e8e93]">
+                                        {t(
+                                            `${completedCount} / ${goal.buildingBlocks.length} tamamlandı`,
+                                            `${completedCount} of ${goal.buildingBlocks.length} completed`,
+                                        )}
+                                    </p>
+                                </div>
+                                <span className="text-[12px] font-semibold text-[#007aff]">%{progress}</span>
+                            </div>
+
+                            {goal.buildingBlocks.map((block, index) => (
+                                <button
+                                    key={block.id}
+                                    type="button"
+                                    onClick={() => onToggleBlock(block.id)}
+                                    className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-black/[0.02] active:bg-black/[0.04] sm:px-6 ${index !== 0 ? 'border-t border-black/[0.05]' : ''}`}
+                                >
+                                    <span
+                                        className={`grid size-7 shrink-0 place-items-center rounded-full border transition ${block.completed ? 'border-[#34c759] bg-[#34c759] text-white' : 'border-[#c7c7cc] text-transparent'}`}
+                                    >
+                                        <Check className="size-4" strokeWidth={3} />
+                                    </span>
+                                    <span
+                                        className={`min-w-0 flex-1 text-[15px] font-medium ${block.completed ? 'text-[#8e8e93] line-through' : ''}`}
+                                    >
+                                        {block.title}
+                                    </span>
+                                    <span className="text-[11px] font-semibold text-[#aeaeb2] tabular-nums">{index + 1}</span>
+                                </button>
+                            ))}
+
+                            <form onSubmit={addBlock} className="flex items-center gap-2 border-t border-black/[0.055] bg-[#f9f9fb] p-3 pl-5 sm:pl-6">
+                                <Plus className="size-4 shrink-0 text-[#007aff]" />
+                                <input
+                                    autoCapitalize="sentences"
+                                    value={newBlockTitle}
+                                    onChange={(event) => setNewBlockTitle(event.target.value)}
+                                    placeholder={t('Yeni yapı taşı ekle', 'Add a new building block')}
+                                    className="h-10 min-w-0 flex-1 bg-transparent text-[14px] font-medium outline-none placeholder:text-[#aeaeb2]"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!newBlockTitle.trim()}
+                                    className="grid size-9 shrink-0 place-items-center rounded-full bg-[#007aff] text-white disabled:bg-[#d1d1d6]"
+                                    aria-label={t('Yapı taşını ekle', 'Add building block')}
+                                >
+                                    <ArrowRight className="size-4" />
+                                </button>
+                            </form>
+                        </section>
+                    </div>
+                </section>
+            </div>
+
+            {editCalendarOpen && (
+                <PlanCalendar
+                    t={t}
+                    locale={locale}
+                    selectedDate={editDeadline}
+                    onCancel={() => setEditCalendarOpen(false)}
+                    onSelect={(selectedDate) => {
+                        setEditDeadline(selectedDate);
+                        setEditCalendarOpen(false);
+                    }}
+                />
+            )}
+        </>
     );
 }
 
