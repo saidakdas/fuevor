@@ -36,6 +36,7 @@ import {
     Plus,
     Rocket,
     Search,
+    Settings2,
     Shapes,
     Sparkles,
     Sun,
@@ -2372,7 +2373,7 @@ function ProfilePanel({
     onSave: (profile: ProfileData) => void;
     onSettingsChange: (settings: SettingsData) => void;
 }) {
-    const [tab, setTab] = useState<'personal' | 'settings'>('personal');
+    const [tab, setTab] = useState<'public' | 'personal' | 'settings'>('public');
     const [draft, setDraft] = useState(profile);
     const [saved, setSaved] = useState(false);
     const [currentPassword, setCurrentPassword] = useState('');
@@ -2387,6 +2388,11 @@ function ProfilePanel({
     const selectedCountry = isCountryCode(draft.country) ? draft.country : null;
     const phoneIsValid = selectedCountry ? isNationalPhoneLengthValid(draft.phone, selectedCountry) : false;
     const usernameIsValid = /^[\p{L}\p{N}._]{3,30}$/u.test(draft.username.trim());
+
+    const returnToPublicProfile = () => {
+        setDraft(profile);
+        setTab('public');
+    };
 
     useEffect(() => {
         const previousOverflow = document.body.style.overflow;
@@ -2456,13 +2462,23 @@ function ProfilePanel({
                 >
                     <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/[0.055] bg-[#f2f2f7]/82 px-5 py-4 backdrop-blur-2xl sm:px-8 sm:py-5">
                         <div className="flex min-w-0 items-center gap-3">
+                            {tab !== 'public' && (
+                                <button
+                                    type="button"
+                                    onClick={returnToPublicProfile}
+                                    className="grid size-10 shrink-0 place-items-center rounded-full bg-black/[0.055] text-[#3a3a3c] transition hover:bg-black/[0.09] active:scale-95"
+                                    aria-label={t('Profile dön', 'Back to profile')}
+                                >
+                                    <ArrowLeft className="size-[18px]" />
+                                </button>
+                            )}
                             <div className="relative h-8 w-24 shrink-0">
                                 <BrandLogo variant="color" className="demo-logo-light absolute inset-0 size-full" />
                                 <BrandLogo variant="white" className="demo-logo-dark absolute inset-0 size-full opacity-0" />
                             </div>
                             <span className="h-5 w-px bg-black/[0.1]" aria-hidden="true" />
                             <h1 id="profile-sheet-title" className="truncate text-[17px] font-semibold tracking-[-0.025em]">
-                                {t('Hesap', 'Account')}
+                                {tab === 'public' ? t('Profil', 'Profile') : t('Hesap', 'Account')}
                             </h1>
                         </div>
                         <button
@@ -2476,323 +2492,342 @@ function ProfilePanel({
                     </header>
 
                     <main className="mx-auto max-w-4xl px-4 pt-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-8 sm:pt-8 sm:pb-10">
-                        <div className="flex w-full items-center gap-4 rounded-[26px] border border-black/[0.055] bg-white px-5 py-5 shadow-[0_10px_34px_rgba(0,0,0,0.045)] sm:px-6">
-                            <div className="relative shrink-0">
-                                <div
-                                    className="grid size-[72px] place-items-center rounded-full p-[4px] shadow-[0_7px_20px_rgba(0,122,255,0.14)]"
-                                    style={{ background: `conic-gradient(#007aff ${overallProgress}%, rgba(142,142,147,0.2) 0)` }}
-                                    role="img"
-                                    aria-label={t(`Genel ilerleme yüzde ${overallProgress}`, `Overall progress ${overallProgress} percent`)}
-                                >
-                                    <span className="grid size-full place-items-center overflow-hidden rounded-full border-[3px] border-white bg-white">
-                                        {draft.avatar ? (
-                                            <img
-                                                src={draft.avatar}
-                                                alt={t('Profil fotoğrafı', 'Profile photo')}
-                                                className="size-full rounded-full object-cover"
-                                            />
-                                        ) : (
-                                            <span className="grid size-full place-items-center rounded-full bg-[#007aff] text-[23px] font-semibold text-white">
-                                                {profileInitial}
-                                            </span>
-                                        )}
-                                    </span>
-                                </div>
-                                <label
-                                    htmlFor="demo-profile-photo"
-                                    className="absolute -right-1 -bottom-1 grid size-7 cursor-pointer place-items-center rounded-full border-2 border-white bg-[#1d1d1f] text-white shadow-md transition hover:scale-105"
-                                    title={t('Profil fotoğrafını değiştir', 'Change profile photo')}
-                                >
-                                    <Camera className="size-3.5" />
-                                </label>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <h2 className="truncate text-[20px] font-semibold tracking-[-0.025em]">{draft.name || t('Ad Soyad', 'Full Name')}</h2>
-                                <p className="mt-1 truncate text-[13px] font-medium text-[#6e6e73]">
-                                    {draft.username ? `@${draft.username}` : t('Kullanıcı adı', 'Username')}
-                                </p>
-                                <p className="mt-0.5 truncate text-[12px] text-[#8e8e93]">{draft.email || t('E-posta adresi', 'Email address')}</p>
-                                <p className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#007aff]">
-                                    <TrendingUp className="size-3.5" />
-                                    {t('Genel ilerleme', 'Overall progress')} · %{overallProgress}
-                                </p>
-                                <div className="mt-2 flex flex-wrap items-center gap-3">
-                                    <label
-                                        htmlFor="demo-profile-photo"
-                                        className="inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-[#007aff]"
-                                    >
-                                        <Camera className="size-3.5" />
-                                        {draft.avatar ? t('Değiştir', 'Change') : t('Fotoğraf ekle', 'Add photo')}
-                                    </label>
-                                    {draft.avatar && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setDraft((current) => ({ ...current, avatar: '' }))}
-                                            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#ff3b30]"
+                        {tab === 'public' ? (
+                            <PublicProfileView
+                                t={t}
+                                locale={locale}
+                                profile={draft}
+                                overallProgress={overallProgress}
+                                onEdit={() => setTab('personal')}
+                                onSettings={() => setTab('settings')}
+                            />
+                        ) : (
+                            <>
+                                <div className="flex w-full items-center gap-4 rounded-[26px] border border-black/[0.055] bg-white px-5 py-5 shadow-[0_10px_34px_rgba(0,0,0,0.045)] sm:px-6">
+                                    <div className="relative shrink-0">
+                                        <div
+                                            className="grid size-[72px] place-items-center rounded-full p-[4px] shadow-[0_7px_20px_rgba(0,122,255,0.14)]"
+                                            style={{ background: `conic-gradient(#007aff ${overallProgress}%, rgba(142,142,147,0.2) 0)` }}
+                                            role="img"
+                                            aria-label={t(`Genel ilerleme yüzde ${overallProgress}`, `Overall progress ${overallProgress} percent`)}
                                         >
-                                            <Trash2 className="size-3.5" />
-                                            {t('Fotoğrafı Kaldır', 'Remove Photo')}
-                                        </button>
-                                    )}
-                                </div>
-                                <input
-                                    id="demo-profile-photo"
-                                    type="file"
-                                    accept="image/*"
-                                    className="sr-only"
-                                    aria-label={t('Profil fotoğrafı seç', 'Choose profile photo')}
-                                    onChange={async (event) => {
-                                        const input = event.currentTarget;
-                                        const file = input.files?.[0];
-                                        if (!file) return;
-
-                                        try {
-                                            const source = await readProfileImage(file);
-                                            setCropSource(source);
-                                        } catch {
-                                            // Unsupported image files leave the current profile photo unchanged.
-                                        } finally {
-                                            input.value = '';
-                                        }
-                                    }}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="mt-5 flex w-full items-center rounded-full bg-black/[0.045] p-1 sm:w-fit">
-                            <button
-                                type="button"
-                                onClick={() => setTab('personal')}
-                                className={`flex-1 rounded-full px-5 py-2.5 text-[14px] font-medium whitespace-nowrap transition sm:flex-none ${tab === 'personal' ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73]'}`}
-                            >
-                                {t('Kişisel Bilgiler', 'Personal Information')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setTab('settings')}
-                                className={`flex-1 rounded-full px-5 py-2.5 text-[14px] font-medium whitespace-nowrap transition sm:flex-none ${tab === 'settings' ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73]'}`}
-                            >
-                                {t('Ayarlar', 'Settings')}
-                            </button>
-                        </div>
-
-                        {tab === 'personal' ? (
-                            <form
-                                onSubmit={savePersonalInformation}
-                                className="demo-step-enter mt-6 overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
-                            >
-                                <div className="space-y-5 px-5 py-6 sm:px-7 sm:py-7">
-                                    <ProfileField
-                                        label={t('Ad Soyad', 'Full Name')}
-                                        value={draft.name}
-                                        onChange={(value) => setDraft((current) => ({ ...current, name: value }))}
-                                        autoComplete="name"
-                                        icon={UserRound}
-                                        required
-                                    />
-                                    <ProfileUsernameField
-                                        t={t}
-                                        value={draft.username}
-                                        valid={usernameIsValid}
-                                        onChange={(username) => setDraft((current) => ({ ...current, username }))}
-                                    />
-                                    <ProfileField
-                                        label={t('E-posta', 'Email')}
-                                        value={draft.email}
-                                        onChange={(value) => setDraft((current) => ({ ...current, email: value }))}
-                                        autoComplete="email"
-                                        type="email"
-                                        icon={Mail}
-                                        required
-                                    />
-                                    <CountryPickerField
-                                        t={t}
-                                        locale={locale}
-                                        value={selectedCountry}
-                                        onChange={(country) =>
-                                            setDraft((current) => ({
-                                                ...current,
-                                                country,
-                                                phone: normalizeNationalPhone(current.phone, country),
-                                            }))
-                                        }
-                                    />
-                                    <ProfilePhoneField
-                                        t={t}
-                                        country={selectedCountry}
-                                        value={draft.phone}
-                                        onChange={(phone) => setDraft((current) => ({ ...current, phone }))}
-                                    />
-                                    <BirthDateField
-                                        t={t}
-                                        locale={locale}
-                                        value={draft.birthDate}
-                                        onChange={(birthDate) => setDraft((current) => ({ ...current, birthDate }))}
-                                    />
-                                    <ProfileSelect
-                                        label={t('Meslek', 'Profession')}
-                                        value={draft.profession}
-                                        onChange={(value) => setDraft((current) => ({ ...current, profession: value }))}
-                                        icon={BriefcaseBusiness}
-                                        optionalLabel={t('İsteğe bağlı', 'Optional')}
-                                        placeholder={t('Meslek seç', 'Choose a profession')}
-                                        options={professionOptions(t)}
-                                    />
-                                    <div className="border-t border-black/[0.055] pt-6">
-                                        <div className="flex items-center gap-3">
-                                            <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#007aff]/10 text-[#007aff]">
-                                                <NotebookPen className="size-5" />
+                                            <span className="grid size-full place-items-center overflow-hidden rounded-full border-[3px] border-white bg-white">
+                                                {draft.avatar ? (
+                                                    <img
+                                                        src={draft.avatar}
+                                                        alt={t('Profil fotoğrafı', 'Profile photo')}
+                                                        className="size-full rounded-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <span className="grid size-full place-items-center rounded-full bg-[#007aff] text-[23px] font-semibold text-white">
+                                                        {profileInitial}
+                                                    </span>
+                                                )}
                                             </span>
-                                            <div>
-                                                <h3 className="text-[16px] font-semibold tracking-[-0.015em]">{t('Hakkımda', 'About Me')}</h3>
-                                                <p className="mt-0.5 text-[12px] text-[#8e8e93]">
-                                                    {t(
-                                                        'Kısa tanıtımın ve eklediğin eğitimler burada yer alır.',
-                                                        'Your introduction and added education appear here.',
-                                                    )}
-                                                </p>
-                                            </div>
                                         </div>
+                                        <label
+                                            htmlFor="demo-profile-photo"
+                                            className="absolute -right-1 -bottom-1 grid size-7 cursor-pointer place-items-center rounded-full border-2 border-white bg-[#1d1d1f] text-white shadow-md transition hover:scale-105"
+                                            title={t('Profil fotoğrafını değiştir', 'Change profile photo')}
+                                        >
+                                            <Camera className="size-3.5" />
+                                        </label>
                                     </div>
+                                    <div className="min-w-0 flex-1">
+                                        <h2 className="truncate text-[20px] font-semibold tracking-[-0.025em]">
+                                            {draft.name || t('Ad Soyad', 'Full Name')}
+                                        </h2>
+                                        <p className="mt-1 truncate text-[13px] font-medium text-[#6e6e73]">
+                                            {draft.username ? `@${draft.username}` : t('Kullanıcı adı', 'Username')}
+                                        </p>
+                                        <p className="mt-0.5 truncate text-[12px] text-[#8e8e93]">
+                                            {draft.email || t('E-posta adresi', 'Email address')}
+                                        </p>
+                                        <p className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#007aff]">
+                                            <TrendingUp className="size-3.5" />
+                                            {t('Genel ilerleme', 'Overall progress')} · %{overallProgress}
+                                        </p>
+                                        <div className="mt-2 flex flex-wrap items-center gap-3">
+                                            <label
+                                                htmlFor="demo-profile-photo"
+                                                className="inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-[#007aff]"
+                                            >
+                                                <Camera className="size-3.5" />
+                                                {draft.avatar ? t('Değiştir', 'Change') : t('Fotoğraf ekle', 'Add photo')}
+                                            </label>
+                                            {draft.avatar && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDraft((current) => ({ ...current, avatar: '' }))}
+                                                    className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#ff3b30]"
+                                                >
+                                                    <Trash2 className="size-3.5" />
+                                                    {t('Fotoğrafı Kaldır', 'Remove Photo')}
+                                                </button>
+                                            )}
+                                        </div>
+                                        <input
+                                            id="demo-profile-photo"
+                                            type="file"
+                                            accept="image/*"
+                                            className="sr-only"
+                                            aria-label={t('Profil fotoğrafı seç', 'Choose profile photo')}
+                                            onChange={async (event) => {
+                                                const input = event.currentTarget;
+                                                const file = input.files?.[0];
+                                                if (!file) return;
 
-                                    <ProfileAboutField
-                                        t={t}
-                                        value={draft.about}
-                                        onChange={(about) => setDraft((current) => ({ ...current, about }))}
-                                    />
-
-                                    <ProfileEducationSection
-                                        t={t}
-                                        educations={draft.educations}
-                                        onChange={(educations) => setDraft((current) => ({ ...current, educations }))}
-                                    />
+                                                try {
+                                                    const source = await readProfileImage(file);
+                                                    setCropSource(source);
+                                                } catch {
+                                                    // Unsupported image files leave the current profile photo unchanged.
+                                                } finally {
+                                                    input.value = '';
+                                                }
+                                            }}
+                                        />
+                                    </div>
                                 </div>
 
-                                <div className="flex items-center justify-end gap-4 border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
-                                    {saved && <span className="text-[13px] font-medium text-[#28a745]">{t('Kaydedildi', 'Saved')}</span>}
+                                <div className="mt-5 flex w-full items-center rounded-full bg-black/[0.045] p-1 sm:w-fit">
                                     <button
-                                        type="submit"
-                                        disabled={
-                                            !draft.name.trim() ||
-                                            !usernameIsValid ||
-                                            !draft.email.trim() ||
-                                            !phoneIsValid ||
-                                            !draft.birthDate ||
-                                            !selectedCountry
-                                        }
-                                        className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition hover:bg-[#006ee6] active:scale-[0.98] disabled:bg-[#d1d1d6]"
+                                        type="button"
+                                        onClick={() => setTab('personal')}
+                                        className={`flex-1 rounded-full px-5 py-2.5 text-[14px] font-medium whitespace-nowrap transition sm:flex-none ${tab === 'personal' ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73]'}`}
                                     >
-                                        {t('Değişiklikleri Kaydet', 'Save Changes')}
+                                        {t('Kişisel Bilgiler', 'Personal Information')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setTab('settings')}
+                                        className={`flex-1 rounded-full px-5 py-2.5 text-[14px] font-medium whitespace-nowrap transition sm:flex-none ${tab === 'settings' ? 'bg-white text-[#1d1d1f] shadow-[0_1px_6px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73]'}`}
+                                    >
+                                        {t('Ayarlar', 'Settings')}
                                     </button>
                                 </div>
-                            </form>
-                        ) : (
-                            <div className="demo-step-enter mt-6">
-                                <ProfilePreferences t={t} settings={settings} onChange={onSettingsChange} />
 
-                                <section className="mt-8">
-                                    <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Güvenlik', 'Security')}</h2>
+                                {tab === 'personal' ? (
                                     <form
-                                        onSubmit={updatePassword}
-                                        className="overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
+                                        onSubmit={savePersonalInformation}
+                                        className="demo-step-enter mt-6 overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
                                     >
-                                        <div className="flex items-center gap-4 border-b border-black/[0.055] px-5 py-6 sm:px-7">
-                                            <span className="grid size-12 shrink-0 place-items-center rounded-[15px] bg-[#007aff]/10 text-[#007aff]">
-                                                <LockKeyhole className="size-[21px]" />
-                                            </span>
-                                            <div>
-                                                <h2 className="text-[19px] font-semibold tracking-[-0.02em]">
-                                                    {t('Şifreyi değiştir', 'Change password')}
-                                                </h2>
-                                                <p className="mt-1 text-[13px] text-[#8e8e93]">
-                                                    {t(
-                                                        'Hesabın için güçlü ve benzersiz bir şifre kullan.',
-                                                        'Use a strong, unique password for your account.',
-                                                    )}
-                                                </p>
+                                        <div className="space-y-5 px-5 py-6 sm:px-7 sm:py-7">
+                                            <ProfileField
+                                                label={t('Ad Soyad', 'Full Name')}
+                                                value={draft.name}
+                                                onChange={(value) => setDraft((current) => ({ ...current, name: value }))}
+                                                autoComplete="name"
+                                                icon={UserRound}
+                                                required
+                                            />
+                                            <ProfileUsernameField
+                                                t={t}
+                                                value={draft.username}
+                                                valid={usernameIsValid}
+                                                onChange={(username) => setDraft((current) => ({ ...current, username }))}
+                                            />
+                                            <ProfileField
+                                                label={t('E-posta', 'Email')}
+                                                value={draft.email}
+                                                onChange={(value) => setDraft((current) => ({ ...current, email: value }))}
+                                                autoComplete="email"
+                                                type="email"
+                                                icon={Mail}
+                                                required
+                                            />
+                                            <CountryPickerField
+                                                t={t}
+                                                locale={locale}
+                                                value={selectedCountry}
+                                                onChange={(country) =>
+                                                    setDraft((current) => ({
+                                                        ...current,
+                                                        country,
+                                                        phone: normalizeNationalPhone(current.phone, country),
+                                                    }))
+                                                }
+                                            />
+                                            <ProfilePhoneField
+                                                t={t}
+                                                country={selectedCountry}
+                                                value={draft.phone}
+                                                onChange={(phone) => setDraft((current) => ({ ...current, phone }))}
+                                            />
+                                            <BirthDateField
+                                                t={t}
+                                                locale={locale}
+                                                value={draft.birthDate}
+                                                onChange={(birthDate) => setDraft((current) => ({ ...current, birthDate }))}
+                                            />
+                                            <ProfileSelect
+                                                label={t('Meslek', 'Profession')}
+                                                value={draft.profession}
+                                                onChange={(value) => setDraft((current) => ({ ...current, profession: value }))}
+                                                icon={BriefcaseBusiness}
+                                                optionalLabel={t('İsteğe bağlı', 'Optional')}
+                                                placeholder={t('Meslek seç', 'Choose a profession')}
+                                                options={professionOptions(t)}
+                                            />
+                                            <div className="border-t border-black/[0.055] pt-6">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#007aff]/10 text-[#007aff]">
+                                                        <NotebookPen className="size-5" />
+                                                    </span>
+                                                    <div>
+                                                        <h3 className="text-[16px] font-semibold tracking-[-0.015em]">{t('Hakkımda', 'About Me')}</h3>
+                                                        <p className="mt-0.5 text-[12px] text-[#8e8e93]">
+                                                            {t(
+                                                                'Kısa tanıtımın ve eklediğin eğitimler burada yer alır.',
+                                                                'Your introduction and added education appear here.',
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        <div className="space-y-5 px-5 py-6 sm:px-7">
-                                            <ProfileField
-                                                label={t('Mevcut Şifre', 'Current Password')}
-                                                value={currentPassword}
-                                                onChange={setCurrentPassword}
-                                                autoComplete="current-password"
-                                                type="password"
-                                                icon={LockKeyhole}
+                                            <ProfileAboutField
+                                                t={t}
+                                                value={draft.about}
+                                                onChange={(about) => setDraft((current) => ({ ...current, about }))}
                                             />
-                                            <ProfileField
-                                                label={t('Yeni Şifre', 'New Password')}
-                                                value={newPassword}
-                                                onChange={(value) => {
-                                                    setNewPassword(value);
-                                                    setPasswordMessage(null);
-                                                }}
-                                                autoComplete="new-password"
-                                                type="password"
-                                                icon={LockKeyhole}
+
+                                            <ProfileEducationSection
+                                                t={t}
+                                                educations={draft.educations}
+                                                onChange={(educations) => setDraft((current) => ({ ...current, educations }))}
                                             />
-                                            <ProfileField
-                                                label={t('Yeni Şifre Tekrar', 'Confirm New Password')}
-                                                value={passwordConfirmation}
-                                                onChange={(value) => {
-                                                    setPasswordConfirmation(value);
-                                                    setPasswordMessage(null);
-                                                }}
-                                                autoComplete="new-password"
-                                                type="password"
-                                                icon={LockKeyhole}
-                                            />
-                                            {passwordMessage === 'mismatch' && (
-                                                <p className="text-[13px] font-medium text-[#ff3b30]">
-                                                    {t('Yeni şifreler birbiriyle eşleşmiyor.', 'The new passwords do not match.')}
-                                                </p>
-                                            )}
                                         </div>
 
                                         <div className="flex items-center justify-end gap-4 border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
-                                            {passwordMessage === 'success' && (
-                                                <span className="text-[13px] font-medium text-[#28a745]">
-                                                    {t('Şifre güncellendi', 'Password updated')}
-                                                </span>
-                                            )}
+                                            {saved && <span className="text-[13px] font-medium text-[#28a745]">{t('Kaydedildi', 'Saved')}</span>}
                                             <button
                                                 type="submit"
-                                                disabled={!currentPassword || newPassword.length < 8 || !passwordConfirmation}
+                                                disabled={
+                                                    !draft.name.trim() ||
+                                                    !usernameIsValid ||
+                                                    !draft.email.trim() ||
+                                                    !phoneIsValid ||
+                                                    !draft.birthDate ||
+                                                    !selectedCountry
+                                                }
                                                 className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition hover:bg-[#006ee6] active:scale-[0.98] disabled:bg-[#d1d1d6]"
                                             >
-                                                {t('Şifreyi Güncelle', 'Update Password')}
-                                            </button>
-                                        </div>
-                                        <div className="flex items-center gap-4 border-t border-black/[0.055] px-5 py-5 sm:px-7">
-                                            <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#ff9500]/10 text-[#ff9500]">
-                                                <Mail className="size-[19px]" />
-                                            </span>
-                                            <div className="min-w-0 flex-1">
-                                                <h3 className="text-[15px] font-semibold">{t('Şifreni mi unuttun?', 'Forgot your password?')}</h3>
-                                                <p className="mt-1 text-[12px] leading-5 text-[#8e8e93]">
-                                                    {t(
-                                                        'E-postana güvenli bir sıfırlama bağlantısı gönder.',
-                                                        'Send a secure reset link to your email.',
-                                                    )}
-                                                </p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setResetEmail(draft.email);
-                                                    setResetSent(false);
-                                                    setForgotPasswordOpen(true);
-                                                }}
-                                                className="shrink-0 rounded-full bg-[#007aff]/10 px-4 py-2 text-[13px] font-semibold text-[#007aff] transition active:scale-95"
-                                            >
-                                                {t('Sıfırla', 'Reset')}
+                                                {t('Değişiklikleri Kaydet', 'Save Changes')}
                                             </button>
                                         </div>
                                     </form>
-                                </section>
-                            </div>
+                                ) : (
+                                    <div className="demo-step-enter mt-6">
+                                        <ProfilePreferences t={t} settings={settings} onChange={onSettingsChange} />
+
+                                        <section className="mt-8">
+                                            <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Güvenlik', 'Security')}</h2>
+                                            <form
+                                                onSubmit={updatePassword}
+                                                className="overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
+                                            >
+                                                <div className="flex items-center gap-4 border-b border-black/[0.055] px-5 py-6 sm:px-7">
+                                                    <span className="grid size-12 shrink-0 place-items-center rounded-[15px] bg-[#007aff]/10 text-[#007aff]">
+                                                        <LockKeyhole className="size-[21px]" />
+                                                    </span>
+                                                    <div>
+                                                        <h2 className="text-[19px] font-semibold tracking-[-0.02em]">
+                                                            {t('Şifreyi değiştir', 'Change password')}
+                                                        </h2>
+                                                        <p className="mt-1 text-[13px] text-[#8e8e93]">
+                                                            {t(
+                                                                'Hesabın için güçlü ve benzersiz bir şifre kullan.',
+                                                                'Use a strong, unique password for your account.',
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-5 px-5 py-6 sm:px-7">
+                                                    <ProfileField
+                                                        label={t('Mevcut Şifre', 'Current Password')}
+                                                        value={currentPassword}
+                                                        onChange={setCurrentPassword}
+                                                        autoComplete="current-password"
+                                                        type="password"
+                                                        icon={LockKeyhole}
+                                                    />
+                                                    <ProfileField
+                                                        label={t('Yeni Şifre', 'New Password')}
+                                                        value={newPassword}
+                                                        onChange={(value) => {
+                                                            setNewPassword(value);
+                                                            setPasswordMessage(null);
+                                                        }}
+                                                        autoComplete="new-password"
+                                                        type="password"
+                                                        icon={LockKeyhole}
+                                                    />
+                                                    <ProfileField
+                                                        label={t('Yeni Şifre Tekrar', 'Confirm New Password')}
+                                                        value={passwordConfirmation}
+                                                        onChange={(value) => {
+                                                            setPasswordConfirmation(value);
+                                                            setPasswordMessage(null);
+                                                        }}
+                                                        autoComplete="new-password"
+                                                        type="password"
+                                                        icon={LockKeyhole}
+                                                    />
+                                                    {passwordMessage === 'mismatch' && (
+                                                        <p className="text-[13px] font-medium text-[#ff3b30]">
+                                                            {t('Yeni şifreler birbiriyle eşleşmiyor.', 'The new passwords do not match.')}
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center justify-end gap-4 border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
+                                                    {passwordMessage === 'success' && (
+                                                        <span className="text-[13px] font-medium text-[#28a745]">
+                                                            {t('Şifre güncellendi', 'Password updated')}
+                                                        </span>
+                                                    )}
+                                                    <button
+                                                        type="submit"
+                                                        disabled={!currentPassword || newPassword.length < 8 || !passwordConfirmation}
+                                                        className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition hover:bg-[#006ee6] active:scale-[0.98] disabled:bg-[#d1d1d6]"
+                                                    >
+                                                        {t('Şifreyi Güncelle', 'Update Password')}
+                                                    </button>
+                                                </div>
+                                                <div className="flex items-center gap-4 border-t border-black/[0.055] px-5 py-5 sm:px-7">
+                                                    <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#ff9500]/10 text-[#ff9500]">
+                                                        <Mail className="size-[19px]" />
+                                                    </span>
+                                                    <div className="min-w-0 flex-1">
+                                                        <h3 className="text-[15px] font-semibold">
+                                                            {t('Şifreni mi unuttun?', 'Forgot your password?')}
+                                                        </h3>
+                                                        <p className="mt-1 text-[12px] leading-5 text-[#8e8e93]">
+                                                            {t(
+                                                                'E-postana güvenli bir sıfırlama bağlantısı gönder.',
+                                                                'Send a secure reset link to your email.',
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setResetEmail(draft.email);
+                                                            setResetSent(false);
+                                                            setForgotPasswordOpen(true);
+                                                        }}
+                                                        className="shrink-0 rounded-full bg-[#007aff]/10 px-4 py-2 text-[13px] font-semibold text-[#007aff] transition active:scale-95"
+                                                    >
+                                                        {t('Sıfırla', 'Reset')}
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </section>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </main>
                 </section>
@@ -2821,6 +2856,156 @@ function ProfilePanel({
                 />
             )}
         </>
+    );
+}
+
+function PublicProfileView({
+    t,
+    locale,
+    profile,
+    overallProgress,
+    onEdit,
+    onSettings,
+}: {
+    t: Translate;
+    locale: 'tr' | 'en';
+    profile: ProfileData;
+    overallProgress: number;
+    onEdit: () => void;
+    onSettings: () => void;
+}) {
+    const initial =
+        profile.name
+            .trim()
+            .charAt(0)
+            .toLocaleUpperCase(locale === 'tr' ? 'tr-TR' : 'en-US') || 'K';
+    const country = isCountryCode(profile.country) ? getCountryOption(profile.country, locale) : null;
+    const profession = professionOptions(t).find((option) => option.value === profile.profession)?.label;
+    const hasEducation = profile.educations.length > 0;
+
+    return (
+        <div className="demo-step-enter mx-auto max-w-3xl">
+            <div className="mb-4 flex items-center justify-end gap-2">
+                <button
+                    type="button"
+                    onClick={onSettings}
+                    className="grid size-11 place-items-center rounded-full border border-black/[0.06] bg-white text-[#6e6e73] shadow-[0_5px_18px_rgba(0,0,0,0.045)] transition hover:bg-[#fafafa] active:scale-95"
+                    aria-label={t('Ayarları aç', 'Open settings')}
+                >
+                    <Settings2 className="size-[19px]" />
+                </button>
+                <button
+                    type="button"
+                    onClick={onEdit}
+                    className="inline-flex h-11 items-center gap-2 rounded-full bg-[#007aff] px-5 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(0,122,255,0.2)] transition hover:bg-[#006ee6] active:scale-[0.98]"
+                >
+                    <Pencil className="size-4" />
+                    {t('Profili Düzenle', 'Edit Profile')}
+                </button>
+            </div>
+
+            <article className="overflow-hidden rounded-[32px] border border-black/[0.055] bg-white shadow-[0_16px_55px_rgba(0,0,0,0.07)]">
+                <div className="relative h-36 overflow-hidden bg-[linear-gradient(135deg,#001f26_0%,#005b67_48%,#37b9c5_100%)] sm:h-44">
+                    <span className="absolute -top-16 -right-12 size-52 rounded-full bg-white/12 blur-2xl" />
+                    <span className="absolute -bottom-24 -left-10 size-64 rounded-full bg-[#007aff]/30 blur-3xl" />
+                    <span className="absolute top-8 left-[42%] size-20 rounded-full bg-white/8 blur-xl" />
+                </div>
+
+                <div className="px-5 pb-7 text-center sm:px-8 sm:pb-8">
+                    <div
+                        className="relative mx-auto -mt-16 grid size-32 place-items-center rounded-full p-[5px] shadow-[0_14px_34px_rgba(0,0,0,0.18)]"
+                        style={{ background: `conic-gradient(#007aff ${overallProgress}%, rgba(255,255,255,0.42) 0)` }}
+                    >
+                        <span className="grid size-full place-items-center overflow-hidden rounded-full border-4 border-white bg-white">
+                            {profile.avatar ? (
+                                <img
+                                    src={profile.avatar}
+                                    alt={t('Profil fotoğrafı', 'Profile photo')}
+                                    className="size-full rounded-full object-cover"
+                                />
+                            ) : (
+                                <span className="grid size-full place-items-center rounded-full bg-[#007aff] text-[38px] font-semibold text-white">
+                                    {initial}
+                                </span>
+                            )}
+                        </span>
+                    </div>
+
+                    <h2 className="mt-4 text-[28px] font-semibold tracking-[-0.04em] sm:text-[32px]">{profile.name || t('Ad Soyad', 'Full Name')}</h2>
+                    <p className="mt-1 text-[14px] font-medium text-[#8e8e93]">
+                        {profile.username ? `@${profile.username}` : t('Kullanıcı adı eklenmedi', 'No username yet')}
+                    </p>
+
+                    {(profession || country) && (
+                        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                            {profession && (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.045] px-3 py-1.5 text-[12px] font-medium text-[#6e6e73]">
+                                    <BriefcaseBusiness className="size-3.5" />
+                                    {profession}
+                                </span>
+                            )}
+                            {country && (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.045] px-3 py-1.5 text-[12px] font-medium text-[#6e6e73]">
+                                    <span className="text-[15px] leading-none" aria-hidden="true">
+                                        {country.flag}
+                                    </span>
+                                    {country.name}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    {profile.about.trim() && <p className="mx-auto mt-5 max-w-xl text-[14px] leading-6 text-[#515154]">{profile.about.trim()}</p>}
+                </div>
+            </article>
+
+            <div className={`mt-5 grid gap-5 ${hasEducation ? 'md:grid-cols-[0.82fr_1.18fr]' : ''}`}>
+                <section className="rounded-[26px] border border-black/[0.055] bg-white p-5 shadow-[0_10px_35px_rgba(0,0,0,0.045)] sm:p-6">
+                    <div className="flex items-center gap-3">
+                        <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#007aff]/10 text-[#007aff]">
+                            <TrendingUp className="size-5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[12px] font-medium text-[#8e8e93]">{t('Genel İlerleme', 'Overall Progress')}</p>
+                            <p className="mt-0.5 text-[24px] font-semibold tracking-[-0.035em]">%{overallProgress}</p>
+                        </div>
+                    </div>
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/[0.055]">
+                        <div className="h-full rounded-full bg-[#007aff] transition-[width] duration-500" style={{ width: `${overallProgress}%` }} />
+                    </div>
+                </section>
+
+                {hasEducation && (
+                    <section className="overflow-hidden rounded-[26px] border border-black/[0.055] bg-white shadow-[0_10px_35px_rgba(0,0,0,0.045)]">
+                        <div className="flex items-center gap-3 border-b border-black/[0.055] px-5 py-4 sm:px-6">
+                            <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#5856d6]/10 text-[#5856d6]">
+                                <GraduationCap className="size-[19px]" />
+                            </span>
+                            <h3 className="text-[16px] font-semibold">{t('Eğitim', 'Education')}</h3>
+                        </div>
+                        <div>
+                            {profile.educations.map((education) => (
+                                <div
+                                    key={education.id}
+                                    className="flex items-start gap-3 border-b border-black/[0.045] px-5 py-4 last:border-b-0 sm:px-6"
+                                >
+                                    <span className="mt-1 size-2 shrink-0 rounded-full bg-[#5856d6]" />
+                                    <div className="min-w-0">
+                                        <p className="text-[14px] font-semibold">{educationLevelLabel(education.level, t)}</p>
+                                        {education.level !== 'high-school' && (
+                                            <>
+                                                <p className="mt-1 text-[12px] leading-5 text-[#6e6e73]">{education.university}</p>
+                                                {education.department && <p className="mt-0.5 text-[11px] text-[#8e8e93]">{education.department}</p>}
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+            </div>
+        </div>
     );
 }
 
