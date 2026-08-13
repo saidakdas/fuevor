@@ -515,6 +515,7 @@ export default function DemoHome() {
         setProfileOpen(false);
         setPanelSection(section);
     };
+    const overallProgress = calculateOverallProgress(goals);
 
     const profileSheet = profileOpen ? (
         <ProfilePanel
@@ -522,6 +523,7 @@ export default function DemoHome() {
             locale={locale}
             profile={profile}
             settings={settings}
+            overallProgress={overallProgress}
             onClose={() => setProfileOpen(false)}
             onSave={setProfile}
             onSettingsChange={setSettings}
@@ -792,8 +794,7 @@ function OverviewPanel({
         [goals],
     );
     const upcomingGoals = useMemo(() => [...goals].sort((first, second) => first.deadline.localeCompare(second.deadline)).slice(0, 3), [goals]);
-    const overallProgress =
-        goals.length === 0 ? 0 : Math.round(goals.reduce((total, goalRecord) => total + calculateGoalProgress(goalRecord), 0) / goals.length);
+    const overallProgress = calculateOverallProgress(goals);
     const periodCompleted = periodItems.filter((item) => item.completed).length;
     const periodProgress = periodItems.length === 0 ? 0 : Math.round((periodCompleted / periodItems.length) * 100);
     const selectedGoal = selectedGoalId === null ? undefined : goals.find((goalRecord) => goalRecord.id === selectedGoalId);
@@ -804,7 +805,7 @@ function OverviewPanel({
             </Head>
 
             <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
-                <PanelHeader t={t} active="overview" onNavigate={onNavigate} />
+                <PanelHeader t={t} active="overview" goals={goals} onNavigate={onNavigate} />
 
                 <main className="mx-auto max-w-5xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
@@ -1095,7 +1096,7 @@ function GoalsPanel({
             </Head>
 
             <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
-                <PanelHeader t={t} active="goals" onNavigate={onNavigate} />
+                <PanelHeader t={t} active="goals" goals={goals} onNavigate={onNavigate} />
 
                 <main className="mx-auto max-w-5xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
@@ -1886,7 +1887,7 @@ function NotesPanel({
             </Head>
 
             <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
-                <PanelHeader t={t} active="notes" onNavigate={onNavigate} />
+                <PanelHeader t={t} active="notes" goals={goals} onNavigate={onNavigate} />
 
                 <main className="demo-keyboard-aware-content mx-auto max-w-5xl px-5 pt-24 pb-32 sm:px-8 sm:pt-36 sm:pb-16">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
@@ -2084,7 +2085,17 @@ function NotesPanel({
     );
 }
 
-function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSection; onNavigate: (section: PanelSection) => void }) {
+function PanelHeader({
+    t,
+    active,
+    goals,
+    onNavigate,
+}: {
+    t: Translate;
+    active: PanelSection;
+    goals: GoalRecord[];
+    onNavigate: (section: PanelSection) => void;
+}) {
     const navigationItems = [
         { section: 'overview' as const, label: t('Genel Bakış', 'Overview'), mobileLabel: t('Genel', 'Home'), icon: Layers3 },
         { section: 'goals' as const, label: t('Hedefler', 'Goals'), mobileLabel: t('Hedefler', 'Goals'), icon: Target },
@@ -2093,6 +2104,7 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
     ];
     const storedProfile = loadStoredProfile();
     const profileInitial = storedProfile.name.trim().charAt(0).toLocaleUpperCase('tr-TR') || 'K';
+    const overallProgress = calculateOverallProgress(goals);
 
     return (
         <>
@@ -2121,16 +2133,22 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
                         <button
                             type="button"
                             onClick={() => onNavigate('profile')}
-                            className="grid size-10 place-items-center overflow-hidden rounded-full border border-black/[0.07] bg-white text-[#6e6e73] shadow-[0_3px_12px_rgba(0,0,0,0.05)] transition hover:scale-[1.03] hover:text-[#1d1d1f] active:scale-95"
-                            aria-label={t('Profili aç', 'Open profile')}
-                        >
-                            {storedProfile.avatar ? (
-                                <img src={storedProfile.avatar} alt="" className="size-full object-cover" />
-                            ) : (
-                                <span className="grid size-full place-items-center bg-[#007aff] text-[15px] font-semibold text-white">
-                                    {profileInitial}
-                                </span>
+                            className="grid size-11 place-items-center rounded-full p-[2.5px] text-[#6e6e73] shadow-[0_3px_12px_rgba(0,0,0,0.07)] transition hover:scale-[1.03] hover:text-[#1d1d1f] active:scale-95"
+                            style={{ background: `conic-gradient(#007aff ${overallProgress}%, rgba(142,142,147,0.2) 0)` }}
+                            aria-label={t(
+                                `Profili aç, genel ilerleme yüzde ${overallProgress}`,
+                                `Open profile, overall progress ${overallProgress} percent`,
                             )}
+                        >
+                            <span className="grid size-full place-items-center overflow-hidden rounded-full border-2 border-[#f5f5f7] bg-white">
+                                {storedProfile.avatar ? (
+                                    <img src={storedProfile.avatar} alt="" className="size-full object-cover" />
+                                ) : (
+                                    <span className="grid size-full place-items-center bg-[#007aff] text-[15px] font-semibold text-white">
+                                        {profileInitial}
+                                    </span>
+                                )}
+                            </span>
                         </button>
                     </div>
                 </div>
@@ -2163,20 +2181,25 @@ function PanelHeader({ t, active, onNavigate }: { t: Translate; active: PanelSec
                 <button
                     type="button"
                     onClick={() => onNavigate('profile')}
-                    className="demo-mobile-profile-island grid size-[69px] shrink-0 place-items-center overflow-hidden rounded-full border border-white/48 bg-white/45 p-[7px] text-[#1d1d1f] shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px] transition active:scale-95"
-                    aria-label={t('Profili aç', 'Open profile')}
+                    className="demo-mobile-profile-island grid size-[69px] shrink-0 place-items-center rounded-full border border-white/48 bg-white/45 p-[6px] text-[#1d1d1f] shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px] transition active:scale-95"
+                    aria-label={t(`Profili aç, genel ilerleme yüzde ${overallProgress}`, `Open profile, overall progress ${overallProgress} percent`)}
                 >
-                    {storedProfile.avatar ? (
-                        <img
-                            src={storedProfile.avatar}
-                            alt={t('Profil fotoğrafı', 'Profile photo')}
-                            className="size-full rounded-full object-cover shadow-[0_3px_12px_rgba(0,0,0,0.16)]"
-                        />
-                    ) : (
-                        <span className="grid size-full place-items-center rounded-full bg-black/[0.055]">
-                            <UserRound className="size-[24px]" strokeWidth={2.15} />
+                    <span
+                        className="grid size-full place-items-center rounded-full p-[3px]"
+                        style={{ background: `conic-gradient(#007aff ${overallProgress}%, rgba(142,142,147,0.2) 0)` }}
+                    >
+                        <span className="grid size-full place-items-center overflow-hidden rounded-full border-2 border-white/80 bg-[#f2f2f7]">
+                            {storedProfile.avatar ? (
+                                <img
+                                    src={storedProfile.avatar}
+                                    alt={t('Profil fotoğrafı', 'Profile photo')}
+                                    className="size-full rounded-full object-cover shadow-[0_3px_12px_rgba(0,0,0,0.16)]"
+                                />
+                            ) : (
+                                <UserRound className="size-[24px]" strokeWidth={2.15} />
+                            )}
                         </span>
-                    )}
+                    </span>
                 </button>
             </div>
         </>
@@ -2317,6 +2340,7 @@ function ProfilePanel({
     locale,
     profile,
     settings,
+    overallProgress,
     onClose,
     onSave,
     onSettingsChange,
@@ -2325,6 +2349,7 @@ function ProfilePanel({
     locale: 'tr' | 'en';
     profile: ProfileData;
     settings: SettingsData;
+    overallProgress: number;
     onClose: () => void;
     onSave: (profile: ProfileData) => void;
     onSettingsChange: (settings: SettingsData) => void;
@@ -2431,17 +2456,26 @@ function ProfilePanel({
                     <main className="mx-auto max-w-4xl px-4 pt-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-8 sm:pt-8 sm:pb-10">
                         <div className="flex w-full items-center gap-4 rounded-[26px] border border-black/[0.055] bg-white px-5 py-5 shadow-[0_10px_34px_rgba(0,0,0,0.045)] sm:px-6">
                             <div className="relative shrink-0">
-                                {draft.avatar ? (
-                                    <img
-                                        src={draft.avatar}
-                                        alt={t('Profil fotoğrafı', 'Profile photo')}
-                                        className="size-16 rounded-full object-cover shadow-[0_6px_18px_rgba(0,0,0,0.14)]"
-                                    />
-                                ) : (
-                                    <span className="grid size-16 place-items-center rounded-full bg-[#007aff] text-[23px] font-semibold text-white shadow-[0_7px_20px_rgba(0,122,255,0.2)]">
-                                        {profileInitial}
+                                <div
+                                    className="grid size-[72px] place-items-center rounded-full p-[4px] shadow-[0_7px_20px_rgba(0,122,255,0.14)]"
+                                    style={{ background: `conic-gradient(#007aff ${overallProgress}%, rgba(142,142,147,0.2) 0)` }}
+                                    role="img"
+                                    aria-label={t(`Genel ilerleme yüzde ${overallProgress}`, `Overall progress ${overallProgress} percent`)}
+                                >
+                                    <span className="grid size-full place-items-center overflow-hidden rounded-full border-[3px] border-white bg-white">
+                                        {draft.avatar ? (
+                                            <img
+                                                src={draft.avatar}
+                                                alt={t('Profil fotoğrafı', 'Profile photo')}
+                                                className="size-full rounded-full object-cover"
+                                            />
+                                        ) : (
+                                            <span className="grid size-full place-items-center rounded-full bg-[#007aff] text-[23px] font-semibold text-white">
+                                                {profileInitial}
+                                            </span>
+                                        )}
                                     </span>
-                                )}
+                                </div>
                                 <label
                                     htmlFor="demo-profile-photo"
                                     className="absolute -right-1 -bottom-1 grid size-7 cursor-pointer place-items-center rounded-full border-2 border-white bg-[#1d1d1f] text-white shadow-md transition hover:scale-105"
@@ -2453,6 +2487,10 @@ function ProfilePanel({
                             <div className="min-w-0 flex-1">
                                 <h2 className="truncate text-[20px] font-semibold tracking-[-0.025em]">{draft.name || t('Ad Soyad', 'Full Name')}</h2>
                                 <p className="mt-1 truncate text-[13px] text-[#8e8e93]">{draft.email || t('E-posta adresi', 'Email address')}</p>
+                                <p className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#007aff]">
+                                    <TrendingUp className="size-3.5" />
+                                    {t('Genel ilerleme', 'Overall progress')} · %{overallProgress}
+                                </p>
                                 <div className="mt-2 flex flex-wrap items-center gap-3">
                                     <label
                                         htmlFor="demo-profile-photo"
@@ -3952,7 +3990,7 @@ function PlanPanel({
             </Head>
 
             <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
-                <PanelHeader t={t} active="plan" onNavigate={onNavigate} />
+                <PanelHeader t={t} active="plan" goals={goals} onNavigate={onNavigate} />
 
                 <main className="mx-auto max-w-5xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
@@ -5268,6 +5306,14 @@ function calculateGoalProgress(goal: GoalRecord): number {
 
     const completed = goal.buildingBlocks.filter((block) => block.completed).length;
     return Math.round((completed / goal.buildingBlocks.length) * 100);
+}
+
+function calculateOverallProgress(goals: GoalRecord[]): number {
+    if (goals.length === 0) return 1;
+
+    const averageProgress = Math.round(goals.reduce((total, goalRecord) => total + calculateGoalProgress(goalRecord), 0) / goals.length);
+
+    return Math.max(1, averageProgress);
 }
 
 function isGoalCompleted(goal: GoalRecord): boolean {
