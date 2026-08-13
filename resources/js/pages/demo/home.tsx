@@ -384,6 +384,26 @@ export default function DemoHome() {
         }
     };
 
+    const toggleGoalBlock = (goalId: number, buildingBlockId: number) => {
+        const block = goals.find((goalRecord) => goalRecord.id === goalId)?.buildingBlocks.find((item) => item.id === buildingBlockId);
+        if (!block) return;
+
+        const completed = !block.completed;
+        setGoals((currentGoals) =>
+            currentGoals.map((goalRecord) =>
+                goalRecord.id === goalId
+                    ? {
+                          ...goalRecord,
+                          buildingBlocks: goalRecord.buildingBlocks.map((item) => (item.id === buildingBlockId ? { ...item, completed } : item)),
+                      }
+                    : goalRecord,
+            ),
+        );
+        setPlanItems((currentItems) =>
+            currentItems.map((item) => (item.goalId === goalId && item.buildingBlockId === buildingBlockId ? { ...item, completed } : item)),
+        );
+    };
+
     const removePlanItem = (itemId: number) => {
         setPlanItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
     };
@@ -574,7 +594,14 @@ export default function DemoHome() {
 
         return (
             <>
-                <GoalsPanel t={t} locale={locale} goals={goals} onCreateGoal={startNewGoal} onNavigate={navigatePanel} />
+                <GoalsPanel
+                    t={t}
+                    locale={locale}
+                    goals={goals}
+                    onCreateGoal={startNewGoal}
+                    onNavigate={navigatePanel}
+                    onToggleBlock={toggleGoalBlock}
+                />
                 {profileSheet}
                 {reminderAlert}
                 {standaloneReminderDialog}
@@ -948,18 +975,22 @@ function GoalsPanel({
     goals,
     onCreateGoal,
     onNavigate,
+    onToggleBlock,
 }: {
     t: Translate;
     locale: 'tr' | 'en';
     goals: GoalRecord[];
     onCreateGoal: () => void;
     onNavigate: (section: PanelSection) => void;
+    onToggleBlock: (goalId: number, buildingBlockId: number) => void;
 }) {
+    const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
     const sortedGoals = useMemo(
         () =>
             [...goals].sort((first, second) => PRIORITY_RANK[first.priority] - PRIORITY_RANK[second.priority] || first.createdAt - second.createdAt),
         [goals],
     );
+    const selectedGoal = selectedGoalId === null ? undefined : goals.find((goalRecord) => goalRecord.id === selectedGoalId);
 
     return (
         <>
@@ -1001,9 +1032,11 @@ function GoalsPanel({
                             const goalProgress = calculateGoalProgress(item);
 
                             return (
-                                <article
+                                <button
+                                    type="button"
                                     key={item.id}
-                                    className={`group grid gap-5 px-5 py-6 transition hover:bg-black/[0.018] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-7 ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
+                                    onClick={() => setSelectedGoalId(item.id)}
+                                    className={`group grid w-full gap-5 px-5 py-6 text-left transition hover:bg-black/[0.018] active:bg-black/[0.035] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-7 ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
                                 >
                                     <div className="min-w-0">
                                         <div className="flex flex-wrap items-center gap-2.5">
@@ -1040,13 +1073,142 @@ function GoalsPanel({
                                         </div>
                                         <ArrowRight className="hidden size-[18px] text-[#c7c7cc] transition-transform group-hover:translate-x-0.5 group-hover:text-[#8e8e93] sm:block" />
                                     </div>
-                                </article>
+                                </button>
                             );
                         })}
                     </section>
                 </main>
             </div>
+
+            {selectedGoal && (
+                <GoalDetailPanel
+                    t={t}
+                    locale={locale}
+                    goal={selectedGoal}
+                    onClose={() => setSelectedGoalId(null)}
+                    onToggleBlock={(buildingBlockId) => onToggleBlock(selectedGoal.id, buildingBlockId)}
+                />
+            )}
         </>
+    );
+}
+
+function GoalDetailPanel({
+    t,
+    locale,
+    goal,
+    onClose,
+    onToggleBlock,
+}: {
+    t: Translate;
+    locale: 'tr' | 'en';
+    goal: GoalRecord;
+    onClose: () => void;
+    onToggleBlock: (buildingBlockId: number) => void;
+}) {
+    const progress = calculateGoalProgress(goal);
+    const completedCount = goal.buildingBlocks.filter((block) => block.completed).length;
+    const priorityStyle = PRIORITY_STYLES[goal.priority];
+
+    return (
+        <div
+            className="apple-interface fixed inset-0 z-50 flex items-end justify-center bg-black/25 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+            role="presentation"
+            onMouseDown={onClose}
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="goal-detail-title"
+                onMouseDown={(event) => event.stopPropagation()}
+                className="flex max-h-[94svh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[32px] border border-black/[0.07] bg-[#f5f5f7] shadow-[0_30px_90px_rgba(0,0,0,0.25)] sm:max-h-[88svh] sm:rounded-[32px]"
+            >
+                <header className="flex shrink-0 items-center justify-between border-b border-black/[0.055] bg-[#f5f5f7]/90 px-5 py-4 backdrop-blur-2xl sm:px-7">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <span className={`size-2.5 shrink-0 rounded-full ${priorityStyle.dot}`} />
+                        <p className="truncate text-[13px] font-semibold text-[#6e6e73]">{t('Hedef Detayı', 'Goal Details')}</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73] transition hover:bg-black/[0.09]"
+                        aria-label={t('Kapat', 'Close')}
+                    >
+                        <X className="size-[17px]" />
+                    </button>
+                </header>
+
+                <div className="overflow-y-auto px-5 pt-7 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-7 sm:pt-8 sm:pb-8">
+                    <div className="flex items-start gap-5">
+                        <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className={`text-[11px] font-semibold ${priorityStyle.text}`}>{priorityLabel(goal.priority, t)}</span>
+                                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#6e6e73] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+                                    {categoryLabel(goal.category, t)}
+                                </span>
+                            </div>
+                            <h2
+                                id="goal-detail-title"
+                                className="mt-3 text-[clamp(1.8rem,6vw,2.8rem)] leading-[1.05] font-semibold tracking-[-0.045em]"
+                            >
+                                {goal.title}
+                            </h2>
+                            <p className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-medium text-[#8e8e93]">
+                                <CalendarDays className="size-4" />
+                                {formatGoalDate(goal.deadline, locale)}
+                            </p>
+                        </div>
+
+                        <div
+                            className="relative grid size-20 shrink-0 place-items-center rounded-full before:absolute before:inset-2 before:rounded-full before:bg-[#f5f5f7]"
+                            style={{ background: `conic-gradient(#007aff ${progress}%, #e5e5ea 0)` }}
+                            aria-label={t(`Yüzde ${progress} tamamlandı`, `${progress} percent complete`)}
+                        >
+                            <span className="relative text-[16px] font-semibold tabular-nums">%{progress}</span>
+                        </div>
+                    </div>
+
+                    <section className="mt-7 rounded-[24px] border border-black/[0.06] bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.035)] sm:p-6">
+                        <p className="text-[11px] font-semibold text-[#007aff]">{t('Kazanımın', 'Your Outcome')}</p>
+                        <p className="mt-2 text-[16px] leading-7 font-medium tracking-[-0.01em] text-[#3a3a3c]">{goal.gain}</p>
+                    </section>
+
+                    <section className="mt-5 overflow-hidden rounded-[24px] border border-black/[0.06] bg-white shadow-[0_8px_30px_rgba(0,0,0,0.035)]">
+                        <div className="flex items-end justify-between gap-4 border-b border-black/[0.055] px-5 py-5 sm:px-6">
+                            <div>
+                                <h3 className="text-[18px] font-semibold tracking-[-0.025em]">{t('Yapı Taşları', 'Building Blocks')}</h3>
+                                <p className="mt-1 text-[12px] text-[#8e8e93]">
+                                    {t(
+                                        `${completedCount} / ${goal.buildingBlocks.length} tamamlandı`,
+                                        `${completedCount} of ${goal.buildingBlocks.length} completed`,
+                                    )}
+                                </p>
+                            </div>
+                            <span className="text-[12px] font-semibold text-[#007aff]">%{progress}</span>
+                        </div>
+
+                        {goal.buildingBlocks.map((block, index) => (
+                            <button
+                                key={block.id}
+                                type="button"
+                                onClick={() => onToggleBlock(block.id)}
+                                className={`flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-black/[0.02] active:bg-black/[0.04] sm:px-6 ${index !== 0 ? 'border-t border-black/[0.05]' : ''}`}
+                            >
+                                <span
+                                    className={`grid size-7 shrink-0 place-items-center rounded-full border transition ${block.completed ? 'border-[#34c759] bg-[#34c759] text-white' : 'border-[#c7c7cc] text-transparent'}`}
+                                >
+                                    <Check className="size-4" strokeWidth={3} />
+                                </span>
+                                <span className={`min-w-0 flex-1 text-[15px] font-medium ${block.completed ? 'text-[#8e8e93] line-through' : ''}`}>
+                                    {block.title}
+                                </span>
+                                <span className="text-[11px] font-semibold text-[#aeaeb2] tabular-nums">{index + 1}</span>
+                            </button>
+                        ))}
+                    </section>
+                </div>
+            </section>
+        </div>
     );
 }
 
