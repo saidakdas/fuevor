@@ -1212,70 +1212,155 @@ function GoalRoadmap({
     featuredGoalId?: number;
     className?: string;
 }) {
+    const [mobileOpen, setMobileOpen] = useState(false);
+    const mobileSheetRef = useRef<HTMLElement | null>(null);
     const roadmapGoals = useMemo(
         () => [...goals].sort((first, second) => first.deadline.localeCompare(second.deadline) || first.createdAt - second.createdAt),
         [goals],
     );
     const completedCount = roadmapGoals.filter(isGoalCompleted).length;
+    const mobileGoals = [...roadmapGoals].reverse();
+
+    useEffect(() => {
+        if (!mobileOpen) return;
+
+        window.requestAnimationFrame(() => {
+            if (mobileSheetRef.current) mobileSheetRef.current.scrollTop = mobileSheetRef.current.scrollHeight;
+        });
+    }, [mobileOpen]);
+
+    const roadmapNode = (goalRecord: GoalRecord, mobile: boolean) => {
+        const roadmapNumber = roadmapGoals.findIndex((item) => item.id === goalRecord.id) + 1;
+        const completed = isGoalCompleted(goalRecord);
+        const featured = goalRecord.id === featuredGoalId;
+        const progress = calculateGoalProgress(goalRecord);
+
+        return (
+            <button
+                key={goalRecord.id}
+                type="button"
+                onClick={() => {
+                    if (!onSelect) return;
+                    setMobileOpen(false);
+                    onSelect(goalRecord.id);
+                }}
+                disabled={!onSelect}
+                className={
+                    mobile
+                        ? `group grid w-full grid-cols-[48px_minmax(0,1fr)] items-center gap-3 py-2 text-left ${onSelect ? 'cursor-pointer' : 'cursor-default'}`
+                        : `group flex w-[170px] min-w-[170px] flex-col items-center px-2 text-center ${onSelect ? 'cursor-pointer' : 'cursor-default'}`
+                }
+            >
+                <span
+                    className={`relative z-10 grid size-12 shrink-0 place-items-center rounded-full border-[3px] bg-white text-[13px] font-bold shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition group-active:scale-95 ${
+                        completed
+                            ? 'border-[#34c759] text-[#248a3d]'
+                            : featured
+                              ? 'border-[#007aff] text-[#007aff] ring-4 ring-[#007aff]/10'
+                              : 'border-[#d1d1d6] text-[#8e8e93]'
+                    }`}
+                >
+                    {roadmapNumber}
+                    {completed && (
+                        <span className="absolute -top-1 -right-1 grid size-5 place-items-center rounded-full border-2 border-white bg-[#34c759] text-white">
+                            <Check className="size-3" strokeWidth={3} />
+                        </span>
+                    )}
+                </span>
+                <span className="min-w-0">
+                    <span className={`block truncate text-[13px] font-semibold ${completed ? 'text-[#8e8e93] line-through' : 'text-[#1d1d1f]'}`}>
+                        {goalRecord.title}
+                    </span>
+                    <span className={`mt-1 block text-[10px] font-semibold ${completed ? 'text-[#34a853]' : 'text-[#8e8e93]'}`}>
+                        {completed ? t('Tamamlandı', 'Completed') : `%${progress}`}
+                    </span>
+                </span>
+            </button>
+        );
+    };
 
     return (
-        <section
-            className={`${className} overflow-hidden rounded-[26px] border border-black/[0.07] bg-white p-5 shadow-[0_12px_45px_rgba(0,0,0,0.045)] sm:p-6`}
-            aria-label={t('Hedef yol haritası', 'Goal roadmap')}
-        >
-            <div className="flex items-end justify-between gap-4">
-                <div>
-                    <p className="text-[11px] font-semibold text-[#007aff]">{t('İLERLEYİŞİN', 'YOUR JOURNEY')}</p>
-                    <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.03em]">{t('Yol Haritası', 'Roadmap')}</h2>
+        <>
+            <section
+                className={`${className} overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)] sm:p-6`}
+                aria-label={t('Hedef yol haritası', 'Goal roadmap')}
+            >
+                <button type="button" onClick={() => setMobileOpen(true)} className="flex w-full items-center gap-4 p-5 text-left sm:hidden">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-[15px] bg-[#007aff]/10 text-[#007aff]">
+                        <Target className="size-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-[11px] font-semibold text-[#007aff]">{t('İLERLEYİŞİN', 'YOUR JOURNEY')}</span>
+                        <span className="mt-0.5 block text-[18px] font-semibold tracking-[-0.025em]">{t('Yol Haritası', 'Roadmap')}</span>
+                        <span className="mt-1 block text-[11px] font-medium text-[#8e8e93]">
+                            {completedCount}/{roadmapGoals.length} {t('tamamlandı', 'completed')}
+                        </span>
+                    </span>
+                    <ChevronUp className="size-5 shrink-0 text-[#8e8e93]" />
+                </button>
+
+                <div className="hidden sm:block">
+                    <div className="flex items-end justify-between gap-4">
+                        <div>
+                            <p className="text-[11px] font-semibold text-[#007aff]">{t('İLERLEYİŞİN', 'YOUR JOURNEY')}</p>
+                            <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.03em]">{t('Yol Haritası', 'Roadmap')}</h2>
+                        </div>
+                        <p className="text-[12px] font-semibold text-[#8e8e93]">
+                            {completedCount}/{roadmapGoals.length} {t('tamamlandı', 'completed')}
+                        </p>
+                    </div>
+
+                    <div className="relative mt-6 overflow-x-auto pb-2">
+                        <span className="absolute top-6 right-6 left-6 h-px bg-[#d1d1d6]" />
+                        <div className="relative flex min-w-max">{roadmapGoals.map((goalRecord) => roadmapNode(goalRecord, false))}</div>
+                    </div>
                 </div>
-                <p className="text-[12px] font-semibold text-[#8e8e93]">
-                    {completedCount}/{roadmapGoals.length} {t('tamamlandı', 'completed')}
-                </p>
-            </div>
+            </section>
 
-            <div className="relative mt-6 overflow-x-auto pb-2">
-                <span className="absolute top-6 right-6 left-6 h-px bg-[#d1d1d6]" />
-                <div className="relative flex min-w-max">
-                    {roadmapGoals.map((goalRecord, index) => {
-                        const completed = isGoalCompleted(goalRecord);
-                        const featured = goalRecord.id === featuredGoalId;
-                        const progress = calculateGoalProgress(goalRecord);
-
-                        return (
+            {mobileOpen && (
+                <div
+                    className="apple-interface fixed inset-0 z-[75] flex items-end bg-black/30 backdrop-blur-sm sm:hidden"
+                    role="presentation"
+                    onMouseDown={() => setMobileOpen(false)}
+                >
+                    <section
+                        ref={mobileSheetRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="mobile-roadmap-title"
+                        onMouseDown={(event) => event.stopPropagation()}
+                        className="max-h-[88svh] w-full overflow-y-auto rounded-t-[32px] bg-[#f5f5f7] px-5 pt-5 pb-[max(1.75rem,env(safe-area-inset-bottom))] shadow-[0_-20px_70px_rgba(0,0,0,0.2)]"
+                    >
+                        <div className="sticky top-0 z-20 flex items-center justify-between bg-[#f5f5f7]/90 pb-4 backdrop-blur-xl">
+                            <div>
+                                <p className="text-[11px] font-semibold text-[#007aff]">{t('AŞAĞIDAN YUKARI', 'BOTTOM TO TOP')}</p>
+                                <h2 id="mobile-roadmap-title" className="mt-1 text-[22px] font-semibold tracking-[-0.03em]">
+                                    {t('Yol Haritası', 'Roadmap')}
+                                </h2>
+                            </div>
                             <button
-                                key={goalRecord.id}
                                 type="button"
-                                onClick={() => onSelect?.(goalRecord.id)}
-                                disabled={!onSelect}
-                                className={`group flex w-[145px] min-w-[145px] flex-col items-center px-2 text-center sm:w-[170px] sm:min-w-[170px] ${onSelect ? 'cursor-pointer' : 'cursor-default'}`}
+                                onClick={() => setMobileOpen(false)}
+                                className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                                aria-label={t('Kapat', 'Close')}
                             >
-                                <span
-                                    className={`relative z-10 grid size-12 shrink-0 place-items-center rounded-full border-[3px] bg-white text-[13px] font-bold shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition group-active:scale-95 ${
-                                        completed
-                                            ? 'border-[#34c759] bg-[#34c759] text-white'
-                                            : featured
-                                              ? 'border-[#007aff] text-[#007aff] ring-4 ring-[#007aff]/10'
-                                              : 'border-[#d1d1d6] text-[#8e8e93]'
-                                    }`}
-                                >
-                                    {completed ? <Check className="size-5" strokeWidth={3} /> : index + 1}
-                                </span>
-                                <span className="min-w-0">
-                                    <span
-                                        className={`block truncate text-[13px] font-semibold ${completed ? 'text-[#8e8e93] line-through' : 'text-[#1d1d1f]'}`}
-                                    >
-                                        {goalRecord.title}
-                                    </span>
-                                    <span className={`mt-1 block text-[10px] font-semibold ${completed ? 'text-[#34a853]' : 'text-[#8e8e93]'}`}>
-                                        {completed ? t('Tamamlandı', 'Completed') : `%${progress}`}
-                                    </span>
-                                </span>
+                                <X className="size-[17px]" />
                             </button>
-                        );
-                    })}
+                        </div>
+
+                        <div className="relative mt-2">
+                            <span className="absolute top-6 bottom-6 left-[23px] w-px bg-[#d1d1d6]" />
+                            <div className="relative flex flex-col">{mobileGoals.map((goalRecord) => roadmapNode(goalRecord, true))}</div>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-semibold text-[#8e8e93]">
+                            <ChevronUp className="size-4 text-[#007aff]" />
+                            {t('Yol 1 numaralı hedeften yukarı doğru ilerler.', 'The journey moves upward from goal 1.')}
+                        </div>
+                    </section>
                 </div>
-            </div>
-        </section>
+            )}
+        </>
     );
 }
 
