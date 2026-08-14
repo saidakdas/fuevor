@@ -235,7 +235,7 @@ export default function DemoHome() {
                 try {
                     new Notification(`Fuevor · ${translate(locale, 'Anımsatıcı', 'Reminder')}`, {
                         body: dueReminder.title,
-                        icon: '/favicon.ico',
+                        icon: '/fuevor-favicon.svg?v=2',
                     });
                 } catch {
                     // The in-app alert remains available when system notifications cannot be displayed.
