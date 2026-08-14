@@ -639,6 +639,10 @@ export default function DemoHome() {
             settings={settings}
             overallProgress={overallProgress}
             onClose={() => setProfileOpen(false)}
+            onExportReport={() => {
+                setProfileOpen(false);
+                setReportOpen(true);
+            }}
             onSave={setProfile}
             onSettingsChange={setSettings}
         />
@@ -704,7 +708,6 @@ export default function DemoHome() {
                         date={planDate}
                         onNavigate={navigatePanel}
                         onCreateGoal={startNewGoal}
-                        onExportReport={() => setReportOpen(true)}
                         onRangeChange={changePlanRange}
                         onDateChange={changePlanDate}
                         onToggleItem={togglePlanItem}
@@ -748,6 +751,7 @@ export default function DemoHome() {
                     {reminderAlert}
                     {standaloneReminderDialog}
                     {goalCompletionDialog}
+                    {reportDialog}
                 </>
             );
         }
@@ -769,6 +773,7 @@ export default function DemoHome() {
                     {reminderAlert}
                     {standaloneReminderDialog}
                     {goalCompletionDialog}
+                    {reportDialog}
                 </>
             );
         }
@@ -791,6 +796,7 @@ export default function DemoHome() {
                     {reminderAlert}
                     {standaloneReminderDialog}
                     {goalCompletionDialog}
+                    {reportDialog}
                 </>
             );
         }
@@ -811,6 +817,7 @@ export default function DemoHome() {
                 {reminderAlert}
                 {standaloneReminderDialog}
                 {goalCompletionDialog}
+                {reportDialog}
             </>
         );
     }
@@ -909,7 +916,6 @@ function OverviewPanel({
     date,
     onNavigate,
     onCreateGoal,
-    onExportReport,
     onRangeChange,
     onDateChange,
     onToggleItem,
@@ -926,7 +932,6 @@ function OverviewPanel({
     date: string;
     onNavigate: (section: PanelSection) => void;
     onCreateGoal: () => void;
-    onExportReport: () => void;
     onRangeChange: (range: PlanRange) => void;
     onDateChange: (date: string) => void;
     onToggleItem: (id: number) => void;
@@ -974,15 +979,7 @@ function OverviewPanel({
                             </p>
                         </div>
 
-                        <div className="flex flex-wrap gap-2.5">
-                            <button
-                                type="button"
-                                onClick={onExportReport}
-                                className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full border border-black/[0.07] bg-white px-4 text-[14px] font-semibold whitespace-nowrap text-[#1d1d1f] shadow-[0_5px_18px_rgba(0,0,0,0.04)] transition hover:bg-[#fbfbfd] active:scale-[0.98] sm:flex-none"
-                            >
-                                <FileDown className="size-[17px] text-[#007aff]" />
-                                PDF
-                            </button>
+                        <div className="flex gap-2.5">
                             <button
                                 type="button"
                                 onClick={() => onNavigate('plan')}
@@ -3217,6 +3214,7 @@ function ProfilePanel({
     settings,
     overallProgress,
     onClose,
+    onExportReport,
     onSave,
     onSettingsChange,
 }: {
@@ -3226,6 +3224,7 @@ function ProfilePanel({
     settings: SettingsData;
     overallProgress: number;
     onClose: () => void;
+    onExportReport: () => void;
     onSave: (profile: ProfileData) => void;
     onSettingsChange: (settings: SettingsData) => void;
 }) {
@@ -3355,6 +3354,7 @@ function ProfilePanel({
                                 profile={draft}
                                 overallProgress={overallProgress}
                                 onEdit={() => setTab('personal')}
+                                onExportReport={onExportReport}
                                 onSettings={() => setTab('settings')}
                             />
                         ) : (
@@ -3721,6 +3721,7 @@ function PublicProfileView({
     profile,
     overallProgress,
     onEdit,
+    onExportReport,
     onSettings,
 }: {
     t: Translate;
@@ -3728,6 +3729,7 @@ function PublicProfileView({
     profile: ProfileData;
     overallProgress: number;
     onEdit: () => void;
+    onExportReport: () => void;
     onSettings: () => void;
 }) {
     const initial = profile.name.trim().charAt(0).toLocaleUpperCase(getIntlLocale(locale)) || 'K';
@@ -3745,6 +3747,14 @@ function PublicProfileView({
                     aria-label={t('Ayarları aç', 'Open settings')}
                 >
                     <Settings2 className="size-[19px]" />
+                </button>
+                <button
+                    type="button"
+                    onClick={onExportReport}
+                    className="inline-flex h-11 items-center gap-2 rounded-full border border-black/[0.06] bg-white px-4 text-[13px] font-semibold text-[#3a3a3c] shadow-[0_5px_18px_rgba(0,0,0,0.045)] transition hover:bg-[#fafafa] active:scale-95"
+                >
+                    <FileDown className="size-[17px] text-[#007aff]" />
+                    PDF
                 </button>
                 <button
                     type="button"
