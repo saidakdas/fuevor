@@ -42,6 +42,7 @@ import {
     Settings2,
     Shapes,
     Sparkles,
+    Star,
     Sun,
     Target,
     Trash2,
@@ -108,6 +109,7 @@ type BookRecord = {
     author: string;
     status: BookStatus;
     comment: string;
+    rating: number;
     sortOrder: number;
     createdAt: number;
     finishedAt?: number;
@@ -546,7 +548,7 @@ export default function DemoHome() {
         setNotes((currentNotes) => currentNotes.map((currentNote) => (currentNote.id === noteId ? { ...currentNote, ...note } : currentNote)));
     };
 
-    const addBook = (book: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment'>) => {
+    const addBook = (book: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment' | 'rating'>) => {
         setBooks((currentBooks) => {
             const nextSortOrder = Math.max(-1, ...currentBooks.filter((item) => item.status === book.status).map((item) => item.sortOrder)) + 1;
             return [
@@ -562,7 +564,7 @@ export default function DemoHome() {
         });
     };
 
-    const updateBook = (bookId: number, updates: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment'>) => {
+    const updateBook = (bookId: number, updates: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment' | 'rating'>) => {
         setBooks((currentBooks) => {
             const selectedBook = currentBooks.find((book) => book.id === bookId);
             if (!selectedBook) return currentBooks;
@@ -2237,8 +2239,8 @@ function LibraryPanel({
     goals: GoalRecord[];
     books: BookRecord[];
     onNavigate: (section: PanelSection) => void;
-    onAddBook: (book: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment'>) => void;
-    onUpdateBook: (bookId: number, book: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment'>) => void;
+    onAddBook: (book: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment' | 'rating'>) => void;
+    onUpdateBook: (bookId: number, book: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment' | 'rating'>) => void;
     onRemoveBook: (bookId: number) => void;
     onReorderBooks: (status: BookStatus, orderedIds: number[]) => void;
 }) {
@@ -2249,6 +2251,7 @@ function LibraryPanel({
     const [author, setAuthor] = useState('');
     const [status, setStatus] = useState<BookStatus>('not-started');
     const [comment, setComment] = useState('');
+    const [rating, setRating] = useState(0);
     const [draggedBookId, setDraggedBookId] = useState<number | null>(null);
     const statusTabs: Array<{ value: BookStatus; label: string; shortLabel: string; icon: typeof BookOpen }> = [
         { value: 'reading', label: t('Şu An Okunan', 'Reading Now'), shortLabel: t('Okunan', 'Reading'), icon: BookOpen },
@@ -2269,6 +2272,7 @@ function LibraryPanel({
         setTitle('');
         setAuthor('');
         setComment('');
+        setRating(0);
     };
 
     const openNewBook = () => {
@@ -2277,6 +2281,7 @@ function LibraryPanel({
         setAuthor('');
         setStatus(activeStatus);
         setComment('');
+        setRating(0);
         setEditorOpen(true);
         window.requestAnimationFrame(() => document.getElementById('demo-book-title')?.focus());
     };
@@ -2287,6 +2292,7 @@ function LibraryPanel({
         setAuthor(book.author);
         setStatus(book.status);
         setComment(book.comment);
+        setRating(book.rating);
         setEditorOpen(true);
         window.requestAnimationFrame(() => document.getElementById('demo-book-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     };
@@ -2300,6 +2306,7 @@ function LibraryPanel({
             author: author.trim(),
             status,
             comment: status === 'finished' ? comment.trim() : '',
+            rating: status === 'finished' ? rating : 0,
         };
 
         if (editingBookId === null) onAddBook(book);
@@ -2455,22 +2462,55 @@ function LibraryPanel({
                                 </label>
 
                                 {status === 'finished' && (
-                                    <label className="block sm:col-span-2">
-                                        <span className="mb-2 flex items-center justify-between gap-3 text-[13px] font-semibold text-[#6e6e73]">
-                                            <span>{t('Kitap Hakkındaki Yorumun', 'Your Thoughts')}</span>
-                                            <span className="text-[11px] font-normal text-[#aeaeb2]">{t('İsteğe bağlı', 'Optional')}</span>
-                                        </span>
-                                        <textarea
-                                            value={comment}
-                                            onChange={(event) => setComment(event.target.value.slice(0, 1200))}
-                                            autoCapitalize="sentences"
-                                            rows={5}
-                                            maxLength={1200}
-                                            placeholder={t('Kitap sende nasıl bir iz bıraktı?', 'What did this book leave you with?')}
-                                            className="w-full resize-y rounded-[19px] border border-black/[0.08] bg-[#f9f9fb] px-4 py-4 text-[15px] leading-6 outline-none placeholder:text-[#aeaeb2] focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8"
-                                        />
-                                        <span className="mt-1.5 block text-right text-[11px] text-[#8e8e93]">{comment.length}/1200</span>
-                                    </label>
+                                    <div className="grid gap-5 sm:col-span-2">
+                                        <div>
+                                            <div className="mb-2 flex items-center justify-between gap-3 text-[13px] font-semibold text-[#6e6e73]">
+                                                <span>{t('Puan', 'Score')}</span>
+                                                <span className="text-[11px] font-normal text-[#aeaeb2]">{t('İsteğe bağlı', 'Optional')}</span>
+                                            </div>
+                                            <div
+                                                className="flex h-[58px] items-center justify-between gap-3 rounded-[19px] border border-black/[0.08] bg-[#f9f9fb] px-4"
+                                                role="radiogroup"
+                                                aria-label={t('Puan', 'Score')}
+                                            >
+                                                <div className="flex items-center gap-1 sm:gap-2">
+                                                    {[1, 2, 3, 4, 5].map((star) => (
+                                                        <button
+                                                            key={star}
+                                                            type="button"
+                                                            role="radio"
+                                                            aria-checked={rating === star}
+                                                            aria-label={`${star} / 5 · ${t('Puan', 'Score')}`}
+                                                            onClick={() => setRating(star)}
+                                                            className="grid size-9 place-items-center rounded-full text-[#d1d1d6] transition hover:scale-110 hover:text-[#ffb800] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] active:scale-95"
+                                                        >
+                                                            <Star
+                                                                className={`size-6 transition ${star <= rating ? 'fill-[#ffb800] text-[#ffb800]' : ''}`}
+                                                                strokeWidth={1.8}
+                                                            />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <span className="shrink-0 text-[14px] font-semibold text-[#6e6e73] tabular-nums">{rating}/5</span>
+                                            </div>
+                                        </div>
+                                        <label className="block">
+                                            <span className="mb-2 flex items-center justify-between gap-3 text-[13px] font-semibold text-[#6e6e73]">
+                                                <span>{t('Kitap Hakkındaki Yorumun', 'Your Thoughts')}</span>
+                                                <span className="text-[11px] font-normal text-[#aeaeb2]">{t('İsteğe bağlı', 'Optional')}</span>
+                                            </span>
+                                            <textarea
+                                                value={comment}
+                                                onChange={(event) => setComment(event.target.value.slice(0, 1200))}
+                                                autoCapitalize="sentences"
+                                                rows={5}
+                                                maxLength={1200}
+                                                placeholder={t('Kitap sende nasıl bir iz bıraktı?', 'What did this book leave you with?')}
+                                                className="w-full resize-y rounded-[19px] border border-black/[0.08] bg-[#f9f9fb] px-4 py-4 text-[15px] leading-6 outline-none placeholder:text-[#aeaeb2] focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8"
+                                            />
+                                            <span className="mt-1.5 block text-right text-[11px] text-[#8e8e93]">{comment.length}/1200</span>
+                                        </label>
+                                    </div>
                                 )}
                             </div>
                             <div className="flex items-center justify-end border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
@@ -2555,6 +2595,19 @@ function LibraryPanel({
                                                 <p className="line-clamp-3 whitespace-pre-wrap">{book.comment}</p>
                                             </div>
                                         )}
+                                        {book.status === 'finished' && book.rating > 0 && (
+                                            <div className="mt-2 flex items-center gap-1" aria-label={`${book.rating} / 5 · ${t('Puan', 'Score')}`}>
+                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                    <Star
+                                                        key={star}
+                                                        className={`size-3.5 ${star <= book.rating ? 'fill-[#ffb800] text-[#ffb800]' : 'text-[#d1d1d6]'}`}
+                                                        strokeWidth={1.8}
+                                                        aria-hidden="true"
+                                                    />
+                                                ))}
+                                                <span className="ml-1 text-[11px] font-semibold text-[#6e6e73] tabular-nums">{book.rating}/5</span>
+                                            </div>
+                                        )}
                                         {book.status === 'finished' && book.finishedAt && (
                                             <time className="mt-2 block text-[10px] font-medium text-[#8e8e93]">
                                                 {t('Bitiş', 'Finished')} ·{' '}
@@ -2590,12 +2643,12 @@ function LibraryPanel({
                                             onClick={() => editBook(book)}
                                             className="grid size-8 place-items-center rounded-full text-[#8e8e93] transition hover:bg-[#007aff]/8 hover:text-[#007aff]"
                                             aria-label={
-                                                book.status === 'finished' && !book.comment
+                                                book.status === 'finished' && !book.comment && book.rating === 0
                                                     ? t('Yorum ekle', 'Add comment')
                                                     : t('Kitabı düzenle', 'Edit book')
                                             }
                                         >
-                                            {book.status === 'finished' && !book.comment ? (
+                                            {book.status === 'finished' && !book.comment && book.rating === 0 ? (
                                                 <MessageCircle className="size-4" />
                                             ) : (
                                                 <Pencil className="size-4" />
@@ -6862,6 +6915,7 @@ function loadStoredBooks(): BookRecord[] {
                 author: typeof book.author === 'string' ? book.author.trim() : '',
                 status: book.status,
                 comment: book.status === 'finished' && typeof book.comment === 'string' ? book.comment.slice(0, 1200) : '',
+                rating: book.status === 'finished' && Number.isFinite(book.rating) ? Math.min(5, Math.max(0, Math.round(Number(book.rating)))) : 0,
                 sortOrder: Number.isFinite(book.sortOrder) ? Number(book.sortOrder) : index,
                 createdAt: Number.isFinite(book.createdAt) ? Number(book.createdAt) : Date.now() + index,
                 finishedAt: book.status === 'finished' && Number.isFinite(book.finishedAt) ? Number(book.finishedAt) : undefined,
