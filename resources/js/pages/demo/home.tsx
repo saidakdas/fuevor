@@ -7017,7 +7017,7 @@ function openFuevorReport({
     const selectedPlanItems = sortPlanItems(
         items.filter((item) => isDateKey(item.scheduledFor) && item.scheduledFor >= period.start && item.scheduledFor <= period.end),
     );
-    const logoUrl = new URL('/fuevor-color-logo.svg', window.location.origin).href;
+    const logoUrl = new URL('/fuevor-color-logo.svg?v=2', window.location.origin).href;
     const reportDate = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
     const fileTitle = `Fuevor-${username.replace(/[^\p{L}\p{N}._-]+/gu, '-')}-${formatDateKey(new Date())}`;
     const emptyState = `<p class="empty">${h(t('Bu bölüm henüz boş', 'Nothing here yet'))}</p>`;

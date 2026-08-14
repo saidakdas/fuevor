@@ -9,9 +9,9 @@ type BrandLogoProps = Omit<ComponentProps<'span'>, 'children'> & {
 };
 
 const logoSources: Record<Exclude<BrandLogoVariant, 'adaptive'>, string> = {
-    black: '/fuevor-black-logo.svg',
-    color: '/fuevor-color-logo.svg',
-    white: '/fuevor-white-logo.svg',
+    black: '/fuevor-black-logo.svg?v=2',
+    color: '/fuevor-color-logo.svg?v=2',
+    white: '/fuevor-white-logo.svg?v=2',
 };
 
 export default function BrandLogo({ alt = 'Fuevor', className, variant = 'adaptive', ...props }: BrandLogoProps) {
