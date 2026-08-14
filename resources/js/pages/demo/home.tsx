@@ -8,6 +8,7 @@ import {
     ArrowRight,
     Bell,
     BellRing,
+    BookOpen,
     BriefcaseBusiness,
     CakeSlice,
     CalendarDays,
@@ -29,6 +30,7 @@ import {
     ListTodo,
     LockKeyhole,
     Mail,
+    MessageCircle,
     Moon,
     NotebookPen,
     Pencil,
@@ -70,8 +72,9 @@ type GoalRecord = {
     createdAt: number;
 };
 
-type PanelSection = 'overview' | 'goals' | 'plan' | 'notes' | 'profile';
+type PanelSection = 'overview' | 'goals' | 'plan' | 'notes' | 'library' | 'profile';
 type PlanRange = 'today' | 'tomorrow' | 'week' | 'month' | 'year';
+type BookStatus = 'reading' | 'not-started' | 'finished';
 
 type PlanItem = {
     id: number;
@@ -96,6 +99,17 @@ type NoteRecord = {
     goalId?: number;
     buildingBlockId?: number;
     createdAt: number;
+};
+
+type BookRecord = {
+    id: number;
+    title: string;
+    author: string;
+    status: BookStatus;
+    comment: string;
+    sortOrder: number;
+    createdAt: number;
+    finishedAt?: number;
 };
 
 type ProfileData = {
@@ -145,6 +159,7 @@ const TOTAL_STEPS = 7;
 const DEMO_GOALS_STORAGE_KEY = 'fuevor.demo.goals';
 const DEMO_PLAN_STORAGE_KEY = 'fuevor.demo.plan-items';
 const DEMO_NOTES_STORAGE_KEY = 'fuevor.demo.notes';
+const DEMO_BOOKS_STORAGE_KEY = 'fuevor.demo.books';
 const DEMO_PROFILE_STORAGE_KEY = 'fuevor.demo.profile';
 const DEMO_SETTINGS_STORAGE_KEY = 'fuevor.demo.settings';
 const COUNTRY_CODES = getCountries();
@@ -168,6 +183,7 @@ export default function DemoHome() {
     const [profileOpen, setProfileOpen] = useState(false);
     const [planItems, setPlanItems] = useState<PlanItem[]>(loadStoredPlanItems);
     const [notes, setNotes] = useState<NoteRecord[]>(loadStoredNotes);
+    const [books, setBooks] = useState<BookRecord[]>(loadStoredBooks);
     const [planRange, setPlanRange] = useState<PlanRange>('today');
     const [planDate, setPlanDate] = useState(() => formatDateKey(new Date()));
     const [profile, setProfile] = useState<ProfileData>(loadStoredProfile);
@@ -177,6 +193,7 @@ export default function DemoHome() {
     const nextBlockId = useRef(2);
     const nextPlanItemId = useRef(Math.max(0, ...planItems.map((item) => item.id)) + 1);
     const nextNoteId = useRef(Math.max(0, ...notes.map((note) => note.id)) + 1);
+    const nextBookId = useRef(Math.max(0, ...books.map((book) => book.id)) + 1);
 
     useEffect(() => {
         storeDemoData(DEMO_GOALS_STORAGE_KEY, goals);
@@ -262,6 +279,10 @@ export default function DemoHome() {
     useEffect(() => {
         storeDemoData(DEMO_NOTES_STORAGE_KEY, notes);
     }, [notes]);
+
+    useEffect(() => {
+        storeDemoData(DEMO_BOOKS_STORAGE_KEY, books);
+    }, [books]);
 
     useEffect(() => {
         storeDemoData(DEMO_PROFILE_STORAGE_KEY, profile);
@@ -511,6 +532,60 @@ export default function DemoHome() {
         setNotes((currentNotes) => currentNotes.map((currentNote) => (currentNote.id === noteId ? { ...currentNote, ...note } : currentNote)));
     };
 
+    const addBook = (book: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment'>) => {
+        setBooks((currentBooks) => {
+            const nextSortOrder = Math.max(-1, ...currentBooks.filter((item) => item.status === book.status).map((item) => item.sortOrder)) + 1;
+            return [
+                ...currentBooks,
+                {
+                    ...book,
+                    id: nextBookId.current++,
+                    sortOrder: nextSortOrder,
+                    createdAt: Date.now(),
+                    finishedAt: book.status === 'finished' ? Date.now() : undefined,
+                },
+            ];
+        });
+    };
+
+    const updateBook = (bookId: number, updates: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment'>) => {
+        setBooks((currentBooks) => {
+            const selectedBook = currentBooks.find((book) => book.id === bookId);
+            if (!selectedBook) return currentBooks;
+
+            const statusChanged = selectedBook.status !== updates.status;
+            const nextSortOrder = statusChanged
+                ? Math.max(-1, ...currentBooks.filter((book) => book.status === updates.status).map((book) => book.sortOrder)) + 1
+                : selectedBook.sortOrder;
+
+            return currentBooks.map((book) =>
+                book.id === bookId
+                    ? {
+                          ...book,
+                          ...updates,
+                          sortOrder: nextSortOrder,
+                          finishedAt: updates.status === 'finished' ? (book.finishedAt ?? Date.now()) : undefined,
+                      }
+                    : book,
+            );
+        });
+    };
+
+    const removeBook = (bookId: number) => {
+        setBooks((currentBooks) => currentBooks.filter((book) => book.id !== bookId));
+    };
+
+    const reorderBooks = (status: BookStatus, orderedIds: number[]) => {
+        const orderById = new Map(orderedIds.map((id, index) => [id, index]));
+        setBooks((currentBooks) =>
+            currentBooks.map((book) => {
+                if (book.status !== status) return book;
+                const sortOrder = orderById.get(book.id);
+                return sortOrder === undefined ? book : { ...book, sortOrder };
+            }),
+        );
+    };
+
     const changePlanRange = (range: PlanRange) => {
         setPlanRange(range);
         setPlanDate(defaultDateForRange(range));
@@ -655,6 +730,28 @@ export default function DemoHome() {
                         onAddNote={addNote}
                         onUpdateNote={updateNote}
                         onRemoveNote={removeNote}
+                    />
+                    {profileSheet}
+                    {reminderAlert}
+                    {standaloneReminderDialog}
+                    {goalCompletionDialog}
+                </>
+            );
+        }
+
+        if (panelSection === 'library') {
+            return (
+                <>
+                    <LibraryPanel
+                        t={t}
+                        locale={locale}
+                        goals={goals}
+                        books={books}
+                        onNavigate={navigatePanel}
+                        onAddBook={addBook}
+                        onUpdateBook={updateBook}
+                        onRemoveBook={removeBook}
+                        onReorderBooks={reorderBooks}
                     />
                     {profileSheet}
                     {reminderAlert}
@@ -2108,6 +2205,408 @@ function NotesPanel({
     );
 }
 
+function LibraryPanel({
+    t,
+    locale,
+    goals,
+    books,
+    onNavigate,
+    onAddBook,
+    onUpdateBook,
+    onRemoveBook,
+    onReorderBooks,
+}: {
+    t: Translate;
+    locale: 'tr' | 'en';
+    goals: GoalRecord[];
+    books: BookRecord[];
+    onNavigate: (section: PanelSection) => void;
+    onAddBook: (book: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment'>) => void;
+    onUpdateBook: (bookId: number, book: Pick<BookRecord, 'title' | 'author' | 'status' | 'comment'>) => void;
+    onRemoveBook: (bookId: number) => void;
+    onReorderBooks: (status: BookStatus, orderedIds: number[]) => void;
+}) {
+    const [activeStatus, setActiveStatus] = useState<BookStatus>('reading');
+    const [editorOpen, setEditorOpen] = useState(false);
+    const [editingBookId, setEditingBookId] = useState<number | null>(null);
+    const [title, setTitle] = useState('');
+    const [author, setAuthor] = useState('');
+    const [status, setStatus] = useState<BookStatus>('not-started');
+    const [comment, setComment] = useState('');
+    const [draggedBookId, setDraggedBookId] = useState<number | null>(null);
+    const statusTabs: Array<{ value: BookStatus; label: string; shortLabel: string; icon: typeof BookOpen }> = [
+        { value: 'reading', label: t('Şu An Okunan', 'Reading Now'), shortLabel: t('Okunan', 'Reading'), icon: BookOpen },
+        { value: 'not-started', label: t('Başlanmayan', 'Not Started'), shortLabel: t('Sırada', 'Queue'), icon: Clock3 },
+        { value: 'finished', label: t('Biten', 'Finished'), shortLabel: t('Biten', 'Finished'), icon: CircleCheck },
+    ];
+    const visibleBooks = useMemo(
+        () =>
+            books
+                .filter((book) => book.status === activeStatus)
+                .sort((first, second) => first.sortOrder - second.sortOrder || first.createdAt - second.createdAt),
+        [activeStatus, books],
+    );
+
+    const resetEditor = () => {
+        setEditorOpen(false);
+        setEditingBookId(null);
+        setTitle('');
+        setAuthor('');
+        setComment('');
+    };
+
+    const openNewBook = () => {
+        setEditingBookId(null);
+        setTitle('');
+        setAuthor('');
+        setStatus(activeStatus);
+        setComment('');
+        setEditorOpen(true);
+        window.requestAnimationFrame(() => document.getElementById('demo-book-title')?.focus());
+    };
+
+    const editBook = (book: BookRecord) => {
+        setEditingBookId(book.id);
+        setTitle(book.title);
+        setAuthor(book.author);
+        setStatus(book.status);
+        setComment(book.comment);
+        setEditorOpen(true);
+        window.requestAnimationFrame(() => document.getElementById('demo-book-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    };
+
+    const submitBook = (event: FormEvent) => {
+        event.preventDefault();
+        if (!title.trim()) return;
+
+        const book = {
+            title: title.trim(),
+            author: author.trim(),
+            status,
+            comment: status === 'finished' ? comment.trim() : '',
+        };
+
+        if (editingBookId === null) onAddBook(book);
+        else onUpdateBook(editingBookId, book);
+
+        setActiveStatus(status);
+        resetEditor();
+    };
+
+    const moveBook = (fromIndex: number, toIndex: number) => {
+        if (toIndex < 0 || toIndex >= visibleBooks.length || fromIndex === toIndex) return;
+        const orderedIds = visibleBooks.map((book) => book.id);
+        const [movedId] = orderedIds.splice(fromIndex, 1);
+        orderedIds.splice(toIndex, 0, movedId);
+        onReorderBooks(activeStatus, orderedIds);
+    };
+
+    const moveDraggedBookBefore = (targetId: number) => {
+        if (draggedBookId === null || draggedBookId === targetId) return;
+        moveBook(
+            visibleBooks.findIndex((book) => book.id === draggedBookId),
+            visibleBooks.findIndex((book) => book.id === targetId),
+        );
+    };
+
+    return (
+        <>
+            <Head title={t('Kitaplık', 'Library')}>
+                <meta name="robots" content="noindex, nofollow" />
+            </Head>
+
+            <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
+                <PanelHeader t={t} active="library" goals={goals} onNavigate={onNavigate} />
+
+                <main className="demo-keyboard-aware-content mx-auto max-w-5xl px-5 pt-24 pb-32 sm:px-8 sm:pt-36 sm:pb-16">
+                    <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <p className="text-[13px] font-semibold text-[#007aff]">{t('Okuma yolculuğun', 'Your reading journey')}</p>
+                            <h1 className="mt-2 text-[clamp(2.35rem,6vw,4rem)] leading-none font-semibold tracking-[-0.05em]">
+                                {t('Kitaplık', 'Library')}
+                            </h1>
+                            <p className="mt-4 max-w-xl text-[15px] leading-6 text-[#6e6e73]">
+                                {t(
+                                    'Kitaplarını sıraya koy, okuduklarını takip et ve bitirdiklerin hakkındaki düşüncelerini sakla.',
+                                    'Order your books, track your reading, and keep your thoughts about the books you finish.',
+                                )}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={editorOpen ? resetEditor : openNewBook}
+                            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#007aff] px-6 text-[15px] font-semibold text-white shadow-[0_8px_24px_rgba(0,122,255,0.2)] transition active:scale-[0.98] sm:w-auto"
+                        >
+                            {editorOpen ? <X className="size-[18px]" /> : <Plus className="size-[18px]" strokeWidth={2.5} />}
+                            {editorOpen ? t('Vazgeç', 'Cancel') : t('Kitap Ekle', 'Add Book')}
+                        </button>
+                    </div>
+
+                    <section className="mt-8 grid grid-cols-3 gap-3" aria-label={t('Kitaplık özeti', 'Library summary')}>
+                        {statusTabs.map((item) => {
+                            const Icon = item.icon;
+                            const count = books.filter((book) => book.status === item.value).length;
+                            const selected = activeStatus === item.value;
+                            return (
+                                <button
+                                    key={item.value}
+                                    type="button"
+                                    onClick={() => setActiveStatus(item.value)}
+                                    className={`rounded-[22px] border p-4 text-left transition active:scale-[0.98] sm:flex sm:items-center sm:gap-4 sm:p-5 ${selected ? 'border-[#007aff]/20 bg-white shadow-[0_10px_32px_rgba(0,122,255,0.09)]' : 'border-black/[0.055] bg-white/65'}`}
+                                >
+                                    <span className={`grid size-10 place-items-center rounded-[13px] ${bookStatusIconStyle(item.value)}`}>
+                                        <Icon className="size-[18px]" />
+                                    </span>
+                                    <span className="mt-3 block min-w-0 sm:mt-0">
+                                        <span className="block text-[22px] font-semibold tracking-[-0.03em]">{count}</span>
+                                        <span className="mt-0.5 block truncate text-[11px] font-medium text-[#8e8e93] sm:text-[12px]">
+                                            <span className="sm:hidden">{item.shortLabel}</span>
+                                            <span className="hidden sm:inline">{item.label}</span>
+                                        </span>
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </section>
+
+                    {editorOpen && (
+                        <form
+                            id="demo-book-editor"
+                            onSubmit={submitBook}
+                            onFocusCapture={(event) => {
+                                if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
+                                    revealFocusedField(event.target);
+                            }}
+                            className="demo-step-enter mt-7 overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_14px_48px_rgba(0,0,0,0.055)]"
+                        >
+                            <div className="flex items-center gap-4 border-b border-black/[0.055] px-5 py-5 sm:px-7">
+                                <span className="grid size-12 shrink-0 place-items-center rounded-[15px] bg-[#007aff]/10 text-[#007aff]">
+                                    <BookOpen className="size-[22px]" />
+                                </span>
+                                <div>
+                                    <h2 className="text-[19px] font-semibold tracking-[-0.025em]">
+                                        {editingBookId === null ? t('Yeni Kitap', 'New Book') : t('Kitabı Düzenle', 'Edit Book')}
+                                    </h2>
+                                    <p className="mt-1 text-[12px] text-[#8e8e93]">
+                                        {t('Kitap bilgilerini ve okuma durumunu belirle.', 'Set the book details and reading status.')}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="grid gap-5 px-5 py-6 sm:grid-cols-2 sm:px-7">
+                                <label className="block sm:col-span-2">
+                                    <span className="mb-2 block text-[13px] font-semibold text-[#6e6e73]">
+                                        {t('Kitap Adı', 'Book Title')} <span className="text-[#ff3b30]">*</span>
+                                    </span>
+                                    <input
+                                        id="demo-book-title"
+                                        value={title}
+                                        onChange={(event) => setTitle(event.target.value)}
+                                        autoCapitalize="sentences"
+                                        required
+                                        placeholder={t('Kitabın adını yaz', 'Enter the book title')}
+                                        className="h-[54px] w-full rounded-[17px] border border-black/[0.08] bg-[#f9f9fb] px-4 text-[15px] font-medium transition outline-none placeholder:text-[#aeaeb2] focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8"
+                                    />
+                                </label>
+                                <label className="block">
+                                    <span className="mb-2 flex items-center justify-between gap-3 text-[13px] font-semibold text-[#6e6e73]">
+                                        <span>{t('Yazar', 'Author')}</span>
+                                        <span className="text-[11px] font-normal text-[#aeaeb2]">{t('İsteğe bağlı', 'Optional')}</span>
+                                    </span>
+                                    <input
+                                        value={author}
+                                        onChange={(event) => setAuthor(event.target.value)}
+                                        autoCapitalize="words"
+                                        placeholder={t('Yazarın adı', 'Author name')}
+                                        className="h-[54px] w-full rounded-[17px] border border-black/[0.08] bg-[#f9f9fb] px-4 text-[15px] font-medium transition outline-none placeholder:text-[#aeaeb2] focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8"
+                                    />
+                                </label>
+                                <label className="block">
+                                    <span className="mb-2 block text-[13px] font-semibold text-[#6e6e73]">{t('Okuma Durumu', 'Reading Status')}</span>
+                                    <span className="relative block">
+                                        <select
+                                            value={status}
+                                            onChange={(event) => setStatus(event.target.value as BookStatus)}
+                                            className="h-[54px] w-full appearance-none rounded-[17px] border border-black/[0.08] bg-[#f9f9fb] px-4 pr-11 text-[15px] font-medium outline-none focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8"
+                                        >
+                                            {statusTabs.map((item) => (
+                                                <option key={item.value} value={item.value}>
+                                                    {item.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="pointer-events-none absolute top-1/2 right-4 size-4 -translate-y-1/2 text-[#8e8e93]" />
+                                    </span>
+                                </label>
+
+                                {status === 'finished' && (
+                                    <label className="block sm:col-span-2">
+                                        <span className="mb-2 flex items-center justify-between gap-3 text-[13px] font-semibold text-[#6e6e73]">
+                                            <span>{t('Kitap Hakkındaki Yorumun', 'Your Thoughts')}</span>
+                                            <span className="text-[11px] font-normal text-[#aeaeb2]">{t('İsteğe bağlı', 'Optional')}</span>
+                                        </span>
+                                        <textarea
+                                            value={comment}
+                                            onChange={(event) => setComment(event.target.value.slice(0, 1200))}
+                                            autoCapitalize="sentences"
+                                            rows={5}
+                                            maxLength={1200}
+                                            placeholder={t('Kitap sende nasıl bir iz bıraktı?', 'What did this book leave you with?')}
+                                            className="w-full resize-y rounded-[19px] border border-black/[0.08] bg-[#f9f9fb] px-4 py-4 text-[15px] leading-6 outline-none placeholder:text-[#aeaeb2] focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8"
+                                        />
+                                        <span className="mt-1.5 block text-right text-[11px] text-[#8e8e93]">{comment.length}/1200</span>
+                                    </label>
+                                )}
+                            </div>
+                            <div className="flex items-center justify-end border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
+                                <button
+                                    type="submit"
+                                    disabled={!title.trim()}
+                                    className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition active:scale-[0.98] disabled:bg-[#d1d1d6]"
+                                >
+                                    {editingBookId === null ? t('Kitabı Ekle', 'Add Book') : t('Değişiklikleri Kaydet', 'Save Changes')}
+                                </button>
+                            </div>
+                        </form>
+                    )}
+
+                    <div className="mt-8 flex items-center justify-between gap-4">
+                        <div>
+                            <p className="text-[11px] font-semibold text-[#007aff]">{t('OKUMA SIRASI', 'READING ORDER')}</p>
+                            <h2 className="mt-1 text-[21px] font-semibold tracking-[-0.03em]">{bookStatusLabel(activeStatus, t)}</h2>
+                        </div>
+                        {visibleBooks.length > 1 && (
+                            <p className="text-right text-[11px] leading-4 font-medium text-[#8e8e93]">
+                                {t('Sürükle veya oklarla sırala', 'Drag or use arrows to reorder')}
+                            </p>
+                        )}
+                    </div>
+
+                    {visibleBooks.length === 0 ? (
+                        <section className="mt-5 rounded-[28px] border border-dashed border-black/[0.12] px-6 py-14 text-center">
+                            <span className={`mx-auto grid size-14 place-items-center rounded-[18px] ${bookStatusIconStyle(activeStatus)}`}>
+                                <BookOpen className="size-6" />
+                            </span>
+                            <h2 className="mt-5 text-[19px] font-semibold">{t('Bu bölüm henüz boş', 'Nothing here yet')}</h2>
+                            <p className="mt-2 text-[14px] text-[#8e8e93]">
+                                {t('İlk kitabını ekleyerek kitaplığını oluşturmaya başla.', 'Add your first book to start building your library.')}
+                            </p>
+                        </section>
+                    ) : (
+                        <section className="mt-5 space-y-3" aria-label={bookStatusLabel(activeStatus, t)}>
+                            {visibleBooks.map((book, index) => (
+                                <article
+                                    key={book.id}
+                                    draggable
+                                    onDragStart={() => setDraggedBookId(book.id)}
+                                    onDragEnd={() => setDraggedBookId(null)}
+                                    onDragOver={(event) => event.preventDefault()}
+                                    onDrop={() => moveDraggedBookBefore(book.id)}
+                                    className={`group flex items-start gap-3 rounded-[24px] border border-black/[0.065] bg-white p-4 shadow-[0_8px_30px_rgba(0,0,0,0.035)] transition sm:items-center sm:gap-4 sm:p-5 ${draggedBookId === book.id ? 'opacity-45' : ''}`}
+                                >
+                                    <button
+                                        type="button"
+                                        className="mt-4 hidden cursor-grab text-[#c7c7cc] active:cursor-grabbing sm:block"
+                                        aria-label={t('Sürükleyerek sırala', 'Drag to reorder')}
+                                    >
+                                        <GripVertical className="size-5" />
+                                    </button>
+                                    <div
+                                        className={`relative grid h-[82px] w-[58px] shrink-0 place-items-center overflow-hidden rounded-[8px_13px_13px_8px] px-2 text-center shadow-[0_8px_18px_rgba(0,0,0,0.12)] ${bookCoverStyle(book.status)}`}
+                                    >
+                                        <span className="absolute inset-y-0 left-1.5 w-px bg-white/25" />
+                                        <BookOpen className="size-5 text-white/85" />
+                                        <span className="absolute right-1.5 bottom-1.5 left-2.5 truncate text-[7px] font-bold tracking-wide text-white/85 uppercase">
+                                            {book.title}
+                                        </span>
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-start gap-3">
+                                            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-black/[0.045] text-[11px] font-bold text-[#8e8e93]">
+                                                {index + 1}
+                                            </span>
+                                            <div className="min-w-0">
+                                                <h3 className="text-[16px] leading-5 font-semibold tracking-[-0.015em] sm:text-[17px]">
+                                                    {book.title}
+                                                </h3>
+                                                <p className="mt-1 text-[12px] text-[#8e8e93]">
+                                                    {book.author || t('Yazar belirtilmedi', 'Author not specified')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {book.status === 'finished' && book.comment && (
+                                            <div className="mt-3 flex items-start gap-2 rounded-[14px] bg-[#34c759]/7 px-3 py-2.5 text-[12px] leading-5 text-[#515154]">
+                                                <MessageCircle className="mt-0.5 size-3.5 shrink-0 text-[#34a853]" />
+                                                <p className="line-clamp-3 whitespace-pre-wrap">{book.comment}</p>
+                                            </div>
+                                        )}
+                                        {book.status === 'finished' && book.finishedAt && (
+                                            <time className="mt-2 block text-[10px] font-medium text-[#8e8e93]">
+                                                {t('Bitiş', 'Finished')} ·{' '}
+                                                {new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+                                                    day: 'numeric',
+                                                    month: 'short',
+                                                    year: 'numeric',
+                                                }).format(new Date(book.finishedAt))}
+                                            </time>
+                                        )}
+                                    </div>
+                                    <div className="flex shrink-0 flex-col items-center gap-1 sm:flex-row">
+                                        <button
+                                            type="button"
+                                            onClick={() => moveBook(index, index - 1)}
+                                            disabled={index === 0}
+                                            className="grid size-8 place-items-center rounded-full text-[#8e8e93] transition hover:bg-black/[0.045] disabled:opacity-20"
+                                            aria-label={t('Yukarı taşı', 'Move up')}
+                                        >
+                                            <ChevronUp className="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => moveBook(index, index + 1)}
+                                            disabled={index === visibleBooks.length - 1}
+                                            className="grid size-8 place-items-center rounded-full text-[#8e8e93] transition hover:bg-black/[0.045] disabled:opacity-20"
+                                            aria-label={t('Aşağı taşı', 'Move down')}
+                                        >
+                                            <ChevronDown className="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => editBook(book)}
+                                            className="grid size-8 place-items-center rounded-full text-[#8e8e93] transition hover:bg-[#007aff]/8 hover:text-[#007aff]"
+                                            aria-label={
+                                                book.status === 'finished' && !book.comment
+                                                    ? t('Yorum ekle', 'Add comment')
+                                                    : t('Kitabı düzenle', 'Edit book')
+                                            }
+                                        >
+                                            {book.status === 'finished' && !book.comment ? (
+                                                <MessageCircle className="size-4" />
+                                            ) : (
+                                                <Pencil className="size-4" />
+                                            )}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (editingBookId === book.id) resetEditor();
+                                                onRemoveBook(book.id);
+                                            }}
+                                            className="grid size-8 place-items-center rounded-full text-[#aeaeb2] transition hover:bg-[#ff3b30]/8 hover:text-[#ff3b30]"
+                                            aria-label={t('Kitabı sil', 'Delete book')}
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </button>
+                                    </div>
+                                </article>
+                            ))}
+                        </section>
+                    )}
+                </main>
+            </div>
+        </>
+    );
+}
+
 function PanelHeader({
     t,
     active,
@@ -2124,6 +2623,7 @@ function PanelHeader({
         { section: 'goals' as const, label: t('Hedefler', 'Goals'), mobileLabel: t('Hedefler', 'Goals'), icon: Target },
         { section: 'plan' as const, label: t('Planla', 'Plan'), mobileLabel: t('Planla', 'Plan'), icon: ListTodo },
         { section: 'notes' as const, label: t('Notlar', 'Notes'), mobileLabel: t('Notlar', 'Notes'), icon: NotebookPen },
+        { section: 'library' as const, label: t('Kitaplık', 'Library'), mobileLabel: t('Kitaplık', 'Library'), icon: BookOpen },
     ];
     const storedProfile = loadStoredProfile();
     const profileInitial = storedProfile.name.trim().charAt(0).toLocaleUpperCase('tr-TR') || 'K';
@@ -2179,7 +2679,7 @@ function PanelHeader({
 
             <div className="demo-mobile-dock fixed inset-x-0 bottom-0 z-40 flex items-end gap-2.5 px-3 sm:hidden">
                 <nav
-                    className="demo-mobile-navigation grid min-w-0 flex-1 grid-cols-4 rounded-[29px] border border-white/48 bg-white/45 p-1.5 shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px]"
+                    className="demo-mobile-navigation grid min-w-0 flex-1 grid-cols-5 rounded-[29px] border border-white/48 bg-white/45 p-1.5 shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px]"
                     aria-label={t('Mobil panel bölümleri', 'Mobile panel sections')}
                 >
                     {navigationItems.map((item) => {
@@ -5842,6 +6342,30 @@ function categoryLabel(category: GoalCategory, t: Translate): string {
     }[category];
 }
 
+function bookStatusLabel(status: BookStatus, t: Translate): string {
+    return {
+        reading: t('Şu An Okunan', 'Reading Now'),
+        'not-started': t('Başlanmayan', 'Not Started'),
+        finished: t('Biten', 'Finished'),
+    }[status];
+}
+
+function bookStatusIconStyle(status: BookStatus): string {
+    return {
+        reading: 'bg-[#007aff]/10 text-[#007aff]',
+        'not-started': 'bg-[#ff9500]/10 text-[#d97706]',
+        finished: 'bg-[#34c759]/10 text-[#28a745]',
+    }[status];
+}
+
+function bookCoverStyle(status: BookStatus): string {
+    return {
+        reading: 'bg-[linear-gradient(145deg,#0066cc,#33a8ff)]',
+        'not-started': 'bg-[linear-gradient(145deg,#b45309,#ffb340)]',
+        finished: 'bg-[linear-gradient(145deg,#198038,#45c96b)]',
+    }[status];
+}
+
 function professionOptions(t: Translate): Array<{ value: string; label: string }> {
     return [
         { value: 'student', label: t('Öğrenci', 'Student') },
@@ -6306,12 +6830,35 @@ function loadStoredNotes(): NoteRecord[] {
     );
 }
 
+function loadStoredBooks(): BookRecord[] {
+    return loadStoredArray<Partial<BookRecord>>(DEMO_BOOKS_STORAGE_KEY).flatMap((book, index) => {
+        if (!Number.isFinite(book.id) || typeof book.title !== 'string' || !book.title.trim() || !isBookStatus(book.status)) return [];
+
+        return [
+            {
+                id: Number(book.id),
+                title: book.title.trim(),
+                author: typeof book.author === 'string' ? book.author.trim() : '',
+                status: book.status,
+                comment: book.status === 'finished' && typeof book.comment === 'string' ? book.comment.slice(0, 1200) : '',
+                sortOrder: Number.isFinite(book.sortOrder) ? Number(book.sortOrder) : index,
+                createdAt: Number.isFinite(book.createdAt) ? Number(book.createdAt) : Date.now() + index,
+                finishedAt: book.status === 'finished' && Number.isFinite(book.finishedAt) ? Number(book.finishedAt) : undefined,
+            },
+        ];
+    });
+}
+
 function isGoalCategory(value: unknown): value is GoalCategory {
     return value === 'health' || value === 'work' || value === 'venture' || value === 'skill' || value === 'education' || value === 'other';
 }
 
 function isPriority(value: unknown): value is Priority {
     return value === 'urgent' || value === 'very-important' || value === 'important' || value === 'has-time';
+}
+
+function isBookStatus(value: unknown): value is BookStatus {
+    return value === 'reading' || value === 'not-started' || value === 'finished';
 }
 
 function loadStoredProfile(): ProfileData {
