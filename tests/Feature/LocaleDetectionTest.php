@@ -30,6 +30,28 @@ class LocaleDetectionTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('locale', 'tr'));
     }
 
+    public function test_saved_supported_language_overrides_country_detection(): void
+    {
+        Http::preventStrayRequests();
+
+        $this->withUnencryptedCookie('fuevor_locale', 'ja')
+            ->withHeader('CF-IPCountry', 'TR')
+            ->get('/')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('locale', 'ja'));
+    }
+
+    public function test_unsupported_saved_language_is_ignored(): void
+    {
+        Http::preventStrayRequests();
+
+        $this->withUnencryptedCookie('fuevor_locale', 'unsupported')
+            ->withHeader('CF-IPCountry', 'TR')
+            ->get('/')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('locale', 'tr'));
+    }
+
     public function test_visitors_outside_turkey_and_northern_cyprus_see_english(): void
     {
         Http::fake([
@@ -96,7 +118,7 @@ class LocaleDetectionTest extends TestCase
             $uri = $route->uri();
 
             $this->assertDoesNotMatchRegularExpression('/[çğıöşü]/iu', $uri);
-            $this->assertDoesNotMatchRegularExpression('#^(tr|en)(/|$)#', $uri);
+            $this->assertDoesNotMatchRegularExpression('#^(tr|en|ja|zh|es|fr|it|de|ar|fa|el|ru)(/|$)#', $uri);
         }
     }
 }

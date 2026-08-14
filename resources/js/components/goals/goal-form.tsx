@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useLocale } from '@/hooks/use-locale';
+import { getIntlLocale } from '@/i18n';
 import { Goal, GoalStatus, Priority } from '@/types';
 import { Link, useForm } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
@@ -21,7 +22,7 @@ interface GoalFormData {
 }
 
 export function GoalForm({ goal }: { goal?: Goal }) {
-    const { t } = useLocale();
+    const { locale, t } = useLocale();
     const form = useForm<GoalFormData>({
         title: goal?.title ?? '',
         description: goal?.description ?? '',
@@ -61,10 +62,22 @@ export function GoalForm({ goal }: { goal?: Goal }) {
                     />
                 </Field>
                 <Field label={t('Başlangıç tarihi', 'Start date')} error={form.errors.start_date}>
-                    <Input type="date" value={form.data.start_date} onChange={(e) => form.setData('start_date', e.target.value)} required />
+                    <Input
+                        type="date"
+                        lang={getIntlLocale(locale)}
+                        value={form.data.start_date}
+                        onChange={(e) => form.setData('start_date', e.target.value)}
+                        required
+                    />
                 </Field>
                 <Field label={t('Hedef tarihi', 'Target date')} error={form.errors.target_date}>
-                    <Input type="date" value={form.data.target_date} onChange={(e) => form.setData('target_date', e.target.value)} required />
+                    <Input
+                        type="date"
+                        lang={getIntlLocale(locale)}
+                        value={form.data.target_date}
+                        onChange={(e) => form.setData('target_date', e.target.value)}
+                        required
+                    />
                 </Field>
                 <Field label={t('Öncelik', 'Priority')} error={form.errors.priority}>
                     <select

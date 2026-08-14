@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { useLocale } from '@/hooks/use-locale';
+import { getIntlLocale, type Locale } from '@/i18n';
 import AppLayout from '@/layouts/app-layout';
 import { Goal } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -105,10 +106,8 @@ export default function GoalsIndex({ goals }: { goals: Goal[] }) {
         </AppLayout>
     );
 }
-const formatDate = (date: string, locale: 'tr' | 'en') =>
-    new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' }).format(
-        new Date(`${date}T00:00:00`),
-    );
+const formatDate = (date: string, locale: Locale) =>
+    new Intl.DateTimeFormat(getIntlLocale(locale), { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`));
 const priorityLabel = (value: string, t: (turkish: string, english: string) => string) =>
     ({ low: t('Düşük', 'Low'), medium: t('Orta', 'Medium'), high: t('Yüksek', 'High') })[value] ?? value;
 const priorityColor = (value: string) =>

@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { useLocale } from '@/hooks/use-locale';
+import { getIntlLocale, type Locale, type Translate } from '@/i18n';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link } from '@inertiajs/react';
 import { Activity, CalendarDays, CheckCircle2, Mail, Phone, Search, ShieldCheck, Target, Users } from 'lucide-react';
@@ -267,16 +268,14 @@ const getInitials = (name: string) =>
         .slice(0, 2)
         .map((part) => part[0])
         .join('')
-        .toLocaleUpperCase('tr-TR');
+        .toLocaleUpperCase();
 
-const formatDate = (date: string, locale: 'tr' | 'en') =>
-    new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(date));
+const formatDate = (date: string, locale: Locale) =>
+    new Intl.DateTimeFormat(getIntlLocale(locale), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(date));
 
-const formatGoalDate = (date: string | null, locale: 'tr' | 'en', t: (turkish: string, english: string) => string) =>
+const formatGoalDate = (date: string | null, locale: Locale, t: Translate) =>
     date
-        ? new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' }).format(
-              new Date(`${date}T00:00:00`),
-          )
+        ? new Intl.DateTimeFormat(getIntlLocale(locale), { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`))
         : t('Belirtilmedi', 'Not specified');
 
 const formatPaginationLabel = (label: string, t: (turkish: string, english: string) => string) => {

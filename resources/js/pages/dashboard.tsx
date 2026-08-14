@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { useLocale } from '@/hooks/use-locale';
+import { getIntlLocale, type Locale } from '@/i18n';
 import AppLayout from '@/layouts/app-layout';
 import { DashboardSummary } from '@/types';
 import { Head, Link } from '@inertiajs/react';
@@ -112,5 +113,5 @@ function Stat({ icon: Icon, label, value, tone }: { icon: typeof Target; label: 
 const Empty = ({ text }: { text: string }) => (
     <div className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">{text}</div>
 );
-const formatDate = (date: string | null, locale: 'tr' | 'en') =>
-    date ? new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'short' }).format(new Date(`${date}T00:00:00`)) : '';
+const formatDate = (date: string | null, locale: Locale) =>
+    date ? new Intl.DateTimeFormat(getIntlLocale(locale), { day: 'numeric', month: 'short' }).format(new Date(`${date}T00:00:00`)) : '';

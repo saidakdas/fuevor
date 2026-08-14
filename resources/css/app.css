@@ -90,6 +90,19 @@ body:has(.apple-interface) {
     overflow-x: clip;
 }
 
+html[dir='rtl'] .apple-interface {
+    direction: rtl;
+}
+
+html[dir='rtl'] .apple-interface input[type='email'],
+html[dir='rtl'] .apple-interface input[type='tel'],
+html[dir='rtl'] .apple-interface input[type='url'],
+html[dir='rtl'] .apple-interface input[type='time'],
+html[dir='rtl'] .apple-interface input[type='date'] {
+    direction: ltr;
+    text-align: left;
+}
+
 .demo-mobile-dock {
     padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
     transition:

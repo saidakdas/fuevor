@@ -1,5 +1,6 @@
 import BrandLogo from '@/components/brand-logo';
 import { useLocale } from '@/hooks/use-locale';
+import { getIntlLocale, isLocale, persistLocale, SUPPORTED_LOCALES, translate, type Locale, type Translate } from '@/i18n';
 import { Head } from '@inertiajs/react';
 import { AsYouType, getCountries, getCountryCallingCode, getExampleNumber, validatePhoneNumberLength, type CountryCode } from 'libphonenumber-js';
 import mobilePhoneExamples from 'libphonenumber-js/examples.mobile.json';
@@ -140,7 +141,7 @@ type UniversityOption = {
 
 type SettingsData = {
     appearance: 'light' | 'dark';
-    language: 'tr' | 'en';
+    language: Locale;
     carryOverIncompletePlans: boolean;
     carryOverPreferenceSet: boolean;
 };
@@ -168,7 +169,7 @@ export default function DemoHome() {
     const { locale: detectedLocale } = useLocale();
     const [settings, setSettings] = useState<SettingsData>(() => loadStoredSettings(detectedLocale));
     const locale = settings.language;
-    const t = (turkish: string, english: string) => (locale === 'tr' ? turkish : english);
+    const t: Translate = (turkish, english) => translate(locale, turkish, english);
     const [step, setStep] = useState(1);
     const [goal, setGoal] = useState('');
     const [category, setCategory] = useState<GoalCategory | null>(null);
@@ -226,7 +227,7 @@ export default function DemoHome() {
 
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                 try {
-                    new Notification(locale === 'tr' ? 'Fuevor Anımsatıcı' : 'Fuevor Reminder', {
+                    new Notification(`Fuevor · ${translate(locale, 'Anımsatıcı', 'Reminder')}`, {
                         body: dueReminder.title,
                         icon: '/favicon.ico',
                     });
@@ -291,7 +292,7 @@ export default function DemoHome() {
     useEffect(() => {
         storeDemoData(DEMO_SETTINGS_STORAGE_KEY, settings);
         document.documentElement.dataset.demoTheme = settings.appearance;
-        document.documentElement.lang = settings.language;
+        persistLocale(settings.language);
     }, [settings]);
 
     useEffect(() => {
@@ -897,7 +898,7 @@ function OverviewPanel({
     onAddGoalBlock,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     goals: GoalRecord[];
     items: PlanItem[];
     range: PlanRange;
@@ -1188,7 +1189,7 @@ function GoalsPanel({
     onAddBlock,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     goals: GoalRecord[];
     onCreateGoal: () => void;
     onNavigate: (section: PanelSection) => void;
@@ -1656,7 +1657,7 @@ function GoalDetailPanel({
     onAddBlock,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     goal: GoalRecord;
     onClose: () => void;
     onToggleBlock: (buildingBlockId: number) => void;
@@ -1942,7 +1943,7 @@ function NotesPanel({
     onRemoveNote,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     goals: GoalRecord[];
     notes: NoteRecord[];
     onNavigate: (section: PanelSection) => void;
@@ -2181,7 +2182,7 @@ function NotesPanel({
                                             </p>
                                             <div className="mt-5 flex items-center justify-between border-t border-black/[0.055] pt-4">
                                                 <time className="text-[11px] font-medium text-[#8e8e93]">
-                                                    {new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+                                                    {new Intl.DateTimeFormat(getIntlLocale(locale), {
                                                         day: 'numeric',
                                                         month: 'short',
                                                         year: 'numeric',
@@ -2232,7 +2233,7 @@ function LibraryPanel({
     onReorderBooks,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     goals: GoalRecord[];
     books: BookRecord[];
     onNavigate: (section: PanelSection) => void;
@@ -2557,7 +2558,7 @@ function LibraryPanel({
                                         {book.status === 'finished' && book.finishedAt && (
                                             <time className="mt-2 block text-[10px] font-medium text-[#8e8e93]">
                                                 {t('Bitiş', 'Finished')} ·{' '}
-                                                {new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+                                                {new Intl.DateTimeFormat(getIntlLocale(locale), {
                                                     day: 'numeric',
                                                     month: 'short',
                                                     year: 'numeric',
@@ -2641,7 +2642,7 @@ function PanelHeader({
         { section: 'library' as const, label: t('Kitaplık', 'Library'), mobileLabel: t('Kitaplık', 'Library'), icon: BookOpen },
     ];
     const storedProfile = loadStoredProfile();
-    const profileInitial = storedProfile.name.trim().charAt(0).toLocaleUpperCase('tr-TR') || 'K';
+    const profileInitial = storedProfile.name.trim().charAt(0).toLocaleUpperCase() || 'K';
     const overallProgress = calculateOverallProgress(goals);
 
     return (
@@ -2771,21 +2772,17 @@ function ProfilePreferences({ t, settings, onChange }: { t: Translate; settings:
             <section className="mt-8">
                 <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Dil', 'Language')}</h2>
                 <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.04)]">
-                    <SettingOption
-                        icon={Languages}
-                        label="Türkçe"
-                        description="Fuevor’u Türkçe kullan"
-                        selected={settings.language === 'tr'}
-                        onSelect={() => onChange({ ...settings, language: 'tr' })}
-                    />
-                    <SettingOption
-                        icon={Languages}
-                        label="English"
-                        description="Use Fuevor in English"
-                        selected={settings.language === 'en'}
-                        onSelect={() => onChange({ ...settings, language: 'en' })}
-                        divided
-                    />
+                    {SUPPORTED_LOCALES.map((language, index) => (
+                        <SettingOption
+                            key={language.code}
+                            icon={Languages}
+                            label={language.label}
+                            description={language.description}
+                            selected={settings.language === language.code}
+                            onSelect={() => onChange({ ...settings, language: language.code })}
+                            divided={index !== 0}
+                        />
+                    ))}
                 </div>
             </section>
 
@@ -2884,7 +2881,7 @@ function ProfilePanel({
     onSettingsChange,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     profile: ProfileData;
     settings: SettingsData;
     overallProgress: number;
@@ -2903,7 +2900,7 @@ function ProfilePanel({
     const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
     const [resetEmail, setResetEmail] = useState(profile.email);
     const [resetSent, setResetSent] = useState(false);
-    const profileInitial = draft.name.trim().charAt(0).toLocaleUpperCase('tr-TR') || 'K';
+    const profileInitial = draft.name.trim().charAt(0).toLocaleUpperCase() || 'K';
     const selectedCountry = isCountryCode(draft.country) ? draft.country : null;
     const phoneIsValid = selectedCountry ? isNationalPhoneLengthValid(draft.phone, selectedCountry) : false;
     const usernameIsValid = /^[\p{L}\p{N}._]{3,30}$/u.test(draft.username.trim());
@@ -3387,17 +3384,13 @@ function PublicProfileView({
     onSettings,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     profile: ProfileData;
     overallProgress: number;
     onEdit: () => void;
     onSettings: () => void;
 }) {
-    const initial =
-        profile.name
-            .trim()
-            .charAt(0)
-            .toLocaleUpperCase(locale === 'tr' ? 'tr-TR' : 'en-US') || 'K';
+    const initial = profile.name.trim().charAt(0).toLocaleUpperCase(getIntlLocale(locale)) || 'K';
     const country = isCountryCode(profile.country) ? getCountryOption(profile.country, locale) : null;
     const profession = professionOptions(t).find((option) => option.value === profile.profession)?.label;
     const hasEducation = profile.educations.length > 0;
@@ -4310,7 +4303,7 @@ function CountryPickerField({
     onChange,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     value: CountryCode | null;
     onChange: (country: CountryCode) => void;
 }) {
@@ -4359,21 +4352,19 @@ function CountryPicker({
     onChange,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     value: CountryCode | null;
     onCancel: () => void;
     onChange: (country: CountryCode) => void;
 }) {
     const [query, setQuery] = useState('');
     const countries = useMemo(() => getCountryOptions(locale), [locale]);
-    const normalizedQuery = query.trim().toLocaleLowerCase(locale === 'tr' ? 'tr-TR' : 'en-US');
+    const normalizedQuery = query.trim().toLocaleLowerCase(getIntlLocale(locale));
     const results = useMemo(
         () =>
             normalizedQuery
                 ? countries.filter((country) => {
-                      const searchable = `${country.name} ${country.code} +${country.callingCode}`.toLocaleLowerCase(
-                          locale === 'tr' ? 'tr-TR' : 'en-US',
-                      );
+                      const searchable = `${country.name} ${country.code} +${country.callingCode}`.toLocaleLowerCase(getIntlLocale(locale));
                       return searchable.includes(normalizedQuery);
                   })
                 : countries,
@@ -4517,7 +4508,7 @@ function ProfilePhoneField({
     );
 }
 
-function BirthDateField({ t, locale, value, onChange }: { t: Translate; locale: 'tr' | 'en'; value: string; onChange: (date: string) => void }) {
+function BirthDateField({ t, locale, value, onChange }: { t: Translate; locale: Locale; value: string; onChange: (date: string) => void }) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -4564,16 +4555,17 @@ function BirthDateCalendar({
     onSelect,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     selectedDate: string;
     onCancel: () => void;
     onSelect: (date: string) => void;
 }) {
-    const language = locale === 'tr' ? 'tr-TR' : 'en-US';
+    const language = getIntlLocale(locale);
     const initialDate = selectedDate ? parseDateKey(selectedDate) : new Date(new Date().getFullYear() - 25, new Date().getMonth(), 1, 12);
     const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(initialDate));
     const today = formatDateKey(new Date());
     const days = useMemo(() => calendarMonthDays(visibleMonth), [visibleMonth]);
+    const numberFormatter = useMemo(() => new Intl.NumberFormat(language, { useGrouping: false }), [language]);
     const monthNames = useMemo(
         () => Array.from({ length: 12 }, (_, month) => new Intl.DateTimeFormat(language, { month: 'long' }).format(new Date(2026, month, 1, 12))),
         [language],
@@ -4659,7 +4651,7 @@ function BirthDateCalendar({
                         >
                             {years.map((year) => (
                                 <option key={year} value={year}>
-                                    {year}
+                                    {numberFormatter.format(year)}
                                 </option>
                             ))}
                         </select>
@@ -4707,7 +4699,7 @@ function BirthDateCalendar({
                                 aria-selected={selected}
                                 role="gridcell"
                             >
-                                {day.getDate()}
+                                {numberFormatter.format(day.getDate())}
                             </button>
                         );
                     })}
@@ -4777,7 +4769,7 @@ function PlanPeriodControl({
     onAddReminder,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     range: PlanRange;
     date: string;
     className?: string;
@@ -4890,17 +4882,18 @@ function PlanCalendar({
     onAddReminder,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     selectedDate: string;
     onCancel: () => void;
     onSelect: (date: string) => void;
     onAddReminder?: (date: string) => void;
 }) {
-    const language = locale === 'tr' ? 'tr-TR' : 'en-US';
+    const language = getIntlLocale(locale);
     const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(parseDateKey(selectedDate)));
     const [focusedDate, setFocusedDate] = useState(selectedDate);
     const today = formatDateKey(new Date());
     const days = useMemo(() => calendarMonthDays(visibleMonth), [visibleMonth]);
+    const numberFormatter = useMemo(() => new Intl.NumberFormat(language, { useGrouping: false }), [language]);
     const weekdays = useMemo(() => {
         const monday = new Date(2026, 0, 5, 12);
 
@@ -5016,7 +5009,7 @@ function PlanCalendar({
                                 aria-selected={selected}
                                 role="gridcell"
                             >
-                                {day.getDate()}
+                                {numberFormatter.format(day.getDate())}
                             </button>
                         );
                     })}
@@ -5074,7 +5067,7 @@ function PlanPanel({
     onCreateReminder,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     goals: GoalRecord[];
     items: PlanItem[];
     range: PlanRange;
@@ -5656,7 +5649,7 @@ function StandaloneReminderDialog({
     onSave,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     initialDate: string;
     onCancel: () => void;
     onSave: (title: string, date: string, time: string) => void;
@@ -5782,7 +5775,7 @@ function PlanReminderDialog({
     onRemove,
 }: {
     t: Translate;
-    locale: 'tr' | 'en';
+    locale: Locale;
     item: PlanItem;
     onCancel: () => void;
     onSave: (reminderAt: string) => void;
@@ -6220,11 +6213,9 @@ function OrderingStep({
     );
 }
 
-function DeadlineStep({ t, locale, value, onChange }: { t: Translate; locale: 'tr' | 'en'; value: string; onChange: (value: string) => void }) {
+function DeadlineStep({ t, locale, value, onChange }: { t: Translate; locale: Locale; value: string; onChange: (value: string) => void }) {
     const formattedDate = value
-        ? new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }).format(
-              new Date(`${value}T12:00:00`),
-          )
+        ? new Intl.DateTimeFormat(getIntlLocale(locale), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${value}T12:00:00`))
         : null;
 
     return (
@@ -6252,6 +6243,7 @@ function DeadlineStep({ t, locale, value, onChange }: { t: Translate; locale: 't
                     <input
                         id="goal-deadline"
                         type="date"
+                        lang={getIntlLocale(locale)}
                         min={new Date().toISOString().slice(0, 10)}
                         value={value}
                         onChange={(event) => onChange(event.target.value)}
@@ -6480,8 +6472,8 @@ type CountryOption = {
     flag: string;
 };
 
-function getCountryOptions(locale: 'tr' | 'en'): CountryOption[] {
-    const language = locale === 'tr' ? 'tr-TR' : 'en-US';
+function getCountryOptions(locale: Locale): CountryOption[] {
+    const language = getIntlLocale(locale);
     const names = new Intl.DisplayNames([language], { type: 'region' });
 
     return COUNTRY_CODES.map((code) => ({
@@ -6492,8 +6484,8 @@ function getCountryOptions(locale: 'tr' | 'en'): CountryOption[] {
     })).sort((first, second) => first.name.localeCompare(second.name, language));
 }
 
-function getCountryOption(country: CountryCode, locale: 'tr' | 'en'): CountryOption {
-    const language = locale === 'tr' ? 'tr-TR' : 'en-US';
+function getCountryOption(country: CountryCode, locale: Locale): CountryOption {
+    const language = getIntlLocale(locale);
     const names = new Intl.DisplayNames([language], { type: 'region' });
 
     return {
@@ -6520,9 +6512,9 @@ function normalizeStoredCountry(value: string): CountryCode | '' {
     const normalizedCode = value.trim().toUpperCase();
     if (isCountryCode(normalizedCode)) return normalizedCode;
 
-    const normalizedName = value.trim().toLocaleLowerCase('tr-TR');
-    for (const locale of ['tr', 'en'] as const) {
-        const match = getCountryOptions(locale).find((country) => country.name.toLocaleLowerCase('tr-TR') === normalizedName);
+    const normalizedName = value.trim().toLocaleLowerCase();
+    for (const { code: locale } of SUPPORTED_LOCALES) {
+        const match = getCountryOptions(locale).find((country) => country.name.toLocaleLowerCase(getIntlLocale(locale)) === normalizedName);
         if (match) return match.code;
     }
 
@@ -6568,14 +6560,28 @@ function normalizeNationalPhone(value: string, country: CountryCode | null): str
     return digits.slice(0, getNationalPhoneLength(country).max);
 }
 
-function phoneLengthLabel(length: { min: number; max: number }, locale: 'tr' | 'en'): string {
-    if (length.min === length.max) return locale === 'tr' ? `${length.max} rakam` : `${length.max} digits`;
+function phoneLengthLabel(length: { min: number; max: number }, locale: Locale): string {
+    const digitUnit: Record<Locale, string> = {
+        tr: 'rakam',
+        en: 'digits',
+        ja: '桁',
+        zh: '位数字',
+        es: 'dígitos',
+        fr: 'chiffres',
+        it: 'cifre',
+        de: 'Ziffern',
+        ar: 'أرقام',
+        fa: 'رقم',
+        el: 'ψηφία',
+        ru: 'цифр',
+    };
+    if (length.min === length.max) return `${length.max} ${digitUnit[locale]}`;
 
-    return locale === 'tr' ? `${length.min}–${length.max} rakam` : `${length.min}–${length.max} digits`;
+    return `${length.min}–${length.max} ${digitUnit[locale]}`;
 }
 
-function formatBirthDate(date: string, locale: 'tr' | 'en'): string {
-    return new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+function formatBirthDate(date: string, locale: Locale): string {
+    return new Intl.DateTimeFormat(getIntlLocale(locale), {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -6592,8 +6598,8 @@ function calendarWeekdayLabels(language: string): string[] {
     });
 }
 
-function formatGoalDate(date: string, locale: 'tr' | 'en'): string {
-    return new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+function formatGoalDate(date: string, locale: Locale): string {
+    return new Intl.DateTimeFormat(getIntlLocale(locale), {
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -6636,8 +6642,8 @@ function planRangeLabel(range: PlanRange, t: Translate, date?: string): string {
     }[range];
 }
 
-function formatPlanPeriod(range: PlanRange, locale: 'tr' | 'en', date: string): string {
-    const language = locale === 'tr' ? 'tr-TR' : 'en-US';
+function formatPlanPeriod(range: PlanRange, locale: Locale, date: string): string {
+    const language = getIntlLocale(locale);
     const selectedDate = parseDateKey(date);
 
     if (range === 'today' || range === 'tomorrow') {
@@ -6661,11 +6667,11 @@ function formatPlanPeriod(range: PlanRange, locale: 'tr' | 'en', date: string): 
     return new Intl.DateTimeFormat(language, { year: 'numeric' }).format(selectedDate);
 }
 
-function formatPlanDayLabel(date: string, locale: 'tr' | 'en', t: Translate): string {
+function formatPlanDayLabel(date: string, locale: Locale, t: Translate): string {
     if (date === defaultDateForRange('today')) return t('Bugün', 'Today');
     if (date === defaultDateForRange('tomorrow')) return t('Yarın', 'Tomorrow');
 
-    return new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+    return new Intl.DateTimeFormat(getIntlLocale(locale), {
         day: 'numeric',
         month: 'short',
     }).format(parseDateKey(date));
@@ -6700,7 +6706,7 @@ function suggestedReminderMoment(): Date {
     return suggestedTime;
 }
 
-function formatReminderDate(date: string, locale: 'tr' | 'en'): string {
+function formatReminderDate(date: string, locale: Locale): string {
     if (!isDateKey(date)) return date;
 
     const today = formatDateKey(new Date());
@@ -6708,17 +6714,17 @@ function formatReminderDate(date: string, locale: 'tr' | 'en'): string {
     tomorrowDate.setDate(tomorrowDate.getDate() + 1);
     const tomorrow = formatDateKey(tomorrowDate);
 
-    if (date === today) return locale === 'tr' ? 'Bugün' : 'Today';
-    if (date === tomorrow) return locale === 'tr' ? 'Yarın' : 'Tomorrow';
+    if (date === today) return translate(locale, 'Bugün', 'Today');
+    if (date === tomorrow) return translate(locale, 'Yarın', 'Tomorrow');
 
-    return new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+    return new Intl.DateTimeFormat(getIntlLocale(locale), {
         day: 'numeric',
         month: 'short',
         year: parseDateKey(date).getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
     }).format(parseDateKey(date));
 }
 
-function formatReminderDateTime(reminderAt: string, locale: 'tr' | 'en'): string {
+function formatReminderDateTime(reminderAt: string, locale: Locale): string {
     const date = reminderAt.slice(0, 10);
     const time = reminderAt.slice(11, 16);
     if (!isDateKey(date) || !/^\d{2}:\d{2}$/.test(time)) return reminderAt;
@@ -6929,7 +6935,7 @@ function loadStoredProfile(): ProfileData {
     }
 }
 
-function loadStoredSettings(defaultLanguage: 'tr' | 'en'): SettingsData {
+function loadStoredSettings(defaultLanguage: Locale): SettingsData {
     const defaultSettings: SettingsData = {
         appearance: 'light',
         language: defaultLanguage,
@@ -6945,7 +6951,7 @@ function loadStoredSettings(defaultLanguage: 'tr' | 'en'): SettingsData {
         const settings = value as Partial<SettingsData>;
         return {
             appearance: settings.appearance === 'dark' ? 'dark' : 'light',
-            language: settings.language === 'en' || settings.language === 'tr' ? settings.language : defaultLanguage,
+            language: isLocale(settings.language) ? settings.language : defaultLanguage,
             carryOverIncompletePlans: settings.carryOverIncompletePlans === true,
             carryOverPreferenceSet: settings.carryOverPreferenceSet === true,
         };
@@ -7032,8 +7038,6 @@ function distributeProgress(count: number): number[] {
 
     return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
 }
-
-type Translate = (turkish: string, english: string) => string;
 
 const PRIORITY_RANK: Record<Priority, number> = {
     urgent: 0,

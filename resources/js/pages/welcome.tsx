@@ -1,5 +1,6 @@
 import InputError from '@/components/input-error';
 import { useLocale } from '@/hooks/use-locale';
+import { getIntlLocale, translate, type Locale } from '@/i18n';
 import { Head, useForm } from '@inertiajs/react';
 import { ArrowRight, Check, LoaderCircle, LockKeyhole, Sparkles, Target } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEventHandler, type KeyboardEvent, type PointerEvent } from 'react';
@@ -41,17 +42,18 @@ function getLevelSpeed(level: number): number {
     return Math.min(MAX_SPEED, BASE_SPEED + (level - 1) * SPEED_PER_LEVEL);
 }
 
-function formatScore(milliseconds: number, locale: 'tr' | 'en'): string {
-    const seconds = new Intl.NumberFormat(locale === 'tr' ? 'tr-TR' : 'en-US', {
+function formatScore(milliseconds: number, locale: Locale): string {
+    const seconds = new Intl.NumberFormat(getIntlLocale(locale), {
         minimumFractionDigits: 1,
         maximumFractionDigits: 1,
     }).format(milliseconds / 1_000);
 
-    return `${seconds} ${locale === 'tr' ? 'sn' : 'sec'}`;
+    return `${seconds} ${translate(locale, 'sn', 'sec')}`;
 }
 
 export default function Welcome({ bestScoreMs: initialBestScore, registrationSuccess }: WelcomeProps) {
     const { locale, t } = useLocale();
+    const canvasLevelLabel = t('Seviye', 'Level').toLocaleUpperCase(getIntlLocale(locale));
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const gameAreaRef = useRef<HTMLDivElement>(null);
     const gameSectionRef = useRef<HTMLElement>(null);
@@ -297,7 +299,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
                 if (!marker.active) {
                     context.fillStyle = 'rgba(255, 255, 255, 0.62)';
                     context.font = '600 9px -apple-system, BlinkMacSystemFont, sans-serif';
-                    context.fillText('LEVEL', marker.x, groundY - 30);
+                    context.fillText(canvasLevelLabel, marker.x, groundY - 30);
                 }
             }
 
@@ -445,7 +447,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
             resizeObserver.disconnect();
             window.cancelAnimationFrame(animationFrame);
         };
-    }, [changeStatus, saveScore]);
+    }, [canvasLevelLabel, changeStatus, saveScore]);
 
     return (
         <>

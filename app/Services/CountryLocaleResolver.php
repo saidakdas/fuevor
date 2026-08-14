@@ -9,8 +9,17 @@ use Illuminate\Support\Facades\Http;
 
 class CountryLocaleResolver
 {
+    /** @var list<string> */
+    private const SUPPORTED_LOCALES = ['tr', 'en', 'ja', 'zh', 'es', 'fr', 'it', 'de', 'ar', 'fa', 'el', 'ru'];
+
     public function resolve(Request $request): string
     {
+        $preferredLocale = strtolower((string) $request->cookie('fuevor_locale'));
+
+        if (in_array($preferredLocale, self::SUPPORTED_LOCALES, true)) {
+            return $preferredLocale;
+        }
+
         $country = strtoupper((string) ($request->header('CF-IPCountry') ?: $request->server('GEOIP_COUNTRY_CODE')));
 
         if ($country === 'TR') {

@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/modal';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Textarea } from '@/components/ui/textarea';
 import { useLocale } from '@/hooks/use-locale';
+import { getIntlLocale, type Locale } from '@/i18n';
 import AppLayout from '@/layouts/app-layout';
 import { Goal, Milestone, Priority, Task } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
@@ -289,7 +290,7 @@ function TaskRow({ milestone, task, index }: { milestone: Milestone; task: Task;
 }
 
 function MilestoneModal({ goalId, milestone }: { goalId: number; milestone?: Milestone }) {
-    const { t } = useLocale();
+    const { locale, t } = useLocale();
     const [open, setOpen] = useState(false);
     const form = useForm({ title: milestone?.title ?? '', description: milestone?.description ?? '', target_date: milestone?.target_date ?? '' });
     const submit = (e: FormEvent) => {
@@ -334,7 +335,12 @@ function MilestoneModal({ goalId, milestone }: { goalId: number; milestone?: Mil
                     <Textarea value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
                 </Field>
                 <Field label={t('Hedef tarihi', 'Target date')} error={form.errors.target_date}>
-                    <Input type="date" value={form.data.target_date} onChange={(e) => form.setData('target_date', e.target.value)} />
+                    <Input
+                        type="date"
+                        lang={getIntlLocale(locale)}
+                        value={form.data.target_date}
+                        onChange={(e) => form.setData('target_date', e.target.value)}
+                    />
                 </Field>
                 <Button className="w-full" disabled={form.processing}>
                     {milestone ? t('Kaydet', 'Save') : t('Ekle', 'Add')}
@@ -345,7 +351,7 @@ function MilestoneModal({ goalId, milestone }: { goalId: number; milestone?: Mil
 }
 
 function TaskModal({ milestoneId, task }: { milestoneId: number; task?: Task }) {
-    const { t } = useLocale();
+    const { locale, t } = useLocale();
     const [open, setOpen] = useState(false);
     const form = useForm({
         title: task?.title ?? '',
@@ -396,7 +402,12 @@ function TaskModal({ milestoneId, task }: { milestoneId: number; task?: Task }) 
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Field label={t('Son tarih', 'Due date')} error={form.errors.due_date}>
-                        <Input type="date" value={form.data.due_date} onChange={(e) => form.setData('due_date', e.target.value)} />
+                        <Input
+                            type="date"
+                            lang={getIntlLocale(locale)}
+                            value={form.data.due_date}
+                            onChange={(e) => form.setData('due_date', e.target.value)}
+                        />
                     </Field>
                     <Field label={t('Öncelik', 'Priority')} error={form.errors.priority}>
                         <select
@@ -429,10 +440,8 @@ function Field({ label, error, children }: { label: string; error?: string; chil
 }
 type Translate = (turkish: string, english: string) => string;
 
-const formatDate = (date: string, locale: 'tr' | 'en') =>
-    new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' }).format(
-        new Date(`${date}T00:00:00`),
-    );
+const formatDate = (date: string, locale: Locale) =>
+    new Intl.DateTimeFormat(getIntlLocale(locale), { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`));
 const remaining = (date: string, t: Translate) => {
     const days = Math.ceil((new Date(`${date}T23:59:59`).getTime() - Date.now()) / 86400000);
     return days < 0

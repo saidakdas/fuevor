@@ -30,7 +30,11 @@ export default function ForgotPassword({ status }: { status?: string }) {
         >
             <Head title={t('Şifremi Unuttum', 'Forgot Password')} />
 
-            {status && <div className="mb-4 text-center text-sm font-medium text-green-600">{status}</div>}
+            {status && (
+                <div className="mb-4 text-center text-sm font-medium text-green-600">
+                    {t('E-postana güvenli bir sıfırlama bağlantısı gönder.', 'Send a secure reset link to your email.')}
+                </div>
+            )}
 
             <div className="space-y-6">
                 <form onSubmit={submit}>

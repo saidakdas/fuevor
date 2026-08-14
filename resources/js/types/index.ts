@@ -1,3 +1,4 @@
+import type { Locale } from '@/i18n';
 import { LucideIcon } from 'lucide-react';
 
 export interface Auth {
@@ -23,7 +24,7 @@ export interface NavItem {
 
 export interface SharedData {
     name: string;
-    locale: 'tr' | 'en';
+    locale: Locale;
     quote: { message: string; author: string };
     auth: Auth;
     [key: string]: unknown;

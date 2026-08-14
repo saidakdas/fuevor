@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->statefulApi();
+        $middleware->encryptCookies(except: ['fuevor_locale']);
 
         $middleware->alias([
             'admin' => EnsureUserIsAdmin::class,
