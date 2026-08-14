@@ -464,7 +464,7 @@ export default function Welcome({ bestScoreMs: initialBestScore, registrationSuc
             <div className="min-h-[100svh] overflow-x-hidden bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
                 <header className="sticky top-0 z-40 border-b border-black/[0.055] bg-[#f5f5f7]/78 backdrop-blur-2xl">
                     <div className="mx-auto flex h-[68px] w-full max-w-6xl items-center justify-between px-5 sm:h-[76px] sm:px-8">
-                        <img src="/fuevor-color-logo.svg?v=2" alt="Fuevor" className="h-auto w-[112px] sm:w-[128px]" draggable={false} />
+                        <img src="/fuevor-black-logo.svg?v=2" alt="Fuevor" className="h-auto w-[112px] sm:w-[128px]" draggable={false} />
                         <div className="flex items-center gap-2">
                             <a
                                 href={route('login')}

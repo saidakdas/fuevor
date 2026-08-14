@@ -831,7 +831,7 @@ export default function DemoHome() {
             <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
                 <header className="fixed inset-x-0 top-0 z-30 border-b border-black/[0.055] bg-[#f5f5f7]/80 backdrop-blur-2xl">
                     <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-5 sm:px-8">
-                        <BrandLogo variant="color" className="h-9 w-28 sm:w-32" />
+                        <BrandLogo variant="black" className="h-9 w-28 sm:w-32" />
                         {!completed && (
                             <p className="text-[13px] font-medium tracking-[-0.01em] text-[#6e6e73]">
                                 {step} / {TOTAL_STEPS}
@@ -2987,7 +2987,7 @@ function PanelHeader({
             <header className="fixed inset-x-0 top-0 z-30 border-b border-black/[0.055] bg-[#f5f5f7]/80 backdrop-blur-2xl">
                 <div className="mx-auto flex h-16 max-w-6xl items-center justify-center gap-4 px-5 sm:h-[72px] sm:justify-between sm:px-8">
                     <div className="relative h-9 w-28 shrink-0 sm:w-32">
-                        <BrandLogo variant="color" className="demo-logo-light absolute inset-0 h-full w-full transition-opacity" />
+                        <BrandLogo variant="black" className="demo-logo-light absolute inset-0 h-full w-full transition-opacity" />
                         <BrandLogo variant="white" className="demo-logo-dark absolute inset-0 h-full w-full opacity-0 transition-opacity" />
                     </div>
                     <nav
@@ -3328,7 +3328,7 @@ function ProfilePanel({
                                 </button>
                             )}
                             <div className="relative h-8 w-24 shrink-0">
-                                <BrandLogo variant="color" className="demo-logo-light absolute inset-0 size-full" />
+                                <BrandLogo variant="black" className="demo-logo-light absolute inset-0 size-full" />
                                 <BrandLogo variant="white" className="demo-logo-dark absolute inset-0 size-full opacity-0" />
                             </div>
                             <span className="h-5 w-px bg-black/[0.1]" aria-hidden="true" />
@@ -7017,7 +7017,7 @@ function openFuevorReport({
     const selectedPlanItems = sortPlanItems(
         items.filter((item) => isDateKey(item.scheduledFor) && item.scheduledFor >= period.start && item.scheduledFor <= period.end),
     );
-    const logoUrl = new URL('/fuevor-color-logo.svg?v=2', window.location.origin).href;
+    const logoUrl = new URL('/fuevor-black-logo.svg?v=2', window.location.origin).href;
     const reportDate = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
     const fileTitle = `Fuevor-${username.replace(/[^\p{L}\p{N}._-]+/gu, '-')}-${formatDateKey(new Date())}`;
     const emptyState = `<p class="empty">${h(t('Bu bölüm henüz boş', 'Nothing here yet'))}</p>`;
