@@ -1349,8 +1349,12 @@ function GoalRoadmap({
                         </span>
                     )}
                 </span>
-                <span className="min-w-0">
-                    <span className={`block truncate text-[13px] font-semibold ${completed ? 'text-[#8e8e93] line-through' : 'text-[#1d1d1f]'}`}>
+                <span className={`${mobile ? 'min-w-0' : 'mt-2 w-full min-w-0'} overflow-hidden`}>
+                    <span
+                        title={goalRecord.title}
+                        className={`block w-full text-[13px] leading-[1.3] font-semibold break-words ${mobile ? '' : 'min-h-[34px] overflow-hidden'} ${completed ? 'text-[#8e8e93] line-through' : 'text-[#1d1d1f]'}`}
+                        style={mobile ? undefined : { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}
+                    >
                         {goalRecord.title}
                     </span>
                     <span className={`mt-1 block text-[10px] font-semibold ${completed ? 'text-[#34a853]' : 'text-[#8e8e93]'}`}>
