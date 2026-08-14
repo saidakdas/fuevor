@@ -6,9 +6,9 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <meta name="theme-color" content="#00383c">
 
-        <link rel="icon" href="/fuevor-favicon.svg?v=3" type="image/svg+xml">
-        <link rel="icon" href="/favicon.ico?v=3" sizes="any">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+        <link rel="icon" href="/fuevor-favicon.svg?v=4" type="image/svg+xml">
+        <link rel="icon" href="/favicon.ico?v=4" sizes="any">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=4">
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
