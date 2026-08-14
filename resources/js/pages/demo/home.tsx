@@ -294,6 +294,19 @@ export default function DemoHome() {
         document.documentElement.lang = settings.language;
     }, [settings]);
 
+    useEffect(() => {
+        if (!showPanel) return;
+
+        const resetHorizontalPosition = () => {
+            document.documentElement.scrollLeft = 0;
+            document.body.scrollLeft = 0;
+        };
+        resetHorizontalPosition();
+        const frame = window.requestAnimationFrame(resetHorizontalPosition);
+
+        return () => window.cancelAnimationFrame(frame);
+    }, [panelSection, profileOpen, showPanel]);
+
     const completed = step > TOTAL_STEPS;
     const progress = completed ? 100 : ((step - 1) / TOTAL_STEPS) * 100;
     const validBlocks = useMemo(() => buildingBlocks.filter((block) => block.title.trim() !== ''), [buildingBlocks]);
@@ -920,10 +933,10 @@ function OverviewPanel({
                 <meta name="robots" content="noindex, nofollow" />
             </Head>
 
-            <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
+            <div className="apple-interface min-h-[100svh] w-full max-w-full min-w-0 overflow-x-clip bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
                 <PanelHeader t={t} active="overview" goals={goals} onNavigate={onNavigate} />
 
-                <main className="mx-auto max-w-5xl px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
+                <main className="mx-auto w-full max-w-5xl min-w-0 px-5 pt-24 pb-28 sm:px-8 sm:pt-36 sm:pb-16">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <p className="text-[13px] font-semibold text-[#007aff] capitalize">{formatPlanPeriod(range, locale, date)}</p>
@@ -958,7 +971,7 @@ function OverviewPanel({
                         </div>
                     </div>
 
-                    <section className="mt-5 grid gap-3 sm:grid-cols-3" aria-label={t('Özet bilgiler', 'Summary information')}>
+                    <section className="mt-5 grid min-w-0 gap-3 sm:grid-cols-3" aria-label={t('Özet bilgiler', 'Summary information')}>
                         <OverviewStat
                             icon={TrendingUp}
                             label={t('Genel ilerleme', 'Overall progress')}
@@ -992,8 +1005,8 @@ function OverviewPanel({
 
                     <GoalRoadmap t={t} goals={goals} onSelect={setSelectedGoalId} className="mt-5" />
 
-                    <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-                        <section className="overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
+                    <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+                        <section className="min-w-0 overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
                             <div className="flex items-center justify-between border-b border-black/[0.055] px-5 py-5 sm:px-6">
                                 <div>
                                     <h2 className="text-[18px] font-semibold tracking-[-0.02em]">{planRangeLabel(range, t, date)}</h2>
@@ -1073,10 +1086,12 @@ function OverviewPanel({
                             )}
                         </section>
 
-                        <div className="space-y-5">
-                            <section className="overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
-                                <div className="flex items-center justify-between border-b border-black/[0.055] px-5 py-5">
-                                    <h2 className="text-[17px] font-semibold tracking-[-0.02em]">{t('Öncelikli Hedefler', 'Priority Goals')}</h2>
+                        <div className="min-w-0 space-y-5">
+                            <section className="min-w-0 overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
+                                <div className="flex min-w-0 items-center justify-between gap-3 border-b border-black/[0.055] px-5 py-5">
+                                    <h2 className="min-w-0 truncate text-[17px] font-semibold tracking-[-0.02em]">
+                                        {t('Öncelikli Hedefler', 'Priority Goals')}
+                                    </h2>
                                     <button type="button" onClick={() => onNavigate('goals')} className="text-[12px] font-semibold text-[#007aff]">
                                         {t('Tümü', 'All')}
                                     </button>
@@ -1093,7 +1108,7 @@ function OverviewPanel({
                                         return (
                                             <div
                                                 key={goalRecord.id}
-                                                className={`flex items-center gap-3 px-5 py-4 ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
+                                                className={`flex min-w-0 items-center gap-3 overflow-hidden px-5 py-4 ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
                                             >
                                                 <span className={`size-2.5 shrink-0 rounded-full ${style.dot}`} />
                                                 <div className="min-w-0 flex-1">
@@ -1109,20 +1124,20 @@ function OverviewPanel({
                                 )}
                             </section>
 
-                            <section className="overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
+                            <section className="min-w-0 overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
                                 <div className="border-b border-black/[0.055] px-5 py-5">
                                     <h2 className="text-[17px] font-semibold tracking-[-0.02em]">{t('Yaklaşan Tarihler', 'Upcoming Dates')}</h2>
                                 </div>
                                 {upcomingGoals.map((goalRecord, index) => (
                                     <div
                                         key={goalRecord.id}
-                                        className={`flex items-center gap-3 px-5 py-4 ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
+                                        className={`flex min-w-0 items-center gap-3 overflow-hidden px-5 py-4 ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
                                     >
                                         <span className="grid size-9 shrink-0 place-items-center rounded-[12px] bg-[#f2f2f7] text-[#6e6e73]">
                                             <CalendarDays className="size-4" />
                                         </span>
                                         <p className="min-w-0 flex-1 truncate text-[13px] font-medium">{goalRecord.title}</p>
-                                        <span className="text-[11px] font-medium whitespace-nowrap text-[#8e8e93]">
+                                        <span className="shrink-0 text-[11px] font-medium whitespace-nowrap text-[#8e8e93]">
                                             {formatGoalDate(goalRecord.deadline, locale)}
                                         </span>
                                     </div>
@@ -1150,7 +1165,7 @@ function OverviewPanel({
 
 function OverviewStat({ icon: Icon, label, value, color }: { icon: typeof Target; label: string; value: string; color: string }) {
     return (
-        <div className="flex items-center gap-4 rounded-[22px] border border-black/[0.07] bg-white p-4 shadow-[0_8px_30px_rgba(0,0,0,0.035)] sm:p-5">
+        <div className="flex min-w-0 items-center gap-4 overflow-hidden rounded-[22px] border border-black/[0.07] bg-white p-4 shadow-[0_8px_30px_rgba(0,0,0,0.035)] sm:p-5">
             <span className={`grid size-11 shrink-0 place-items-center rounded-[14px] ${color}`}>
                 <Icon className="size-5" />
             </span>
@@ -1465,7 +1480,7 @@ function GoalRoadmap({
     return (
         <>
             <section
-                className={`${className} overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)] sm:p-6`}
+                className={`${className} w-full max-w-full min-w-0 overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)] sm:p-6`}
                 aria-label={t('Hedef yol haritası', 'Goal roadmap')}
             >
                 <button type="button" onClick={() => setMobileOpen(true)} className="flex w-full items-center gap-4 p-5 text-left sm:hidden">
@@ -2519,16 +2534,16 @@ function LibraryPanel({
                                             {book.title}
                                         </span>
                                     </div>
-                                    <div className="min-w-0 flex-1">
+                                    <div className="min-w-0 flex-1 overflow-hidden">
                                         <div className="flex items-start gap-3">
                                             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-black/[0.045] text-[11px] font-bold text-[#8e8e93]">
                                                 {index + 1}
                                             </span>
-                                            <div className="min-w-0">
-                                                <h3 className="text-[16px] leading-5 font-semibold tracking-[-0.015em] sm:text-[17px]">
+                                            <div className="min-w-0 flex-1 overflow-hidden">
+                                                <h3 className="line-clamp-2 text-[16px] leading-5 font-semibold tracking-[-0.015em] [overflow-wrap:anywhere] break-words sm:text-[17px]">
                                                     {book.title}
                                                 </h3>
-                                                <p className="mt-1 text-[12px] text-[#8e8e93]">
+                                                <p className="mt-1 truncate text-[12px] text-[#8e8e93]">
                                                     {book.author || t('Yazar belirtilmedi', 'Author not specified')}
                                                 </p>
                                             </div>
@@ -5286,7 +5301,7 @@ function PlanPanel({
                                                 >
                                                     {item.title}
                                                 </p>
-                                                <p className="mt-1 text-[11px] font-medium text-[#8e8e93]">
+                                                <p className="mt-1 truncate text-[11px] font-medium text-[#8e8e93]">
                                                     <span
                                                         className={`mr-1.5 inline-block size-1.5 rounded-full ${PRIORITY_STYLES[item.priority].dot}`}
                                                     />
@@ -5497,7 +5512,7 @@ function PlanPanel({
                                     ) : (
                                         goals.map((goalRecord, goalIndex) => (
                                             <div key={goalRecord.id} className={goalIndex !== 0 ? 'border-t border-black/[0.055]' : ''}>
-                                                <p className="bg-[#f9f9fb] px-4 py-2.5 text-[11px] font-semibold text-[#8e8e93]">
+                                                <p className="truncate bg-[#f9f9fb] px-4 py-2.5 text-[11px] font-semibold text-[#8e8e93]">
                                                     <span
                                                         className={`mr-2 inline-block size-1.5 rounded-full ${PRIORITY_STYLES[goalRecord.priority].dot}`}
                                                     />

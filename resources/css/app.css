@@ -77,7 +77,17 @@
 }
 
 .apple-interface {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+}
+
+html:has(.apple-interface),
+body:has(.apple-interface) {
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-x: clip;
 }
 
 .demo-mobile-dock {
