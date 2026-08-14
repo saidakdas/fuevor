@@ -1,6 +1,6 @@
 import BrandLogo from '@/components/brand-logo';
 import { useLocale } from '@/hooks/use-locale';
-import { getIntlLocale, isLocale, persistLocale, SUPPORTED_LOCALES, translate, type Locale, type Translate } from '@/i18n';
+import { getIntlLocale, getLocaleDirection, isLocale, persistLocale, SUPPORTED_LOCALES, translate, type Locale, type Translate } from '@/i18n';
 import { Head } from '@inertiajs/react';
 import { AsYouType, getCountries, getCountryCallingCode, getExampleNumber, validatePhoneNumberLength, type CountryCode } from 'libphonenumber-js';
 import mobilePhoneExamples from 'libphonenumber-js/examples.mobile.json';
@@ -22,6 +22,7 @@ import {
     ChevronUp,
     CircleCheck,
     Clock3,
+    FileDown,
     Globe2,
     GraduationCap,
     GripVertical,
@@ -77,6 +78,8 @@ type GoalRecord = {
 type PanelSection = 'overview' | 'goals' | 'plan' | 'notes' | 'library' | 'profile';
 type PlanRange = 'today' | 'tomorrow' | 'week' | 'month' | 'year';
 type BookStatus = 'reading' | 'not-started' | 'finished';
+type ReportPlanPeriod = 'day' | 'range' | 'week' | 'month' | 'year';
+type ReportSection = 'goals' | 'plans' | 'library' | 'saved-notes';
 
 type PlanItem = {
     id: number;
@@ -184,6 +187,7 @@ export default function DemoHome() {
     const [showPanel, setShowPanel] = useState(() => loadStoredGoals().length > 0);
     const [panelSection, setPanelSection] = useState<PanelSection>('overview');
     const [profileOpen, setProfileOpen] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
     const [planItems, setPlanItems] = useState<PlanItem[]>(loadStoredPlanItems);
     const [notes, setNotes] = useState<NoteRecord[]>(loadStoredNotes);
     const [books, setBooks] = useState<BookRecord[]>(loadStoredBooks);
@@ -674,6 +678,18 @@ export default function DemoHome() {
             }}
         />
     ) : null;
+    const reportDialog = reportOpen ? (
+        <ReportExportDialog
+            t={t}
+            locale={locale}
+            goals={goals}
+            items={planItems}
+            books={books}
+            notes={notes}
+            profile={profile}
+            onClose={() => setReportOpen(false)}
+        />
+    ) : null;
 
     if (showPanel) {
         if (panelSection === 'overview') {
@@ -688,6 +704,7 @@ export default function DemoHome() {
                         date={planDate}
                         onNavigate={navigatePanel}
                         onCreateGoal={startNewGoal}
+                        onExportReport={() => setReportOpen(true)}
                         onRangeChange={changePlanRange}
                         onDateChange={changePlanDate}
                         onToggleItem={togglePlanItem}
@@ -700,6 +717,7 @@ export default function DemoHome() {
                     {reminderAlert}
                     {standaloneReminderDialog}
                     {goalCompletionDialog}
+                    {reportDialog}
                 </>
             );
         }
@@ -891,6 +909,7 @@ function OverviewPanel({
     date,
     onNavigate,
     onCreateGoal,
+    onExportReport,
     onRangeChange,
     onDateChange,
     onToggleItem,
@@ -907,6 +926,7 @@ function OverviewPanel({
     date: string;
     onNavigate: (section: PanelSection) => void;
     onCreateGoal: () => void;
+    onExportReport: () => void;
     onRangeChange: (range: PlanRange) => void;
     onDateChange: (date: string) => void;
     onToggleItem: (id: number) => void;
@@ -954,7 +974,15 @@ function OverviewPanel({
                             </p>
                         </div>
 
-                        <div className="flex gap-2.5">
+                        <div className="flex flex-wrap gap-2.5">
+                            <button
+                                type="button"
+                                onClick={onExportReport}
+                                className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full border border-black/[0.07] bg-white px-4 text-[14px] font-semibold whitespace-nowrap text-[#1d1d1f] shadow-[0_5px_18px_rgba(0,0,0,0.04)] transition hover:bg-[#fbfbfd] active:scale-[0.98] sm:flex-none"
+                            >
+                                <FileDown className="size-[17px] text-[#007aff]" />
+                                PDF
+                            </button>
                             <button
                                 type="button"
                                 onClick={() => onNavigate('plan')}
@@ -1163,6 +1191,265 @@ function OverviewPanel({
                 />
             )}
         </>
+    );
+}
+
+function ReportExportDialog({
+    t,
+    locale,
+    goals,
+    items,
+    books,
+    notes,
+    profile,
+    onClose,
+}: {
+    t: Translate;
+    locale: Locale;
+    goals: GoalRecord[];
+    items: PlanItem[];
+    books: BookRecord[];
+    notes: NoteRecord[];
+    profile: ProfileData;
+    onClose: () => void;
+}) {
+    const today = formatDateKey(new Date());
+    const [sections, setSections] = useState<Record<ReportSection, boolean>>({
+        goals: true,
+        plans: true,
+        library: true,
+        'saved-notes': false,
+    });
+    const [planPeriod, setPlanPeriod] = useState<ReportPlanPeriod>('day');
+    const [selectedDate, setSelectedDate] = useState(today);
+    const [rangeStart, setRangeStart] = useState(today);
+    const [rangeEnd, setRangeEnd] = useState(today);
+    const [selectedMonth, setSelectedMonth] = useState(today.slice(0, 7));
+    const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
+    const [includeWritingArea, setIncludeWritingArea] = useState(true);
+
+    useEffect(() => {
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', closeOnEscape);
+        return () => window.removeEventListener('keydown', closeOnEscape);
+    }, [onClose]);
+
+    const sectionOptions: Array<{ value: ReportSection; label: string; icon: typeof Target; count: number }> = [
+        { value: 'goals', label: t('Hedefler', 'Goals'), icon: Target, count: goals.length },
+        { value: 'plans', label: t('Planlar', 'Plan'), icon: ListTodo, count: items.length },
+        { value: 'library', label: t('Kitaplık', 'Library'), icon: BookOpen, count: books.length },
+        { value: 'saved-notes', label: t('Kayıtlı Notlar', 'Saved Notes'), icon: NotebookPen, count: notes.length },
+    ];
+    const periodOptions: Array<{ value: ReportPlanPeriod; label: string }> = [
+        { value: 'day', label: t('Günlük', 'Daily Plan') },
+        { value: 'range', label: t('Tarih Aralığı', 'Date Range') },
+        { value: 'week', label: t('Haftalık', 'Weekly Plan') },
+        { value: 'month', label: t('Aylık', 'Monthly Plan') },
+        { value: 'year', label: t('Yıllık', 'Yearly Plan') },
+    ];
+    const canExport = Object.values(sections).some(Boolean) || includeWritingArea;
+
+    const exportReport = (event: FormEvent) => {
+        event.preventDefault();
+        if (!canExport) return;
+
+        openFuevorReport({
+            t,
+            locale,
+            goals,
+            items,
+            books,
+            notes,
+            profile,
+            sections,
+            planPeriod,
+            selectedDate,
+            rangeStart,
+            rangeEnd,
+            selectedMonth,
+            selectedYear,
+            includeWritingArea,
+        });
+    };
+
+    return (
+        <div
+            className="fixed inset-0 z-[90] flex items-end justify-center bg-black/30 p-0 backdrop-blur-md sm:items-center sm:p-6"
+            role="presentation"
+            onMouseDown={(event) => {
+                if (event.target === event.currentTarget) onClose();
+            }}
+        >
+            <form
+                onSubmit={exportReport}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="demo-report-title"
+                className="demo-step-enter max-h-[92svh] w-full max-w-2xl overflow-y-auto rounded-t-[30px] border border-black/[0.08] bg-[#f9f9fb] shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[30px]"
+            >
+                <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-black/[0.06] bg-[#f9f9fb]/90 px-5 py-5 backdrop-blur-2xl sm:px-7">
+                    <div>
+                        <p className="text-[12px] font-semibold text-[#007aff]">Fuevor</p>
+                        <h2 id="demo-report-title" className="mt-1 text-[24px] font-semibold tracking-[-0.035em]">
+                            {t('PDF Raporu', 'PDF Report')}
+                        </h2>
+                        <p className="mt-1.5 text-[12px] leading-5 text-[#8e8e93]">
+                            {t('Rapora eklenecek bölümleri ve plan dönemini seç.', 'Select the sections and plan period to include.')}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="grid size-10 shrink-0 place-items-center rounded-full bg-black/[0.045] text-[#6e6e73] transition hover:bg-black/[0.08]"
+                        aria-label={t('Kapat', 'Close')}
+                    >
+                        <X className="size-[18px]" />
+                    </button>
+                </div>
+
+                <div className="space-y-7 px-5 py-6 sm:px-7">
+                    <section>
+                        <p className="mb-3 text-[12px] font-semibold text-[#6e6e73]">{t('Bölümler', 'Panel sections')}</p>
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            {sectionOptions.map((option) => {
+                                const Icon = option.icon;
+                                const selected = sections[option.value];
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => setSections((current) => ({ ...current, [option.value]: !current[option.value] }))}
+                                        aria-pressed={selected}
+                                        className={`relative min-w-0 rounded-[20px] border p-4 text-left transition active:scale-[0.98] ${selected ? 'border-[#007aff]/30 bg-[#007aff]/7 text-[#007aff] shadow-[0_8px_28px_rgba(0,122,255,0.08)]' : 'border-black/[0.07] bg-white text-[#6e6e73]'}`}
+                                    >
+                                        <span
+                                            className={`grid size-9 place-items-center rounded-[12px] ${selected ? 'bg-[#007aff]/12' : 'bg-black/[0.045]'}`}
+                                        >
+                                            <Icon className="size-[17px]" />
+                                        </span>
+                                        <span className="mt-3 block truncate text-[12px] font-semibold">{option.label}</span>
+                                        <span className="mt-1 block text-[11px] font-medium opacity-60">{option.count}</span>
+                                        {selected && (
+                                            <span className="absolute top-3 right-3 grid size-5 place-items-center rounded-full bg-[#007aff] text-white">
+                                                <Check className="size-3" strokeWidth={3} />
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </section>
+
+                    {sections.plans && (
+                        <section>
+                            <p className="mb-3 text-[12px] font-semibold text-[#6e6e73]">{t('Plan Dönemi', 'Plan period')}</p>
+                            <div className="grid grid-cols-3 gap-2 rounded-[18px] bg-black/[0.045] p-1.5 sm:grid-cols-5">
+                                {periodOptions.map((option) => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => setPlanPeriod(option.value)}
+                                        className={`min-w-0 rounded-[13px] px-2 py-2.5 text-[11px] font-semibold transition sm:text-[12px] ${planPeriod === option.value ? 'bg-white text-[#1d1d1f] shadow-[0_2px_8px_rgba(0,0,0,0.09)]' : 'text-[#8e8e93]'}`}
+                                    >
+                                        <span className="block truncate">{option.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                {(planPeriod === 'day' || planPeriod === 'week') && (
+                                    <input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(event) => setSelectedDate(event.target.value)}
+                                        required
+                                        className="h-[52px] rounded-[16px] border border-black/[0.08] bg-white px-4 text-[14px] font-medium outline-none focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8 sm:col-span-2"
+                                    />
+                                )}
+                                {planPeriod === 'range' && (
+                                    <>
+                                        <input
+                                            type="date"
+                                            value={rangeStart}
+                                            max={rangeEnd}
+                                            onChange={(event) => setRangeStart(event.target.value)}
+                                            required
+                                            className="h-[52px] rounded-[16px] border border-black/[0.08] bg-white px-4 text-[14px] font-medium outline-none focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8"
+                                        />
+                                        <input
+                                            type="date"
+                                            value={rangeEnd}
+                                            min={rangeStart}
+                                            onChange={(event) => setRangeEnd(event.target.value)}
+                                            required
+                                            className="h-[52px] rounded-[16px] border border-black/[0.08] bg-white px-4 text-[14px] font-medium outline-none focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8"
+                                        />
+                                    </>
+                                )}
+                                {planPeriod === 'month' && (
+                                    <input
+                                        type="month"
+                                        value={selectedMonth}
+                                        onChange={(event) => setSelectedMonth(event.target.value)}
+                                        required
+                                        className="h-[52px] rounded-[16px] border border-black/[0.08] bg-white px-4 text-[14px] font-medium outline-none focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8 sm:col-span-2"
+                                    />
+                                )}
+                                {planPeriod === 'year' && (
+                                    <input
+                                        type="number"
+                                        min="1970"
+                                        max="2200"
+                                        value={selectedYear}
+                                        onChange={(event) => setSelectedYear(event.target.value.slice(0, 4))}
+                                        required
+                                        inputMode="numeric"
+                                        className="h-[52px] rounded-[16px] border border-black/[0.08] bg-white px-4 text-[14px] font-medium outline-none focus:border-[#007aff]/40 focus:ring-4 focus:ring-[#007aff]/8 sm:col-span-2"
+                                    />
+                                )}
+                            </div>
+                        </section>
+                    )}
+
+                    <section>
+                        <button
+                            type="button"
+                            onClick={() => setIncludeWritingArea((current) => !current)}
+                            aria-pressed={includeWritingArea}
+                            className={`flex w-full items-center gap-4 rounded-[20px] border p-4 text-left transition ${includeWritingArea ? 'border-[#007aff]/25 bg-[#007aff]/6' : 'border-black/[0.07] bg-white'}`}
+                        >
+                            <span
+                                className={`grid size-10 shrink-0 place-items-center rounded-[13px] ${includeWritingArea ? 'bg-[#007aff] text-white' : 'bg-black/[0.045] text-[#8e8e93]'}`}
+                            >
+                                {includeWritingArea ? <Check className="size-[18px]" strokeWidth={3} /> : <NotebookPen className="size-[18px]" />}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-[13px] font-semibold text-[#1d1d1f]">{t('Yazılabilir Not Alanı', 'Writing area')}</span>
+                                <span className="mt-1 block text-[11px] leading-4 text-[#8e8e93]">
+                                    {t('Raporun sonuna boş bir not alanı ekle.', 'Add a blank notes area to the end.')}
+                                </span>
+                            </span>
+                        </button>
+                    </section>
+                </div>
+
+                <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-black/[0.06] bg-[#f9f9fb]/90 px-5 py-4 backdrop-blur-2xl sm:px-7">
+                    <button type="button" onClick={onClose} className="h-11 rounded-full px-5 text-[13px] font-semibold text-[#6e6e73]">
+                        {t('Vazgeç', 'Cancel')}
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={!canExport}
+                        className="inline-flex h-11 items-center gap-2 rounded-full bg-[#007aff] px-6 text-[13px] font-semibold text-white shadow-[0_8px_24px_rgba(0,122,255,0.18)] transition active:scale-[0.98] disabled:bg-[#d1d1d6] disabled:shadow-none"
+                    >
+                        <FileDown className="size-[17px]" />
+                        {t("PDF'i İndir", 'Download PDF')}
+                    </button>
+                </div>
+            </form>
+        </div>
     );
 }
 
@@ -6672,6 +6959,274 @@ function calculateOverallProgress(goals: GoalRecord[]): number {
     const averageProgress = Math.round(goals.reduce((total, goalRecord) => total + calculateGoalProgress(goalRecord), 0) / goals.length);
 
     return Math.max(1, averageProgress);
+}
+
+function openFuevorReport({
+    t,
+    locale,
+    goals,
+    items,
+    books,
+    notes,
+    profile,
+    sections,
+    planPeriod,
+    selectedDate,
+    rangeStart,
+    rangeEnd,
+    selectedMonth,
+    selectedYear,
+    includeWritingArea,
+}: {
+    t: Translate;
+    locale: Locale;
+    goals: GoalRecord[];
+    items: PlanItem[];
+    books: BookRecord[];
+    notes: NoteRecord[];
+    profile: ProfileData;
+    sections: Record<ReportSection, boolean>;
+    planPeriod: ReportPlanPeriod;
+    selectedDate: string;
+    rangeStart: string;
+    rangeEnd: string;
+    selectedMonth: string;
+    selectedYear: string;
+    includeWritingArea: boolean;
+}): void {
+    const reportWindow = window.open('', '_blank');
+    if (!reportWindow) return;
+    reportWindow.opener = null;
+
+    const h = escapeReportHtml;
+    const language = getIntlLocale(locale);
+    const direction = getLocaleDirection(locale);
+    const overallProgress = calculateOverallProgress(goals);
+    const username = profile.username.trim() || profile.name.trim() || t('Kullanıcı', 'User');
+    const period = getReportPlanPeriod(planPeriod, selectedDate, rangeStart, rangeEnd, selectedMonth, selectedYear, locale);
+    const selectedPlanItems = sortPlanItems(
+        items.filter((item) => isDateKey(item.scheduledFor) && item.scheduledFor >= period.start && item.scheduledFor <= period.end),
+    );
+    const logoUrl = new URL('/fuevor-color-logo.svg', window.location.origin).href;
+    const reportDate = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+    const fileTitle = `Fuevor-${username.replace(/[^\p{L}\p{N}._-]+/gu, '-')}-${formatDateKey(new Date())}`;
+    const emptyState = `<p class="empty">${h(t('Bu bölüm henüz boş', 'Nothing here yet'))}</p>`;
+
+    const goalsMarkup = sections.goals
+        ? `<section class="report-section">
+            <div class="section-heading"><h2>${h(t('Hedefler', 'Goals'))}</h2><span>${goals.length}</span></div>
+            <div class="stack">
+                ${
+                    goals.length === 0
+                        ? emptyState
+                        : [...goals]
+                              .sort((first, second) => first.deadline.localeCompare(second.deadline) || first.createdAt - second.createdAt)
+                              .map((goalRecord) => {
+                                  const progress = calculateGoalProgress(goalRecord);
+                                  return `<article class="card keep-together">
+                                      <div class="card-title"><strong>${h(goalRecord.title)}</strong><b>%${progress}</b></div>
+                                      <div class="meta-row">
+                                          <span>${h(categoryLabel(goalRecord.category, t))}</span>
+                                          <span>${h(priorityLabel(goalRecord.priority, t))}</span>
+                                          <span>${h(formatGoalDate(goalRecord.deadline, locale))}</span>
+                                      </div>
+                                      ${goalRecord.gain ? `<p class="description">${h(goalRecord.gain)}</p>` : ''}
+                                      <div class="progress"><i style="width:${progress}%"></i></div>
+                                      <ul class="check-list">
+                                          ${goalRecord.buildingBlocks
+                                              .map(
+                                                  (block) =>
+                                                      `<li><span class="check ${block.completed ? 'done' : ''}">${block.completed ? '✓' : ''}</span><span>${h(block.title)}</span></li>`,
+                                              )
+                                              .join('')}
+                                      </ul>
+                                  </article>`;
+                              })
+                              .join('')
+                }
+            </div>
+        </section>`
+        : '';
+
+    const plansMarkup = sections.plans
+        ? `<section class="report-section">
+            <div class="section-heading"><div><h2>${h(t('Planlar', 'Plan'))}</h2><p>${h(period.label)}</p></div><span>${selectedPlanItems.length}</span></div>
+            <div class="stack">
+                ${
+                    selectedPlanItems.length === 0
+                        ? emptyState
+                        : selectedPlanItems
+                              .sort((first, second) => first.scheduledFor.localeCompare(second.scheduledFor))
+                              .map((item) => {
+                                  const sourceGoal = goals.find((goalRecord) => goalRecord.id === item.goalId);
+                                  const source =
+                                      sourceGoal?.title ??
+                                      (item.source === 'reminder'
+                                          ? t('Harici anımsatıcı', 'Standalone reminder')
+                                          : t('Bağımsız plan', 'Independent plan'));
+                                  return `<article class="plan-row keep-together">
+                                      <span class="check ${item.completed ? 'done' : ''}">${item.completed ? '✓' : ''}</span>
+                                      <div><strong class="${item.completed ? 'completed' : ''}">${h(item.title)}</strong><p>${h(source)}</p></div>
+                                      <time>${h(formatGoalDate(item.scheduledFor, locale))}</time>
+                                  </article>`;
+                              })
+                              .join('')
+                }
+            </div>
+        </section>`
+        : '';
+
+    const libraryMarkup = sections.library
+        ? `<section class="report-section">
+            <div class="section-heading"><h2>${h(t('Kitaplık', 'Library'))}</h2><span>${books.length}</span></div>
+            ${
+                books.length === 0
+                    ? emptyState
+                    : (['reading', 'not-started', 'finished'] as BookStatus[])
+                          .map((status) => {
+                              const statusBooks = books
+                                  .filter((book) => book.status === status)
+                                  .sort((first, second) => first.sortOrder - second.sortOrder);
+                              if (statusBooks.length === 0) return '';
+                              return `<div class="book-group">
+                                  <h3>${h(bookStatusLabel(status, t))} <small>${statusBooks.length}</small></h3>
+                                  ${statusBooks
+                                      .map(
+                                          (book, index) => `<article class="book-row keep-together">
+                                              <b>${index + 1}</b>
+                                              <div><strong>${h(book.title)}</strong><p>${h(book.author || t('Yazar belirtilmedi', 'Author not specified'))}</p>
+                                              ${book.comment ? `<blockquote>${h(book.comment)}</blockquote>` : ''}</div>
+                                              ${book.rating > 0 ? `<span class="rating">${'★'.repeat(book.rating)}${'☆'.repeat(5 - book.rating)} <small>${book.rating}/5</small></span>` : ''}
+                                          </article>`,
+                                      )
+                                      .join('')}
+                              </div>`;
+                          })
+                          .join('')
+            }
+        </section>`
+        : '';
+
+    const savedNotesMarkup = sections['saved-notes']
+        ? `<section class="report-section">
+            <div class="section-heading"><h2>${h(t('Kayıtlı Notlar', 'Saved Notes'))}</h2><span>${notes.length}</span></div>
+            <div class="notes-grid">
+                ${
+                    notes.length === 0
+                        ? emptyState
+                        : notes
+                              .map(
+                                  (note) =>
+                                      `<article class="note-card keep-together"><strong>${h(note.title)}</strong><p>${h(note.content)}</p></article>`,
+                              )
+                              .join('')
+                }
+            </div>
+        </section>`
+        : '';
+
+    const writingAreaMarkup = includeWritingArea
+        ? `<section class="writing-area">
+            <h2>${h(t('Notlar', 'Notes'))}</h2>
+            ${Array.from({ length: 9 }, () => '<div class="dot-line"></div>').join('')}
+        </section>`
+        : '';
+
+    reportWindow.document.open();
+    reportWindow.document.write(`<!doctype html>
+<html lang="${h(locale)}" dir="${direction}">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>${h(fileTitle)}</title>
+    <style>
+        *{box-sizing:border-box} html{background:#eef0f3} body{margin:0;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        .page{width:min(900px,100%);min-height:100vh;margin:0 auto;background:#fff;padding:42px 46px 52px}.report-header{display:flex;align-items:center;justify-content:space-between;gap:28px;padding-bottom:26px;border-bottom:2px solid #eceef1}.brand{width:132px;height:52px;object-fit:contain}.identity{text-align:${direction === 'rtl' ? 'left' : 'right'}}.identity strong{display:block;font-size:17px}.identity p{margin:5px 0 0;color:#75757a;font-size:12px}.summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}.summary-card{padding:16px 18px;border:1px solid #e5e7eb;border-radius:16px;background:#f8f9fb}.summary-card span{display:block;color:#7b7b80;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}.summary-card b{display:block;margin-top:6px;font-size:21px}.report-section{margin-top:30px}.section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:12px}.section-heading h2,.writing-area h2{margin:0;font-size:20px;letter-spacing:-.025em}.section-heading p{margin:4px 0 0;color:#77777c;font-size:11px}.section-heading>span{display:grid;min-width:30px;height:30px;padding:0 8px;place-items:center;border-radius:99px;background:#edf5ff;color:#007aff;font-size:12px;font-weight:700}.stack{display:grid;gap:10px}.card,.plan-row,.book-group,.note-card{border:1px solid #e6e7e9;border-radius:15px;background:#fff}.card{padding:16px}.card-title{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.card-title strong{font-size:14px}.card-title b{color:#007aff;font-size:13px}.meta-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.meta-row span{padding:4px 7px;border-radius:99px;background:#f1f2f4;color:#67676c;font-size:9px;font-weight:650}.description{margin:10px 0 0;color:#66666b;font-size:11px;line-height:1.5}.progress{height:5px;margin-top:12px;overflow:hidden;border-radius:99px;background:#e9eaed}.progress i{display:block;height:100%;border-radius:99px;background:#007aff}.check-list{display:grid;gap:7px;margin:12px 0 0;padding:0;list-style:none}.check-list li{display:flex;align-items:center;gap:8px;font-size:10px}.check{display:grid;width:17px;height:17px;flex:0 0 auto;place-items:center;border:1.3px solid #c9cbd0;border-radius:50%;font-size:10px;font-weight:800;color:white}.check.done{border-color:#34c759;background:#34c759}.plan-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:11px;padding:12px 14px}.plan-row strong{display:block;font-size:11px}.plan-row strong.completed{text-decoration:line-through;color:#8d8d92}.plan-row p,.book-row p{margin:3px 0 0;color:#85858a;font-size:9px}.plan-row time{color:#737378;font-size:9px;white-space:nowrap}.book-group{overflow:hidden;margin-top:10px}.book-group h3{margin:0;padding:11px 14px;background:#f7f8fa;font-size:11px}.book-group h3 small{margin-inline-start:4px;color:#8b8b90}.book-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:11px;padding:12px 14px;border-top:1px solid #ececef}.book-row>b{display:grid;width:20px;height:20px;place-items:center;border-radius:50%;background:#f0f1f3;color:#77777b;font-size:9px}.book-row strong{font-size:11px}.book-row blockquote{margin:8px 0 0;padding:8px 10px;border-inline-start:3px solid #34c759;background:#f5fbf7;color:#5b5b60;font-size:9px;line-height:1.5;white-space:pre-wrap}.rating{color:#ffb000;font-size:12px;white-space:nowrap}.rating small{color:#77777c}.notes-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.note-card{padding:14px}.note-card strong{font-size:11px}.note-card p{margin:7px 0 0;color:#5e5e63;font-size:10px;line-height:1.55;white-space:pre-wrap}.writing-area{margin-top:34px;break-inside:avoid}.dot-line{height:25px;background-image:radial-gradient(circle,#c7c9cd 1px,transparent 1.2px);background-position:left bottom 6px;background-size:7px 2px;background-repeat:repeat-x;opacity:.65}.empty{margin:0;padding:24px;border:1px dashed #d8dade;border-radius:15px;color:#96969b;text-align:center;font-size:11px}.keep-together{break-inside:avoid}.report-footer{margin-top:30px;padding-top:12px;border-top:1px solid #ececef;color:#a0a0a5;font-size:9px;text-align:center}
+        @media(max-width:620px){.page{padding:28px 20px 38px}.report-header{align-items:flex-start}.brand{width:108px;height:42px}.summary{grid-template-columns:1fr}.notes-grid{grid-template-columns:1fr}.book-row{grid-template-columns:22px minmax(0,1fr)}.rating{grid-column:2}}
+        @media print{@page{size:A4;margin:13mm}html,body{background:#fff}.page{width:auto;min-height:auto;margin:0;padding:0}.report-section{break-before:auto}}
+    </style>
+</head>
+<body>
+    <main class="page">
+        <header class="report-header">
+            <img class="brand" src="${h(logoUrl)}" alt="Fuevor" />
+            <div class="identity"><strong>${h(username.startsWith('@') ? username : `@${username}`)}</strong><p>${h(reportDate)}</p></div>
+        </header>
+        <div class="summary">
+            <div class="summary-card"><span>${h(t('Kullanıcı Adı', 'Username'))}</span><b>${h(username)}</b></div>
+            <div class="summary-card"><span>${h(t('Genel ilerleme', 'Overall progress'))}</span><b>%${overallProgress}</b></div>
+        </div>
+        ${goalsMarkup}${plansMarkup}${libraryMarkup}${savedNotesMarkup}
+        <footer class="report-footer">Fuevor · ${h(reportDate)}</footer>
+        ${writingAreaMarkup}
+    </main>
+</body>
+</html>`);
+    reportWindow.document.close();
+
+    const printReport = () =>
+        window.setTimeout(() => {
+            reportWindow.focus();
+            reportWindow.print();
+        }, 300);
+    if (reportWindow.document.readyState === 'complete') printReport();
+    else reportWindow.addEventListener('load', printReport, { once: true });
+}
+
+function getReportPlanPeriod(
+    period: ReportPlanPeriod,
+    selectedDate: string,
+    rangeStart: string,
+    rangeEnd: string,
+    selectedMonth: string,
+    selectedYear: string,
+    locale: Locale,
+): { start: string; end: string; label: string } {
+    const language = getIntlLocale(locale);
+    const fallbackDate = formatDateKey(new Date());
+    const format = (date: string) => new Intl.DateTimeFormat(language, { day: 'numeric', month: 'long', year: 'numeric' }).format(parseDateKey(date));
+
+    if (period === 'range') {
+        const first = isDateKey(rangeStart) ? rangeStart : fallbackDate;
+        const second = isDateKey(rangeEnd) ? rangeEnd : first;
+        const [start, end] = first <= second ? [first, second] : [second, first];
+        return { start, end, label: `${format(start)} – ${format(end)}` };
+    }
+
+    if (period === 'month' && /^\d{4}-\d{2}$/.test(selectedMonth)) {
+        const start = `${selectedMonth}-01`;
+        const startDate = parseDateKey(start);
+        const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 12);
+        return {
+            start,
+            end: formatDateKey(endDate),
+            label: new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' }).format(startDate),
+        };
+    }
+
+    if (period === 'year') {
+        const year = /^\d{4}$/.test(selectedYear) ? selectedYear : String(new Date().getFullYear());
+        return { start: `${year}-01-01`, end: `${year}-12-31`, label: year };
+    }
+
+    const date = isDateKey(selectedDate) ? selectedDate : fallbackDate;
+    if (period === 'week') {
+        const weekStart = startOfWeek(parseDateKey(date));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        const start = formatDateKey(weekStart);
+        const end = formatDateKey(weekEnd);
+        return { start, end, label: `${format(start)} – ${format(end)}` };
+    }
+
+    return { start: date, end: date, label: format(date) };
+}
+
+function escapeReportHtml(value: string): string {
+    return value.replace(
+        /[&<>'"]/g,
+        (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character,
+    );
 }
 
 function isGoalCompleted(goal: GoalRecord): boolean {

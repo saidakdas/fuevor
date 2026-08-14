@@ -2,6 +2,14 @@
 // Keep translations centralized so every Fuevor surface uses the same wording.
 export const GENERATED_TRANSLATIONS = {
     ja: {
+        'Add a blank notes area to the end.': 'レポートの最後に空白のメモ欄を追加します。',
+        'Date Range': '日付範囲',
+        'Download PDF': 'PDFをダウンロード',
+        'PDF Report': 'PDFレポート',
+        'Plan period': '計画期間',
+        'Saved Notes': '保存済みのメモ',
+        'Select the sections and plan period to include.': 'レポートに含めるセクションと計画期間を選択してください。',
+        'Writing area': '記入用メモ欄',
         '(optional)': '（オプション）',
         'A new beginning': '新しい始まり',
         'A new verification link has been sent to the email address you provided during registration.':
@@ -522,6 +530,14 @@ export const GENERATED_TRANSLATIONS = {
         Zoom: 'ズーム',
     },
     zh: {
+        'Add a blank notes area to the end.': '在报告末尾添加空白笔记区。',
+        'Date Range': '日期范围',
+        'Download PDF': '下载 PDF',
+        'PDF Report': 'PDF 报告',
+        'Plan period': '计划周期',
+        'Saved Notes': '已保存的笔记',
+        'Select the sections and plan period to include.': '选择要包含在报告中的部分和计划周期。',
+        'Writing area': '书写区',
         '(optional)': '（可选）',
         'A new beginning': '一个新的开始',
         'A new verification link has been sent to the email address you provided during registration.':
@@ -1038,6 +1054,14 @@ export const GENERATED_TRANSLATIONS = {
         Zoom: '缩放',
     },
     es: {
+        'Add a blank notes area to the end.': 'Añade un área de notas en blanco al final del informe.',
+        'Date Range': 'Rango de fechas',
+        'Download PDF': 'Descargar PDF',
+        'PDF Report': 'Informe PDF',
+        'Plan period': 'Período del plan',
+        'Saved Notes': 'Notas guardadas',
+        'Select the sections and plan period to include.': 'Selecciona las secciones y el período del plan que deseas incluir.',
+        'Writing area': 'Área de escritura',
         '(optional)': '(opcional)',
         'A new beginning': 'Un nuevo comienzo',
         'A new verification link has been sent to the email address you provided during registration.':
@@ -1566,6 +1590,14 @@ export const GENERATED_TRANSLATIONS = {
         Zoom: 'Zoom',
     },
     fr: {
+        'Add a blank notes area to the end.': 'Ajoutez une zone de notes vierge à la fin du rapport.',
+        'Date Range': 'Plage de dates',
+        'Download PDF': 'Télécharger le PDF',
+        'PDF Report': 'Rapport PDF',
+        'Plan period': 'Période du plan',
+        'Saved Notes': 'Notes enregistrées',
+        'Select the sections and plan period to include.': 'Sélectionnez les sections et la période du plan à inclure.',
+        'Writing area': "Zone d'écriture",
         '(optional)': '(facultatif)',
         'A new beginning': 'Un nouveau départ',
         'A new verification link has been sent to the email address you provided during registration.':
@@ -2095,6 +2127,14 @@ export const GENERATED_TRANSLATIONS = {
         Zoom: 'Zoom',
     },
     it: {
+        'Add a blank notes area to the end.': "Aggiungi un'area note vuota alla fine del report.",
+        'Date Range': 'Intervallo di date',
+        'Download PDF': 'Scarica PDF',
+        'PDF Report': 'Report PDF',
+        'Plan period': 'Periodo del piano',
+        'Saved Notes': 'Note salvate',
+        'Select the sections and plan period to include.': 'Seleziona le sezioni e il periodo del piano da includere.',
+        'Writing area': 'Area di scrittura',
         '(optional)': '(opzionale)',
         'A new beginning': 'Un nuovo inizio',
         'A new verification link has been sent to the email address you provided during registration.':
@@ -2622,6 +2662,14 @@ export const GENERATED_TRANSLATIONS = {
         Zoom: 'Zoom',
     },
     de: {
+        'Add a blank notes area to the end.': 'Füge am Ende des Berichts einen leeren Notizbereich hinzu.',
+        'Date Range': 'Datumsbereich',
+        'Download PDF': 'PDF herunterladen',
+        'PDF Report': 'PDF-Bericht',
+        'Plan period': 'Planungszeitraum',
+        'Saved Notes': 'Gespeicherte Notizen',
+        'Select the sections and plan period to include.': 'Wähle die Abschnitte und den Planungszeitraum für den Bericht aus.',
+        'Writing area': 'Schreibbereich',
         '(optional)': '(optional)',
         'A new beginning': 'Ein neuer Anfang',
         'A new verification link has been sent to the email address you provided during registration.':
@@ -3149,6 +3197,14 @@ export const GENERATED_TRANSLATIONS = {
         Zoom: 'Zoom',
     },
     ar: {
+        'Add a blank notes area to the end.': 'أضف مساحة ملاحظات فارغة في نهاية التقرير.',
+        'Date Range': 'نطاق التاريخ',
+        'Download PDF': 'تنزيل PDF',
+        'PDF Report': 'تقرير PDF',
+        'Plan period': 'فترة الخطة',
+        'Saved Notes': 'الملاحظات المحفوظة',
+        'Select the sections and plan period to include.': 'حدد الأقسام وفترة الخطة المراد تضمينها.',
+        'Writing area': 'مساحة للكتابة',
         '(optional)': '(اختياري)',
         'A new beginning': 'بداية جديدة',
         'A new verification link has been sent to the email address you provided during registration.':
@@ -3667,6 +3723,14 @@ export const GENERATED_TRANSLATIONS = {
         Zoom: 'زووم',
     },
     fa: {
+        'Add a blank notes area to the end.': 'در انتهای گزارش یک بخش یادداشت خالی اضافه کنید.',
+        'Date Range': 'بازه تاریخ',
+        'Download PDF': 'دانلود PDF',
+        'PDF Report': 'گزارش PDF',
+        'Plan period': 'دوره برنامه',
+        'Saved Notes': 'یادداشت‌های ذخیره‌شده',
+        'Select the sections and plan period to include.': 'بخش‌ها و دوره برنامه موردنظر برای گزارش را انتخاب کنید.',
+        'Writing area': 'فضای نوشتن',
         '(optional)': '(اختیاری)',
         'A new beginning': 'شروعی تازه',
         'A new verification link has been sent to the email address you provided during registration.':
@@ -4190,6 +4254,14 @@ export const GENERATED_TRANSLATIONS = {
         Zoom: 'زوم',
     },
     el: {
+        'Add a blank notes area to the end.': 'Προσθέστε μια κενή περιοχή σημειώσεων στο τέλος της αναφοράς.',
+        'Date Range': 'Εύρος ημερομηνιών',
+        'Download PDF': 'Λήψη PDF',
+        'PDF Report': 'Αναφορά PDF',
+        'Plan period': 'Περίοδος πλάνου',
+        'Saved Notes': 'Αποθηκευμένες σημειώσεις',
+        'Select the sections and plan period to include.': 'Επιλέξτε τις ενότητες και την περίοδο πλάνου που θα συμπεριληφθούν.',
+        'Writing area': 'Χώρος γραφής',
         '(optional)': '(προαιρετικό)',
         'A new beginning': 'Μια νέα αρχή',
         'A new verification link has been sent to the email address you provided during registration.':
@@ -4716,6 +4788,14 @@ export const GENERATED_TRANSLATIONS = {
         Zoom: 'Ζουμ',
     },
     ru: {
+        'Add a blank notes area to the end.': 'Добавьте пустую область для заметок в конце отчёта.',
+        'Date Range': 'Диапазон дат',
+        'Download PDF': 'Скачать PDF',
+        'PDF Report': 'Отчёт PDF',
+        'Plan period': 'Период плана',
+        'Saved Notes': 'Сохранённые заметки',
+        'Select the sections and plan period to include.': 'Выберите разделы и период плана для включения в отчёт.',
+        'Writing area': 'Поле для записей',
         '(optional)': '(необязательно)',
         'A new beginning': 'Новое начало',
         'A new verification link has been sent to the email address you provided during registration.':
