@@ -4,6 +4,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import type { ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { route as routeFn } from 'ziggy-js';
+import OpeningIntro from './components/opening-intro';
 import { initializeTheme } from './hooks/use-appearance';
 
 declare global {
@@ -23,7 +24,12 @@ createInertiaApp({
     setup({ el, App, props }) {
         const root = createRoot(el);
 
-        root.render(<App {...props} />);
+        root.render(
+            <>
+                <App {...props} />
+                <OpeningIntro />
+            </>,
+        );
     },
     progress: {
         color: '#4B5563',
