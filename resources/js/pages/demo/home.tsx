@@ -4541,12 +4541,11 @@ function CommunityHeader({
     onOpenProfile: () => void;
     onSectionChange: (section: 'goals' | 'library' | 'game') => void;
 }) {
-    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
     const items = [
         { id: 'goals' as const, label: t('Hedefler', 'Goals'), icon: Target, iconOnly: false },
         { id: 'library' as const, label: t('Kitaplık', 'Library'), icon: BookOpen, iconOnly: false },
         { id: 'game' as const, label: t('Oyun', 'Game'), icon: FuevorRunnerIcon, iconOnly: true },
-    ].filter((item) => !betaMode || item.id !== 'game');
+    ];
     const select = (id: (typeof items)[number]['id']) => {
         onSectionChange(id);
     };
