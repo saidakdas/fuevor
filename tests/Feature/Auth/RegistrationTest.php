@@ -26,6 +26,8 @@ class RegistrationTest extends TestCase
             'profession' => 'Product Designer',
             'country' => 'TR',
             'gender' => 'prefer-not-to-say',
+            'terms_accepted' => true,
+            'privacy_acknowledged' => true,
         ]);
 
         $this->assertAuthenticated();
@@ -37,7 +39,13 @@ class RegistrationTest extends TestCase
             'profession' => 'Product Designer',
             'country' => 'TR',
             'gender' => 'prefer-not-to-say',
+            'terms_version' => '2026-08-21',
+            'privacy_version' => '2026-08-21',
         ]);
+
+        $user = $this->app['auth']->user();
+        $this->assertNotNull($user->terms_accepted_at);
+        $this->assertNotNull($user->privacy_acknowledged_at);
     }
 
     public function test_all_early_access_fields_are_required(): void
@@ -50,7 +58,34 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertGuest();
-        $response->assertRedirect('/register')->assertSessionHasErrors(['phone', 'profession', 'country', 'gender']);
+        $response->assertRedirect('/register')->assertSessionHasErrors([
+            'phone',
+            'profession',
+            'country',
+            'gender',
+            'terms_accepted',
+            'privacy_acknowledged',
+        ]);
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_legal_acceptances_cannot_be_false(): void
+    {
+        $response = $this->from('/register')->post('/register', [
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'phone' => '+90 555 111 22 33',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'profession' => 'Product Designer',
+            'country' => 'TR',
+            'gender' => 'prefer-not-to-say',
+            'terms_accepted' => false,
+            'privacy_acknowledged' => false,
+        ]);
+
+        $this->assertGuest();
+        $response->assertRedirect('/register')->assertSessionHasErrors(['terms_accepted', 'privacy_acknowledged']);
         $this->assertDatabaseCount('users', 0);
     }
 }

@@ -16,6 +16,8 @@ use Inertia\Response;
 
 class RegisteredUserController extends Controller
 {
+    private const LEGAL_DOCUMENT_VERSION = '2026-08-21';
+
     /**
      * Show the registration page.
      */
@@ -44,7 +46,14 @@ class RegisteredUserController extends Controller
             'profession' => ['required', 'string', 'max:120'],
             'country' => ['required', 'string', 'size:2', 'regex:/^[A-Z]{2}$/'],
             'gender' => ['required', 'in:female,male,other,prefer-not-to-say'],
+            'terms_accepted' => ['accepted'],
+            'privacy_acknowledged' => ['accepted'],
+        ], [
+            'terms_accepted.accepted' => 'Kullanıcı Sözleşmesi ve Kullanım Koşulları kabul edilmelidir.',
+            'privacy_acknowledged.accepted' => 'KVKK Aydınlatma Metni ve Gizlilik Politikası okunup onaylanmalıdır.',
         ]);
+
+        $acceptedAt = now();
 
         $user = User::create([
             'name' => $request->name,
@@ -55,6 +64,10 @@ class RegisteredUserController extends Controller
             'country' => $request->country,
             'gender' => $request->gender,
             'early_access_at' => now(),
+            'terms_accepted_at' => $acceptedAt,
+            'terms_version' => self::LEGAL_DOCUMENT_VERSION,
+            'privacy_acknowledged_at' => $acceptedAt,
+            'privacy_version' => self::LEGAL_DOCUMENT_VERSION,
         ]);
 
         event(new Registered($user));

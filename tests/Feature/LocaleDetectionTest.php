@@ -108,6 +108,8 @@ class LocaleDetectionTest extends TestCase
                 'profession' => 'Engineer',
                 'country' => 'GB',
                 'gender' => 'prefer-not-to-say',
+                'terms_accepted' => true,
+                'privacy_acknowledged' => true,
             ])
             ->assertRedirect(route('beta.show', absolute: false));
     }

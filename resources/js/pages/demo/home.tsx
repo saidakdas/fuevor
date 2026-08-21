@@ -10,6 +10,7 @@ import {
 } from '@/components/community-feed';
 import CommunityGame, { FuevorRunnerIcon, type GameScorePlayer } from '@/components/community-game';
 import FuMark from '@/components/fu-mark';
+import LegalDocumentContent from '@/components/legal-document-content';
 import { playOpeningIntro } from '@/components/opening-intro';
 import { useLocale } from '@/hooks/use-locale';
 import { useSwipeDownDismiss } from '@/hooks/use-swipe-down-dismiss';
@@ -108,7 +109,7 @@ type GoalRecord = {
 };
 
 type PanelSection = 'overview' | 'community' | 'goals' | 'plan' | 'notes' | 'library' | 'team' | 'friends' | 'profile';
-type ProfileSettingsSection = 'privacy-security' | 'language' | 'appearance' | 'usage';
+type ProfileSettingsSection = 'privacy-security' | 'language' | 'appearance' | 'usage' | 'legal';
 type PlanRange = 'today' | 'tomorrow' | 'week' | 'month' | 'year';
 type BookStatus = 'reading' | 'not-started' | 'finished';
 type ReportPlanPeriod = 'day' | 'range' | 'week' | 'month' | 'year';
@@ -6413,11 +6414,12 @@ function ProfileSettingsTabs({
         { value: 'language' as const, icon: Languages, label: t('Dil Ayarları', 'Language Settings') },
         { value: 'appearance' as const, icon: Sun, label: t('Görünüm Ayarları', 'Appearance Settings') },
         { value: 'usage' as const, icon: Settings2, label: t('Kullanım Ayarları', 'Usage Settings') },
+        { value: 'legal' as const, icon: FileText, label: t('Yasal Metinler', 'Legal Documents') },
     ];
 
     return (
         <nav
-            className="grid grid-cols-2 gap-2 rounded-[24px] border border-black/[0.06] bg-white/70 p-2 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sm:grid-cols-4"
+            className="grid grid-cols-2 gap-2 rounded-[24px] border border-black/[0.06] bg-white/70 p-2 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sm:grid-cols-5"
             aria-label={t('Ayar bölümleri', 'Settings sections')}
         >
             {tabs.map(({ value, icon: Icon, label }) => {
@@ -6451,6 +6453,20 @@ function ProfilePreferences({
     section: ProfileSettingsSection;
     onChange: (settings: SettingsData) => void;
 }) {
+    if (section === 'legal') {
+        return (
+            <section className="mt-6">
+                <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                    <h2 className="text-[13px] font-semibold text-[#6e6e73]">{t('Yasal Metinler', 'Legal Documents')}</h2>
+                    <span className="text-[11px] font-medium text-[#8e8e93]">{t('Sürüm: 21 Ağustos 2026', 'Version: August 21, 2026')}</span>
+                </div>
+                <div className="rounded-[24px] border border-black/[0.07] bg-white p-5 shadow-[0_12px_45px_rgba(0,0,0,0.04)] sm:p-7">
+                    <LegalDocumentContent document="all" />
+                </div>
+            </section>
+        );
+    }
+
     if (section === 'appearance') {
         return (
             <section className="mt-6">

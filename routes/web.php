@@ -90,6 +90,11 @@ if (app()->environment('local', 'testing')) {
 
 Route::get('/', CommunityController::class)->name('home');
 
+Route::get('kullanici-sozlesmesi', fn () => Inertia::render('legal/show', ['document' => 'terms']))
+    ->name('legal.terms');
+Route::get('gizlilik', fn () => Inertia::render('legal/show', ['document' => 'privacy']))
+    ->name('legal.privacy');
+
 Route::middleware('auth')->prefix('community')->name('community.')->group(function () {
     Route::post('goals', [CommunityInteractionController::class, 'storeGoal'])->name('goals.store');
     Route::post('goals/{post}/support', [CommunityInteractionController::class, 'toggleSupport'])->name('goals.support');
