@@ -1,5 +1,13 @@
 import BrandLogo from '@/components/brand-logo';
-import { GoalsCommunity, PublicLibrary, type CommunityBook, type CommunityPost, type ShareableGoal, type Viewer } from '@/components/community-feed';
+import {
+    GoalsCommunity,
+    PublicLibrary,
+    type CommunityBook,
+    type CommunityGoalStats,
+    type CommunityPost,
+    type ShareableGoal,
+    type Viewer,
+} from '@/components/community-feed';
 import CommunityGame, { FuevorRunnerIcon, type GameScorePlayer } from '@/components/community-game';
 import { useLocale } from '@/hooks/use-locale';
 import { Head, Link, usePage } from '@inertiajs/react';
@@ -14,6 +22,7 @@ type WelcomeProps = {
     communityPosts: CommunityPost[];
     communityBooks: CommunityBook[];
     communityGoals: ShareableGoal[];
+    communityGoalStats: CommunityGoalStats;
 };
 
 type SharedProps = { auth: { user: Viewer | null }; [key: string]: unknown };
@@ -27,6 +36,7 @@ export default function Welcome({
     communityPosts,
     communityBooks,
     communityGoals,
+    communityGoalStats,
 }: WelcomeProps) {
     const { locale, t } = useLocale();
     const viewer = usePage<SharedProps>().props.auth.user;
@@ -91,7 +101,14 @@ export default function Welcome({
                     </NavButton>
                 </div>
                 {section === 'goals' ? (
-                    <GoalsCommunity posts={communityPosts} viewer={viewer} locale={locale} t={t} availableGoals={communityGoals} />
+                    <GoalsCommunity
+                        posts={communityPosts}
+                        viewer={viewer}
+                        locale={locale}
+                        t={t}
+                        goalStats={communityGoalStats}
+                        availableGoals={communityGoals}
+                    />
                 ) : section === 'library' ? (
                     <PublicLibrary books={communityBooks} viewer={viewer} locale={locale} t={t} />
                 ) : (

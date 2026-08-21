@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\GoalStatus;
 use App\Models\CommunityGoalPost;
 use App\Models\Goal;
 use App\Models\User;
@@ -25,6 +26,9 @@ class CommunityTest extends TestCase
     {
         $firstUser = User::factory()->create(['name' => 'Birinci Okur']);
         $secondUser = User::factory()->create(['name' => 'İkinci Okur']);
+        Goal::factory()->for($firstUser)->create(['status' => GoalStatus::Active]);
+        Goal::factory()->for($secondUser)->create(['status' => GoalStatus::Completed, 'progress' => 100]);
+        Goal::factory()->for($secondUser)->create(['status' => GoalStatus::Paused]);
         $post = $firstUser->communityGoalPosts()->create([
             'title' => 'Yeni bir dil öğrenmek',
             'description' => 'Yıl sonuna kadar B2 seviyesine gelmek.',
@@ -43,6 +47,8 @@ class CommunityTest extends TestCase
                 ->where('communityPosts.0.title', 'Yeni bir dil öğrenmek')
                 ->where('communityPosts.0.supportCount', 1)
                 ->where('communityPosts.0.ideaCount', 1)
+                ->where('communityGoalStats.active', 1)
+                ->where('communityGoalStats.completed', 1)
                 ->has('communityBooks', 1)
                 ->where('communityBooks.0.reviewCount', 2)
                 ->where('communityBooks.0.averageRating', 4));

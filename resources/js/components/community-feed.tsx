@@ -25,6 +25,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 're
 export type Viewer = { id: number; name: string; username?: string; avatar?: string };
 export type CommunityFriendStatus = 'friend' | 'incoming' | 'outgoing';
 export type ShareableGoal = { id: number | string; title: string };
+export type CommunityGoalStats = { active: number; completed: number };
 export type CommunityProfile = {
     id: number;
     name: string;
@@ -85,6 +86,7 @@ export function GoalsCommunity({
     viewer,
     locale,
     t,
+    goalStats,
     demoUsername,
     availableGoals = [],
     initialGoalId,
@@ -95,6 +97,7 @@ export function GoalsCommunity({
     viewer: Viewer | null;
     locale: Locale;
     t: Translate;
+    goalStats: CommunityGoalStats;
     demoUsername?: string;
     availableGoals?: ShareableGoal[];
     initialGoalId?: number | string | null;
@@ -141,6 +144,17 @@ export function GoalsCommunity({
                 <p className="mt-1 text-[12px] text-[#8e8e93]">
                     {t('Hedefini paylaş, destek ol, fikir ver.', 'Share a goal, show support, offer an idea.')}
                 </p>
+            </div>
+
+            <div className="mb-5 grid grid-cols-2 gap-3">
+                <section className="rounded-[18px] border border-black/[0.055] bg-white px-4 py-3.5 shadow-[0_8px_24px_rgba(0,0,0,0.035)]">
+                    <p className="text-[11px] font-medium text-[#8e8e93]">{t('Aktif Hedefler', 'Active Goals')}</p>
+                    <p className="mt-1 text-[27px] leading-none font-semibold tracking-[-0.035em] tabular-nums">{goalStats.active}</p>
+                </section>
+                <section className="rounded-[18px] border border-black/[0.055] bg-white px-4 py-3.5 shadow-[0_8px_24px_rgba(0,0,0,0.035)]">
+                    <p className="text-[11px] font-medium text-[#8e8e93]">{t('Tamamlanan Hedefler', 'Completed Goals')}</p>
+                    <p className="mt-1 text-[27px] leading-none font-semibold tracking-[-0.035em] tabular-nums">{goalStats.completed}</p>
+                </section>
             </div>
 
             <div className="relative z-20 rounded-[20px] border border-black/[0.07] bg-white">

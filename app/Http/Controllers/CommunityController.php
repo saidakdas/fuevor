@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\GoalStatus;
 use App\Models\CommunityBookReview;
 use App\Models\CommunityGoalIdea;
 use App\Models\CommunityGoalPost;
 use App\Models\GameScore;
+use App\Models\Goal;
 use App\Models\User;
 use App\Services\CommunityGameService;
 use App\Services\DemoCommunitySeeder;
@@ -92,6 +94,10 @@ class CommunityController extends Controller
         return [
             'communityPosts' => $posts,
             'communityBooks' => $books,
+            'communityGoalStats' => [
+                'active' => Goal::query()->where('status', GoalStatus::Active->value)->count(),
+                'completed' => Goal::query()->where('status', GoalStatus::Completed->value)->count(),
+            ],
             'bestScoreMs' => (int) ($bestScore?->duration_ms ?? 0),
             'bestScorePlayer' => $bestScore?->player_name ? [
                 'name' => $bestScore->player_name,

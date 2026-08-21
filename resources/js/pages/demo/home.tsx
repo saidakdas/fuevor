@@ -4,6 +4,7 @@ import {
     PublicLibrary,
     type CommunityBook,
     type CommunityFriendStatus,
+    type CommunityGoalStats,
     type CommunityPost,
     type CommunityProfile,
     type Viewer,
@@ -465,6 +466,7 @@ function useGoalFlowKeyboardAvoidance() {
 export default function DemoHome({
     communityPosts = [],
     communityBooks = [],
+    communityGoalStats = { active: 0, completed: 0 },
     bestScoreMs = 0,
     bestScorePlayer = null,
     gamePlaysRemaining = 3,
@@ -476,6 +478,7 @@ export default function DemoHome({
 }: {
     communityPosts?: CommunityPost[];
     communityBooks?: CommunityBook[];
+    communityGoalStats?: CommunityGoalStats;
     bestScoreMs?: number;
     bestScorePlayer?: GameScorePlayer | null;
     gamePlaysRemaining?: number;
@@ -1266,6 +1269,7 @@ export default function DemoHome({
                         viewer={authenticatedUser}
                         posts={communityPosts}
                         books={communityBooks}
+                        goalStats={communityGoalStats}
                         personalBooks={books}
                         bestScoreMs={bestScoreMs}
                         bestScorePlayer={bestScorePlayer}
@@ -4381,6 +4385,7 @@ function CommunityPanel({
     viewer,
     posts,
     books,
+    goalStats,
     personalBooks,
     bestScoreMs,
     bestScorePlayer,
@@ -4397,6 +4402,7 @@ function CommunityPanel({
     viewer: Viewer | null;
     posts: CommunityPost[];
     books: CommunityBook[];
+    goalStats: CommunityGoalStats;
     personalBooks: BookRecord[];
     bestScoreMs: number;
     bestScorePlayer: GameScorePlayer | null;
@@ -4492,6 +4498,7 @@ function CommunityPanel({
                         viewer={profileViewer}
                         locale={locale}
                         t={t}
+                        goalStats={goalStats}
                         demoUsername={betaMode ? undefined : demoUsername}
                         availableGoals={goals.flatMap((goal) => {
                             const id = betaMode ? liveGoalIds[String(goal.id)] : goal.id;
