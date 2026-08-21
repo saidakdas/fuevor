@@ -89,7 +89,7 @@ class LocaleDetectionTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('locale', 'en'));
     }
 
-    public function test_waitlist_message_is_english_for_international_visitors(): void
+    public function test_international_visitors_can_join_early_access(): void
     {
         Http::fake([
             'api.country.is/*' => Http::response([
@@ -102,14 +102,14 @@ class LocaleDetectionTest extends TestCase
             ->post('/register', [
                 'name' => 'International User',
                 'email' => 'international@example.test',
+                'phone' => '+44 7700 900123',
                 'password' => 'password',
                 'password_confirmation' => 'password',
+                'profession' => 'Engineer',
+                'country' => 'GB',
+                'gender' => 'prefer-not-to-say',
             ])
-            ->assertRedirect('/')
-            ->assertSessionHas(
-                'registration_success',
-                'Welcome to the family! You have already started moving 1% forward every day. We look forward to meeting you.',
-            );
+            ->assertRedirect(route('beta.show', absolute: false));
     }
 
     public function test_public_urls_use_english_ascii_segments_without_locale_prefixes(): void

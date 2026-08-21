@@ -31,17 +31,11 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
 
-        if (! $request->user()->isAdmin()) {
-            Auth::guard('web')->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            return to_route('home')->with('registration_success', RegisteredUserController::successMessage());
-        }
-
         $request->session()->regenerate();
 
-        return to_route('admin.index');
+        return $request->user()->isAdmin()
+            ? to_route('admin.index')
+            : to_route('beta.show');
     }
 
     /**

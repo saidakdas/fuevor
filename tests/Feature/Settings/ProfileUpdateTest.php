@@ -37,6 +37,7 @@ class ProfileUpdateTest extends TestCase
             ->patch('/settings/profile', [
                 'name' => 'Test User',
                 'email' => 'test@example.com',
+                'show_fu_publicly' => false,
             ]);
 
         $response
@@ -47,6 +48,7 @@ class ProfileUpdateTest extends TestCase
 
         $this->assertSame('Test User', $user->name);
         $this->assertSame('test@example.com', $user->email);
+        $this->assertFalse($user->show_fu_publicly);
         $this->assertNull($user->email_verified_at);
     }
 
@@ -59,6 +61,7 @@ class ProfileUpdateTest extends TestCase
             ->patch('/settings/profile', [
                 'name' => 'Test User',
                 'email' => $user->email,
+                'show_fu_publicly' => true,
             ]);
 
         $response

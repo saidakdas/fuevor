@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -11,9 +10,9 @@ class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_standalone_registration_screen_is_not_public(): void
+    public function test_early_access_registration_screen_is_public(): void
     {
-        $this->get('/register')->assertNotFound();
+        $this->get('/register')->assertInertia(fn (Assert $page) => $page->component('auth/register'));
     }
 
     public function test_new_users_can_register(): void
@@ -21,47 +20,37 @@ class RegistrationTest extends TestCase
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
+            'phone' => '+90 555 111 22 33',
             'password' => 'password',
             'password_confirmation' => 'password',
+            'profession' => 'Product Designer',
+            'country' => 'TR',
+            'gender' => 'prefer-not-to-say',
         ]);
 
-        $this->assertGuest();
-        $response
-            ->assertRedirect(route('home', absolute: false))
-            ->assertSessionHas(
-                'registration_success',
-                'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.',
-            );
-        $this->get('/')->assertInertia(fn (Assert $page) => $page
-            ->component('welcome')
-            ->where(
-                'registrationSuccess',
-                'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.',
-            ));
+        $this->assertAuthenticated();
+        $response->assertRedirect(route('beta.show', absolute: false));
         $this->assertDatabaseHas('users', [
             'name' => 'Test User',
             'email' => 'test@example.com',
+            'phone' => '+90 555 111 22 33',
+            'profession' => 'Product Designer',
+            'country' => 'TR',
+            'gender' => 'prefer-not-to-say',
         ]);
     }
 
-    public function test_an_existing_waitlist_session_is_closed_without_redirecting_to_the_hidden_panel(): void
+    public function test_all_early_access_fields_are_required(): void
     {
-        $user = User::factory()->create();
-
-        $response = $this->actingAs($user)->post('/register', [
-            'name' => $user->name,
-            'email' => $user->email,
+        $response = $this->from('/register')->post('/register', [
+            'name' => 'Test User',
+            'email' => 'test@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
         ]);
 
         $this->assertGuest();
-        $response
-            ->assertRedirect(route('home', absolute: false))
-            ->assertSessionHas(
-                'registration_success',
-                'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.',
-            );
-        $this->assertDatabaseCount('users', 1);
+        $response->assertRedirect('/register')->assertSessionHasErrors(['phone', 'profession', 'country', 'gender']);
+        $this->assertDatabaseCount('users', 0);
     }
 }

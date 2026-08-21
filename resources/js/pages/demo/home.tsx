@@ -1,7 +1,27 @@
 import BrandLogo from '@/components/brand-logo';
+import {
+    GoalsCommunity,
+    PublicLibrary,
+    type CommunityBook,
+    type CommunityFriendStatus,
+    type CommunityPost,
+    type CommunityProfile,
+    type Viewer,
+} from '@/components/community-feed';
+import CommunityGame, { FuevorRunnerIcon, type GameScorePlayer } from '@/components/community-game';
+import FuMark from '@/components/fu-mark';
+import { playOpeningIntro } from '@/components/opening-intro';
 import { useLocale } from '@/hooks/use-locale';
+import { useSwipeDownDismiss } from '@/hooks/use-swipe-down-dismiss';
 import { getIntlLocale, getLocaleDirection, isLocale, persistLocale, SUPPORTED_LOCALES, translate, type Locale, type Translate } from '@/i18n';
-import { Head } from '@inertiajs/react';
+import DemoNotifications from '@/pages/demo/demo-notifications';
+import TeamWorkspacePanel, {
+    teamPlanBlockKey,
+    updateStoredTeamBlockCompletion,
+    type TeamFriendSuggestion,
+    type TeamPlanBlockInput,
+} from '@/pages/demo/team-workspace';
+import { Head, router, usePage } from '@inertiajs/react';
 import { AsYouType, getCountries, getCountryCallingCode, getExampleNumber, validatePhoneNumberLength, type CountryCode } from 'libphonenumber-js';
 import mobilePhoneExamples from 'libphonenumber-js/examples.mobile.json';
 import {
@@ -22,11 +42,16 @@ import {
     ChevronUp,
     CircleCheck,
     Clock3,
+    Eye,
+    EyeOff,
     FileDown,
+    FileText,
     Globe2,
     GraduationCap,
     GripVertical,
     HeartPulse,
+    Image as ImageIcon,
+    Instagram,
     Languages,
     Layers3,
     ListTodo,
@@ -40,18 +65,22 @@ import {
     Plus,
     Rocket,
     Search,
+    Send,
     Settings2,
     Shapes,
+    Share2,
     Sparkles,
     Star,
     Sun,
     Target,
     Trash2,
     TrendingUp,
+    UserPlus,
     UserRound,
+    Users,
     X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 type Priority = 'urgent' | 'very-important' | 'important' | 'has-time';
 type GoalCategory = 'health' | 'work' | 'venture' | 'skill' | 'education' | 'other';
@@ -60,6 +89,7 @@ type SavedEducationLevel = Exclude<EducationLevel, ''>;
 
 type BuildingBlock = {
     completed?: boolean;
+    highImpact?: boolean;
     id: number;
     title: string;
 };
@@ -73,9 +103,12 @@ type GoalRecord = {
     priority: Priority;
     category: GoalCategory;
     createdAt: number;
+    paretoEnabled?: boolean;
+    fuAwardedAt?: number;
 };
 
-type PanelSection = 'overview' | 'goals' | 'plan' | 'notes' | 'library' | 'profile';
+type PanelSection = 'overview' | 'community' | 'goals' | 'plan' | 'notes' | 'library' | 'team' | 'friends' | 'profile';
+type ProfileSettingsSection = 'privacy-security' | 'language' | 'appearance' | 'usage';
 type PlanRange = 'today' | 'tomorrow' | 'week' | 'month' | 'year';
 type BookStatus = 'reading' | 'not-started' | 'finished';
 type ReportPlanPeriod = 'day' | 'range' | 'week' | 'month' | 'year';
@@ -85,9 +118,14 @@ type PlanItem = {
     id: number;
     title: string;
     range: PlanRange;
-    source: 'goal' | 'independent' | 'reminder';
+    source: 'goal' | 'team' | 'independent' | 'reminder';
     goalId?: number;
     buildingBlockId?: number;
+    teamId?: number;
+    teamName?: string;
+    teamGoalId?: number;
+    teamGoalTitle?: string;
+    teamBlockId?: number;
     completed: boolean;
     createdAt: number;
     scheduledFor: string;
@@ -147,8 +185,19 @@ type UniversityOption = {
 type SettingsData = {
     appearance: 'light' | 'dark';
     language: Locale;
+    showFuPublicly: boolean;
+    teamModeEnabled: boolean;
     carryOverIncompletePlans: boolean;
     carryOverPreferenceSet: boolean;
+};
+
+type BetaState = {
+    goals: GoalRecord[];
+    plans: PlanItem[];
+    notes: NoteRecord[];
+    books: BookRecord[];
+    profile: Partial<ProfileData>;
+    settings: Partial<SettingsData>;
 };
 
 type CropPosition = {
@@ -161,18 +210,259 @@ type ImageDimensions = {
     height: number;
 };
 
-const TOTAL_STEPS = 7;
+type TeamRole = 'manager' | 'assistant' | 'member';
+
+type TeamMember = {
+    id: number;
+    username: string;
+    name: string;
+    role: TeamRole;
+    joinedAt: number;
+};
+
+type TeamTask = {
+    id: number;
+    title: string;
+    assigneeId: number;
+    share: number;
+    completed: boolean;
+    completedAt?: number;
+};
+
+type TeamGoalRecord = {
+    id: number;
+    title: string;
+    tasks: TeamTask[];
+    createdAt: number;
+};
+
+type TeamModeData = {
+    members: TeamMember[];
+    goals: TeamGoalRecord[];
+};
+
+type FriendStatus = 'friend' | 'incoming' | 'outgoing';
+type CompanionAccessScope = 'day' | 'week' | 'year' | 'goal';
+
+type FriendRelationship = {
+    username: string;
+    status: FriendStatus;
+    companion: boolean;
+    accessScope?: CompanionAccessScope;
+    goalId?: number;
+    createdAt: number;
+};
+
+type FriendMessage = {
+    id: number;
+    username: string;
+    sender: 'self' | 'friend';
+    body: string;
+    attachments?: FriendMessageAttachment[];
+    sharedContent?: FriendSharedContent;
+    createdAt: number;
+};
+
+type FriendMessageAttachment = {
+    kind: 'photo' | 'document';
+    name: string;
+    mimeType: string;
+    size: number;
+    dataUrl?: string;
+};
+
+type FriendSharedContent =
+    | {
+          kind: 'plan';
+          itemId: number;
+          title: string;
+          scheduledFor: string;
+          completed: boolean;
+      }
+    | {
+          kind: 'goal';
+          goalId: number;
+          title: string;
+          progress: number;
+          buildingBlockCount: number;
+      };
+
+type FriendsData = {
+    relationships: FriendRelationship[];
+    messages: FriendMessage[];
+};
+
+const TOTAL_STEPS = 8;
 const DEMO_GOALS_STORAGE_KEY = 'fuevor.demo.goals';
 const DEMO_PLAN_STORAGE_KEY = 'fuevor.demo.plan-items';
 const DEMO_NOTES_STORAGE_KEY = 'fuevor.demo.notes';
 const DEMO_BOOKS_STORAGE_KEY = 'fuevor.demo.books';
 const DEMO_PROFILE_STORAGE_KEY = 'fuevor.demo.profile';
 const DEMO_SETTINGS_STORAGE_KEY = 'fuevor.demo.settings';
+const DEMO_TEAM_STORAGE_KEY = 'fuevor.demo.team';
+const DEMO_FRIENDS_STORAGE_KEY = 'fuevor.demo.friends.v1';
 const COUNTRY_CODES = getCountries();
 
-export default function DemoHome() {
+function useDialogScrollLock() {
+    useEffect(() => {
+        const body = document.body;
+        const root = document.documentElement;
+        let locked = false;
+        let scrollX = 0;
+        let scrollY = 0;
+        let previousBodyStyles: Partial<CSSStyleDeclaration> = {};
+        let previousRootOverscroll = '';
+
+        const lock = () => {
+            if (locked) return;
+
+            locked = true;
+            scrollX = window.scrollX;
+            scrollY = window.scrollY;
+            previousBodyStyles = {
+                overflow: body.style.overflow,
+                position: body.style.position,
+                top: body.style.top,
+                left: body.style.left,
+                width: body.style.width,
+                paddingRight: body.style.paddingRight,
+            };
+            previousRootOverscroll = root.style.overscrollBehavior;
+
+            const scrollbarWidth = Math.max(0, window.innerWidth - root.clientWidth);
+            body.style.overflow = 'hidden';
+            body.style.position = 'fixed';
+            body.style.top = `-${scrollY}px`;
+            body.style.left = `-${scrollX}px`;
+            body.style.width = '100%';
+            if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
+            root.style.overscrollBehavior = 'none';
+        };
+
+        const unlock = () => {
+            if (!locked) return;
+
+            locked = false;
+            body.style.overflow = previousBodyStyles.overflow ?? '';
+            body.style.position = previousBodyStyles.position ?? '';
+            body.style.top = previousBodyStyles.top ?? '';
+            body.style.left = previousBodyStyles.left ?? '';
+            body.style.width = previousBodyStyles.width ?? '';
+            body.style.paddingRight = previousBodyStyles.paddingRight ?? '';
+            root.style.overscrollBehavior = previousRootOverscroll;
+            window.scrollTo(scrollX, scrollY);
+        };
+
+        const sync = () => {
+            if (document.querySelector('[aria-modal="true"]')) lock();
+            else unlock();
+        };
+
+        const observer = new MutationObserver(sync);
+        observer.observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-modal'] });
+        sync();
+
+        return () => {
+            observer.disconnect();
+            unlock();
+        };
+    }, []);
+}
+
+function useGoalFlowKeyboardAvoidance() {
+    useEffect(() => {
+        let animationFrame = 0;
+        let settleTimer = 0;
+
+        const focusedGoalField = () => {
+            const activeElement = document.activeElement;
+
+            if (!(activeElement instanceof HTMLElement) || !activeElement.matches('input, textarea, select')) return null;
+            if (!activeElement.closest('[data-demo-goal-flow]')) return null;
+
+            return activeElement;
+        };
+
+        const revealFocusedField = () => {
+            const field = focusedGoalField();
+            if (!field) return;
+
+            const viewport = window.visualViewport;
+            const viewportTop = viewport?.offsetTop ?? 0;
+            const viewportHeight = viewport?.height ?? window.innerHeight;
+            const visibleTop = viewportTop + 86;
+            const visibleBottom = viewportTop + viewportHeight - 154;
+            const fieldRect = field.getBoundingClientRect();
+            let scrollDelta = 0;
+
+            if (fieldRect.bottom > visibleBottom) scrollDelta = fieldRect.bottom - visibleBottom + 18;
+            else if (fieldRect.top < visibleTop) scrollDelta = fieldRect.top - visibleTop - 18;
+
+            if (Math.abs(scrollDelta) > 1) window.scrollBy({ top: scrollDelta, left: 0, behavior: 'auto' });
+        };
+
+        const scheduleReveal = (delay = 0) => {
+            window.clearTimeout(settleTimer);
+
+            const run = () => {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = requestAnimationFrame(revealFocusedField);
+            };
+
+            if (delay === 0) {
+                run();
+                return;
+            }
+
+            settleTimer = window.setTimeout(run, delay);
+        };
+
+        const handleFocus = (event: FocusEvent) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement) || !target.closest('[data-demo-goal-flow]')) return;
+
+            scheduleReveal(90);
+        };
+
+        const handleViewportResize = () => scheduleReveal(90);
+
+        document.addEventListener('focusin', handleFocus);
+        window.visualViewport?.addEventListener('resize', handleViewportResize);
+        window.addEventListener('orientationchange', handleViewportResize);
+
+        return () => {
+            document.removeEventListener('focusin', handleFocus);
+            window.visualViewport?.removeEventListener('resize', handleViewportResize);
+            window.removeEventListener('orientationchange', handleViewportResize);
+            cancelAnimationFrame(animationFrame);
+            window.clearTimeout(settleTimer);
+        };
+    }, []);
+}
+
+export default function DemoHome({
+    communityPosts = [],
+    communityBooks = [],
+    bestScoreMs = 0,
+    bestScorePlayer = null,
+    gamePlaysRemaining = 3,
+    betaMode = false,
+    betaState,
+    betaGoalIds = {},
+}: {
+    communityPosts?: CommunityPost[];
+    communityBooks?: CommunityBook[];
+    bestScoreMs?: number;
+    bestScorePlayer?: GameScorePlayer | null;
+    gamePlaysRemaining?: number;
+    betaMode?: boolean;
+    betaState?: BetaState;
+    betaGoalIds?: Record<string, number>;
+}) {
+    useDialogScrollLock();
+    useGoalFlowKeyboardAvoidance();
     const { locale: detectedLocale } = useLocale();
-    const [settings, setSettings] = useState<SettingsData>(() => loadStoredSettings(detectedLocale));
+    const [settings, setSettings] = useState<SettingsData>(() => loadStoredSettings(detectedLocale, betaMode ? betaState?.settings : undefined));
     const locale = settings.language;
     const t: Translate = (turkish, english) => translate(locale, turkish, english);
     const [step, setStep] = useState(1);
@@ -180,23 +470,30 @@ export default function DemoHome() {
     const [category, setCategory] = useState<GoalCategory | null>(null);
     const [gain, setGain] = useState('');
     const [buildingBlocks, setBuildingBlocks] = useState<BuildingBlock[]>([{ id: 1, title: '' }]);
+    const [paretoEnabled, setParetoEnabled] = useState<boolean | null>(null);
+    const [paretoPromptOpen, setParetoPromptOpen] = useState(false);
     const [deadline, setDeadline] = useState('');
     const [priority, setPriority] = useState<Priority | null>(null);
     const [draggedId, setDraggedId] = useState<number | null>(null);
-    const [goals, setGoals] = useState<GoalRecord[]>(loadStoredGoals);
-    const [showPanel, setShowPanel] = useState(() => loadStoredGoals().length > 0);
+    const [goals, setGoals] = useState<GoalRecord[]>(() => loadStoredGoals(betaMode ? betaState?.goals : undefined));
+    const [showPanel, setShowPanel] = useState(() => loadStoredGoals(betaMode ? betaState?.goals : undefined).length > 0);
     const [panelSection, setPanelSection] = useState<PanelSection>('overview');
     const [profileOpen, setProfileOpen] = useState(false);
     const [reportOpen, setReportOpen] = useState(false);
-    const [planItems, setPlanItems] = useState<PlanItem[]>(loadStoredPlanItems);
-    const [notes, setNotes] = useState<NoteRecord[]>(loadStoredNotes);
-    const [books, setBooks] = useState<BookRecord[]>(loadStoredBooks);
+    const [planItems, setPlanItems] = useState<PlanItem[]>(() => loadStoredPlanItems(betaMode ? betaState?.plans : undefined));
+    const [notes, setNotes] = useState<NoteRecord[]>(() => loadStoredNotes(betaMode ? betaState?.notes : undefined));
+    const [books, setBooks] = useState<BookRecord[]>(() => loadStoredBooks(betaMode ? betaState?.books : undefined));
     const [planRange, setPlanRange] = useState<PlanRange>('today');
     const [planDate, setPlanDate] = useState(() => formatDateKey(new Date()));
-    const [profile, setProfile] = useState<ProfileData>(loadStoredProfile);
+    const [profile, setProfile] = useState<ProfileData>(() => loadStoredProfile(betaMode ? betaState?.profile : undefined));
+    const [liveGoalIds, setLiveGoalIds] = useState<Record<string, number>>(betaGoalIds);
+    const authenticatedUser = usePage<{ auth: { user: Viewer | null }; [key: string]: unknown }>().props.auth.user;
     const [activeReminder, setActiveReminder] = useState<PlanItem | null>(null);
     const [standaloneReminderDate, setStandaloneReminderDate] = useState<string | null>(null);
     const [completedGoalId, setCompletedGoalId] = useState<number | null>(null);
+    const [communityGoalToShareId, setCommunityGoalToShareId] = useState<number | null>(null);
+    const [quickCreateIntent, setQuickCreateIntent] = useState<'plan' | 'note' | null>(null);
+    const paretoPromptTimer = useRef<number | null>(null);
     const nextBlockId = useRef(2);
     const nextPlanItemId = useRef(Math.max(0, ...planItems.map((item) => item.id)) + 1);
     const nextNoteId = useRef(Math.max(0, ...notes.map((note) => note.id)) + 1);
@@ -205,6 +502,13 @@ export default function DemoHome() {
     useEffect(() => {
         storeDemoData(DEMO_GOALS_STORAGE_KEY, goals);
     }, [goals]);
+
+    useEffect(
+        () => () => {
+            if (paretoPromptTimer.current !== null) window.clearTimeout(paretoPromptTimer.current);
+        },
+        [],
+    );
 
     useEffect(() => {
         storeDemoData(DEMO_PLAN_STORAGE_KEY, planItems);
@@ -302,6 +606,47 @@ export default function DemoHome() {
     }, [settings]);
 
     useEffect(() => {
+        if (!betaMode) return;
+
+        const timer = window.setTimeout(async () => {
+            try {
+                const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+                const response = await fetch(route('beta.state.update'), {
+                    method: 'PATCH',
+                    credentials: 'same-origin',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
+                    body: JSON.stringify({ goals, plans: planItems, notes, books, profile, settings }),
+                });
+
+                if (!response.ok) return;
+                const payload = (await response.json()) as { goalIds?: Record<string, number> };
+                if (payload.goalIds) setLiveGoalIds(payload.goalIds);
+            } catch {
+                // Local storage remains a temporary cache until the next successful beta save.
+            }
+        }, 700);
+
+        return () => window.clearTimeout(timer);
+    }, [betaMode, books, goals, notes, planItems, profile, settings]);
+
+    useEffect(() => {
+        if (!betaMode) return;
+
+        const saveBeforeLeaving = () => {
+            const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+            const body = JSON.stringify({ _token: csrfToken, goals, plans: planItems, notes, books, profile, settings });
+            navigator.sendBeacon(route('beta.state.store'), new Blob([body], { type: 'application/json' }));
+        };
+
+        window.addEventListener('pagehide', saveBeforeLeaving);
+        return () => window.removeEventListener('pagehide', saveBeforeLeaving);
+    }, [betaMode, books, goals, notes, planItems, profile, settings]);
+
+    useEffect(() => {
         if (!showPanel) return;
 
         const resetHorizontalPosition = () => {
@@ -317,23 +662,33 @@ export default function DemoHome() {
     const completed = step > TOTAL_STEPS;
     const progress = completed ? 100 : ((step - 1) / TOTAL_STEPS) * 100;
     const validBlocks = useMemo(() => buildingBlocks.filter((block) => block.title.trim() !== ''), [buildingBlocks]);
+    const paretoTargetCount = Math.max(1, Math.ceil(validBlocks.length * 0.2));
 
     const canContinue = useMemo(() => {
         if (step === 1) return goal.trim() !== '';
         if (step === 2) return category !== null;
         if (step === 3) return gain.trim() !== '';
-        if (step === 4 || step === 5) return validBlocks.length > 0 && validBlocks.length === buildingBlocks.length;
-        if (step === 6) return deadline !== '';
-        if (step === 7) return priority !== null;
+        if (step === 4 || step === 6) return validBlocks.length > 0 && validBlocks.length === buildingBlocks.length;
+        if (step === 5) return paretoEnabled === true && buildingBlocks.filter((block) => block.highImpact).length === paretoTargetCount;
+        if (step === 7) return deadline !== '';
+        if (step === 8) return priority !== null;
 
         return false;
-    }, [buildingBlocks.length, category, deadline, gain, goal, priority, step, validBlocks.length]);
+    }, [buildingBlocks, category, deadline, gain, goal, paretoEnabled, paretoTargetCount, priority, step, validBlocks.length]);
 
     const continueFlow = () => {
         if (!canContinue) return;
 
         if (step === 4) {
-            setBuildingBlocks(validBlocks);
+            setBuildingBlocks(validBlocks.map((block) => ({ ...block, highImpact: false })));
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+            if (paretoPromptTimer.current === null) {
+                paretoPromptTimer.current = window.setTimeout(() => {
+                    paretoPromptTimer.current = null;
+                    setParetoPromptOpen(true);
+                }, 280);
+            }
+            return;
         }
 
         if (step === TOTAL_STEPS && priority && category) {
@@ -348,6 +703,7 @@ export default function DemoHome() {
                     priority,
                     category,
                     createdAt: Date.now(),
+                    paretoEnabled: paretoEnabled === true,
                 },
             ]);
         }
@@ -358,6 +714,40 @@ export default function DemoHome() {
     const submitCurrentStep = (event: FormEvent) => {
         event.preventDefault();
         continueFlow();
+    };
+
+    const chooseParetoMode = (enabled: boolean) => {
+        if (paretoPromptTimer.current !== null) {
+            window.clearTimeout(paretoPromptTimer.current);
+            paretoPromptTimer.current = null;
+        }
+        setParetoPromptOpen(false);
+        setParetoEnabled(enabled);
+        setBuildingBlocks((blocks) => blocks.map((block) => ({ ...block, highImpact: false })));
+        setStep(enabled ? 5 : 6);
+    };
+
+    const toggleHighImpactBlock = (id: number) => {
+        setBuildingBlocks((blocks) => {
+            const selectedCount = blocks.filter((block) => block.highImpact).length;
+
+            return blocks.map((block) => {
+                if (block.id !== id) return block;
+                if (!block.highImpact && selectedCount >= paretoTargetCount) return block;
+
+                return { ...block, highImpact: !block.highImpact };
+            });
+        });
+    };
+
+    const goBackInGoalFlow = () => {
+        if (step === 6 && paretoEnabled === false) {
+            setStep(4);
+            setParetoEnabled(null);
+            return;
+        }
+
+        setStep((current) => Math.max(1, current - 1));
     };
 
     const updateBuildingBlock = (id: number, title: string) => {
@@ -398,10 +788,16 @@ export default function DemoHome() {
     };
 
     const startNewGoal = () => {
+        if (paretoPromptTimer.current !== null) {
+            window.clearTimeout(paretoPromptTimer.current);
+            paretoPromptTimer.current = null;
+        }
         setGoal('');
         setCategory(null);
         setGain('');
         setBuildingBlocks([{ id: 1, title: '' }]);
+        setParetoEnabled(null);
+        setParetoPromptOpen(false);
         setDeadline('');
         setPriority(null);
         setDraggedId(null);
@@ -422,6 +818,41 @@ export default function DemoHome() {
         ]);
     };
 
+    const addTeamBlockToPlan = (input: TeamPlanBlockInput) => {
+        const alreadyPlanned = planItems.some(
+            (item) =>
+                item.source === 'team' && item.teamId === input.teamId && item.teamGoalId === input.goalId && item.teamBlockId === input.blockId,
+        );
+        if (alreadyPlanned) return;
+
+        addPlanItem({
+            title: input.blockTitle,
+            range: 'today',
+            source: 'team',
+            teamId: input.teamId,
+            teamName: input.teamName,
+            teamGoalId: input.goalId,
+            teamGoalTitle: input.goalTitle,
+            teamBlockId: input.blockId,
+            scheduledFor: formatDateKey(new Date()),
+            priority: input.priority,
+        });
+    };
+
+    const syncTeamBlockWithPlan = (teamId: number, goalId: number, blockId: number, completed: boolean) => {
+        setPlanItems((currentItems) =>
+            currentItems.map((item) =>
+                item.source === 'team' && item.teamId === teamId && item.teamGoalId === goalId && item.teamBlockId === blockId
+                    ? { ...item, completed }
+                    : item,
+            ),
+        );
+    };
+
+    const removeDeletedTeamFromPlan = (teamId: number) => {
+        setPlanItems((currentItems) => currentItems.filter((item) => item.source !== 'team' || item.teamId !== teamId));
+    };
+
     const togglePlanItem = (itemId: number) => {
         const item = planItems.find((planItem) => planItem.id === itemId);
         if (!item) return;
@@ -433,6 +864,7 @@ export default function DemoHome() {
             linkedGoal !== undefined &&
             item.buildingBlockId !== undefined &&
             linkedGoal.buildingBlocks.every((block) => block.id === item.buildingBlockId || block.completed);
+        const awardsFu = completesGoal && !Number.isFinite(linkedGoal.fuAwardedAt);
         setPlanItems((currentItems) => currentItems.map((planItem) => (planItem.id === itemId ? { ...planItem, completed } : planItem)));
 
         if (item.source === 'goal' && item.goalId !== undefined && item.buildingBlockId !== undefined) {
@@ -441,6 +873,7 @@ export default function DemoHome() {
                     currentGoal.id === item.goalId
                         ? {
                               ...currentGoal,
+                              fuAwardedAt: awardsFu ? Date.now() : currentGoal.fuAwardedAt,
                               buildingBlocks: currentGoal.buildingBlocks.map((block) =>
                                   block.id === item.buildingBlockId ? { ...block, completed } : block,
                               ),
@@ -450,7 +883,11 @@ export default function DemoHome() {
             );
         }
 
-        if (completesGoal) setCompletedGoalId(linkedGoal.id);
+        if (item.source === 'team' && item.teamId !== undefined && item.teamGoalId !== undefined && item.teamBlockId !== undefined) {
+            updateStoredTeamBlockCompletion(item.teamId, item.teamGoalId, item.teamBlockId, completed);
+        }
+
+        if (awardsFu) setCompletedGoalId(linkedGoal.id);
     };
 
     const toggleGoalBlock = (goalId: number, buildingBlockId: number) => {
@@ -460,11 +897,13 @@ export default function DemoHome() {
 
         const completed = !block.completed;
         const completesGoal = completed && selectedGoal.buildingBlocks.every((item) => item.id === buildingBlockId || item.completed);
+        const awardsFu = completesGoal && !Number.isFinite(selectedGoal.fuAwardedAt);
         setGoals((currentGoals) =>
             currentGoals.map((goalRecord) =>
                 goalRecord.id === goalId
                     ? {
                           ...goalRecord,
+                          fuAwardedAt: awardsFu ? Date.now() : goalRecord.fuAwardedAt,
                           buildingBlocks: goalRecord.buildingBlocks.map((item) => (item.id === buildingBlockId ? { ...item, completed } : item)),
                       }
                     : goalRecord,
@@ -473,7 +912,7 @@ export default function DemoHome() {
         setPlanItems((currentItems) =>
             currentItems.map((item) => (item.goalId === goalId && item.buildingBlockId === buildingBlockId ? { ...item, completed } : item)),
         );
-        if (completesGoal) setCompletedGoalId(goalId);
+        if (awardsFu) setCompletedGoalId(goalId);
     };
 
     const updateGoal = (goalId: number, updates: Pick<GoalRecord, 'title' | 'gain' | 'deadline' | 'priority' | 'category'>) => {
@@ -621,15 +1060,24 @@ export default function DemoHome() {
     };
 
     const navigatePanel = (section: PanelSection) => {
+        if (betaMode && (section === 'team' || section === 'friends')) section = 'overview';
+
         if (section === 'profile') {
             setProfileOpen(true);
             return;
         }
 
         setProfileOpen(false);
+        if (section === 'community') playOpeningIntro();
         setPanelSection(section);
     };
+    const shareGoalInCommunity = (goalId: number) => {
+        setProfileOpen(false);
+        setCommunityGoalToShareId(goalId);
+        setPanelSection('community');
+    };
     const overallProgress = calculateOverallProgress(goals);
+    const fuBalance = goals.filter((goalRecord) => Number.isFinite(goalRecord.fuAwardedAt)).length;
 
     const profileSheet = profileOpen ? (
         <ProfilePanel
@@ -638,10 +1086,19 @@ export default function DemoHome() {
             profile={profile}
             settings={settings}
             overallProgress={overallProgress}
+            fuBalance={fuBalance}
+            finishedBookCount={books.filter((book) => book.status === 'finished').length}
             onClose={() => setProfileOpen(false)}
+            onOpenCommunity={() => {
+                navigatePanel('community');
+            }}
             onExportReport={() => {
                 setProfileOpen(false);
                 setReportOpen(true);
+            }}
+            onOpenSection={(section) => {
+                setProfileOpen(false);
+                setPanelSection(section);
             }}
             onSave={setProfile}
             onSettingsChange={setSettings}
@@ -672,8 +1129,10 @@ export default function DemoHome() {
     const goalCompletionDialog = completedGoal ? (
         <GoalCompletionDialog
             t={t}
+            locale={locale}
             goals={goals}
             completedGoal={completedGoal}
+            profile={profile}
             onClose={() => setCompletedGoalId(null)}
             onOpenGoals={() => {
                 setCompletedGoalId(null);
@@ -704,10 +1163,19 @@ export default function DemoHome() {
                         locale={locale}
                         goals={goals}
                         items={planItems}
+                        profile={profile}
                         range={planRange}
                         date={planDate}
                         onNavigate={navigatePanel}
                         onCreateGoal={startNewGoal}
+                        onCreatePlan={() => {
+                            setQuickCreateIntent('plan');
+                            navigatePanel('plan');
+                        }}
+                        onCreateNote={() => {
+                            setQuickCreateIntent('note');
+                            navigatePanel('notes');
+                        }}
                         onRangeChange={changePlanRange}
                         onDateChange={changePlanDate}
                         onToggleItem={togglePlanItem}
@@ -715,6 +1183,7 @@ export default function DemoHome() {
                         onToggleGoalBlock={toggleGoalBlock}
                         onUpdateGoal={updateGoal}
                         onAddGoalBlock={addGoalBlockToGoal}
+                        onShareGoal={shareGoalInCommunity}
                     />
                     {profileSheet}
                     {reminderAlert}
@@ -746,6 +1215,83 @@ export default function DemoHome() {
                         onReorderItems={reorderPlanItems}
                         onUpdateReminder={updatePlanReminder}
                         onCreateReminder={setStandaloneReminderDate}
+                        initialComposerOpen={quickCreateIntent === 'plan'}
+                        onInitialComposerHandled={() => setQuickCreateIntent(null)}
+                    />
+                    {profileSheet}
+                    {reminderAlert}
+                    {standaloneReminderDialog}
+                    {goalCompletionDialog}
+                    {reportDialog}
+                </>
+            );
+        }
+
+        if (panelSection === 'community') {
+            return (
+                <>
+                    <CommunityPanel
+                        t={t}
+                        locale={locale}
+                        goals={goals}
+                        profile={profile}
+                        viewer={authenticatedUser}
+                        posts={communityPosts}
+                        books={communityBooks}
+                        personalBooks={books}
+                        bestScoreMs={bestScoreMs}
+                        bestScorePlayer={bestScorePlayer}
+                        gamePlaysRemaining={gamePlaysRemaining}
+                        initialGoalId={communityGoalToShareId}
+                        onInitialGoalHandled={() => setCommunityGoalToShareId(null)}
+                        onNavigate={navigatePanel}
+                        liveGoalIds={liveGoalIds}
+                    />
+                    {profileSheet}
+                    {reminderAlert}
+                    {standaloneReminderDialog}
+                    {goalCompletionDialog}
+                    {reportDialog}
+                </>
+            );
+        }
+
+        if (panelSection === 'team') {
+            return (
+                <>
+                    <TeamPanel
+                        t={t}
+                        profile={profile}
+                        goals={goals}
+                        friendSuggestions={getTeamFriendSuggestions(profile, communityPosts)}
+                        settings={settings}
+                        planItems={planItems}
+                        onNavigate={navigatePanel}
+                        onSettingsChange={setSettings}
+                        onAddBlockToPlan={addTeamBlockToPlan}
+                        onBlockCompletionChange={syncTeamBlockWithPlan}
+                        onDeleteTeam={removeDeletedTeamFromPlan}
+                    />
+                    {profileSheet}
+                    {reminderAlert}
+                    {standaloneReminderDialog}
+                    {goalCompletionDialog}
+                    {reportDialog}
+                </>
+            );
+        }
+
+        if (panelSection === 'friends') {
+            return (
+                <>
+                    <FriendsPanel
+                        t={t}
+                        locale={locale}
+                        profile={profile}
+                        goals={goals}
+                        planItems={planItems}
+                        posts={communityPosts}
+                        onNavigate={navigatePanel}
                     />
                     {profileSheet}
                     {reminderAlert}
@@ -768,6 +1314,8 @@ export default function DemoHome() {
                         onAddNote={addNote}
                         onUpdateNote={updateNote}
                         onRemoveNote={removeNote}
+                        initialComposerOpen={quickCreateIntent === 'note'}
+                        onInitialComposerHandled={() => setQuickCreateIntent(null)}
                     />
                     {profileSheet}
                     {reminderAlert}
@@ -807,11 +1355,13 @@ export default function DemoHome() {
                     t={t}
                     locale={locale}
                     goals={goals}
+                    profile={profile}
                     onCreateGoal={startNewGoal}
                     onNavigate={navigatePanel}
                     onToggleBlock={toggleGoalBlock}
                     onUpdateGoal={updateGoal}
                     onAddBlock={addGoalBlockToGoal}
+                    onShareGoal={shareGoalInCommunity}
                 />
                 {profileSheet}
                 {reminderAlert}
@@ -828,10 +1378,27 @@ export default function DemoHome() {
                 <meta name="robots" content="noindex, nofollow" />
             </Head>
 
-            <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20">
+            <div className="apple-interface min-h-[100svh] bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#007aff]/20" data-demo-goal-flow>
                 <header className="fixed inset-x-0 top-0 z-30 border-b border-black/[0.055] bg-[#f5f5f7]/80 backdrop-blur-2xl">
                     <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-5 sm:px-8">
-                        <BrandLogo variant="black" className="h-9 w-28 sm:w-32" />
+                        <button
+                            type="button"
+                            onClick={() => {
+                                playOpeningIntro();
+                                setShowPanel(true);
+                                setPanelSection('community');
+                            }}
+                            className="relative h-9 w-28 shrink-0 sm:w-32"
+                            aria-label={t('Topluluğa git', 'Go to community')}
+                        >
+                            <BrandLogo variant="black" className="absolute inset-0 size-full" />
+                            <img
+                                src="/fuevor-beta-text.svg"
+                                alt="Beta"
+                                className="pointer-events-none absolute -top-1 right-2 h-2.5 w-auto select-none sm:right-2.5 sm:h-3"
+                                draggable={false}
+                            />
+                        </button>
                         {!completed && (
                             <p className="text-[13px] font-medium tracking-[-0.01em] text-[#6e6e73]">
                                 {step} / {TOTAL_STEPS}
@@ -843,7 +1410,7 @@ export default function DemoHome() {
                     </div>
                 </header>
 
-                <main className="mx-auto flex min-h-[100svh] max-w-6xl items-center justify-center px-5 pt-28 pb-32 sm:px-8 sm:pt-32">
+                <main className="demo-goal-flow-main mx-auto flex min-h-[100svh] max-w-6xl items-center justify-center px-5 pt-28 pb-32 sm:px-8 sm:pt-32">
                     <div className="w-full max-w-[680px]">
                         {completed ? (
                             <CompletionScreen t={t} goal={goal} blocks={buildingBlocks} onOpenPanel={() => setShowPanel(true)} />
@@ -863,6 +1430,14 @@ export default function DemoHome() {
                                         />
                                     )}
                                     {step === 5 && (
+                                        <ParetoFocusStep
+                                            t={t}
+                                            blocks={buildingBlocks}
+                                            targetCount={paretoTargetCount}
+                                            onToggle={toggleHighImpactBlock}
+                                        />
+                                    )}
+                                    {step === 6 && (
                                         <OrderingStep
                                             t={t}
                                             blocks={buildingBlocks}
@@ -873,15 +1448,15 @@ export default function DemoHome() {
                                             onMove={moveBuildingBlock}
                                         />
                                     )}
-                                    {step === 6 && <DeadlineStep t={t} locale={locale} value={deadline} onChange={setDeadline} />}
-                                    {step === 7 && <PriorityStep t={t} value={priority} onChange={setPriority} />}
+                                    {step === 7 && <DeadlineStep t={t} locale={locale} value={deadline} onChange={setDeadline} />}
+                                    {step === 8 && <PriorityStep t={t} value={priority} onChange={setPriority} />}
                                 </div>
 
-                                <div className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.055] bg-[#f5f5f7]/80 px-5 py-4 backdrop-blur-2xl sm:px-8">
+                                <div className="demo-goal-flow-actions fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.055] bg-[#f5f5f7]/80 px-5 py-4 backdrop-blur-2xl sm:px-8">
                                     <div className="mx-auto flex max-w-[680px] items-center justify-between gap-4">
                                         <button
                                             type="button"
-                                            onClick={() => setStep((current) => Math.max(1, current - 1))}
+                                            onClick={goBackInGoalFlow}
                                             className={`inline-flex h-12 items-center gap-2 rounded-full px-3 text-[15px] font-medium text-[#3a3a3c] transition hover:bg-black/[0.045] ${step === 1 ? 'pointer-events-none invisible' : ''}`}
                                         >
                                             <ArrowLeft className="size-[18px]" />
@@ -902,6 +1477,8 @@ export default function DemoHome() {
                         )}
                     </div>
                 </main>
+
+                {paretoPromptOpen && <ParetoPrompt t={t} onChoose={chooseParetoMode} />}
             </div>
         </>
     );
@@ -912,10 +1489,13 @@ function OverviewPanel({
     locale,
     goals,
     items,
+    profile,
     range,
     date,
     onNavigate,
     onCreateGoal,
+    onCreatePlan,
+    onCreateNote,
     onRangeChange,
     onDateChange,
     onToggleItem,
@@ -923,15 +1503,19 @@ function OverviewPanel({
     onToggleGoalBlock,
     onUpdateGoal,
     onAddGoalBlock,
+    onShareGoal,
 }: {
     t: Translate;
     locale: Locale;
     goals: GoalRecord[];
     items: PlanItem[];
+    profile: ProfileData;
     range: PlanRange;
     date: string;
     onNavigate: (section: PanelSection) => void;
     onCreateGoal: () => void;
+    onCreatePlan: () => void;
+    onCreateNote: () => void;
     onRangeChange: (range: PlanRange) => void;
     onDateChange: (date: string) => void;
     onToggleItem: (id: number) => void;
@@ -939,8 +1523,10 @@ function OverviewPanel({
     onToggleGoalBlock: (goalId: number, buildingBlockId: number) => void;
     onUpdateGoal: (goalId: number, updates: Pick<GoalRecord, 'title' | 'gain' | 'deadline' | 'priority' | 'category'>) => void;
     onAddGoalBlock: (goalId: number, title: string) => void;
+    onShareGoal: (goalId: number) => void;
 }) {
     const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
+    const [quickCreateOpen, setQuickCreateOpen] = useState(false);
     const periodItems = useMemo(() => sortPlanItems(items.filter((item) => isPlanItemInPeriod(item, range, date))), [date, items, range]);
     const priorityGoals = useMemo(
         () =>
@@ -950,8 +1536,28 @@ function OverviewPanel({
                 .slice(0, 3),
         [goals],
     );
-    const upcomingGoals = useMemo(() => [...goals].sort((first, second) => first.deadline.localeCompare(second.deadline)).slice(0, 3), [goals]);
+    const upcomingGoals = useMemo(
+        () =>
+            [...goals]
+                .filter((goalRecord) => !isGoalCompleted(goalRecord))
+                .sort((first, second) => first.deadline.localeCompare(second.deadline))
+                .slice(0, 3),
+        [goals],
+    );
+    const paretoGoalsExist = goals.some((goalRecord) => goalRecord.paretoEnabled);
+    const paretoFocusItems = useMemo(
+        () =>
+            goals
+                .flatMap((goalRecord) =>
+                    goalRecord.buildingBlocks
+                        .filter((block) => block.highImpact && !block.completed)
+                        .map((block) => ({ goalId: goalRecord.id, goalTitle: goalRecord.title, block })),
+                )
+                .slice(0, 4),
+        [goals],
+    );
     const overallProgress = calculateOverallProgress(goals);
+    const activeGoalCount = goals.filter((goalRecord) => !isGoalCompleted(goalRecord)).length;
     const periodCompleted = periodItems.filter((item) => item.completed).length;
     const periodProgress = periodItems.length === 0 ? 0 : Math.round((periodCompleted / periodItems.length) * 100);
     const selectedGoal = selectedGoalId === null ? undefined : goals.find((goalRecord) => goalRecord.id === selectedGoalId);
@@ -979,27 +1585,80 @@ function OverviewPanel({
                             </p>
                         </div>
 
-                        <div className="flex gap-2.5">
+                        <div className="relative flex justify-end gap-2.5">
+                            <DemoNotifications t={t} username={profile.username} variant="icon" />
+
+                            {quickCreateOpen && (
+                                <button
+                                    type="button"
+                                    className="fixed inset-0 z-20 cursor-default"
+                                    onClick={() => setQuickCreateOpen(false)}
+                                    aria-label={t('Ekleme menüsünü kapat', 'Close create menu')}
+                                />
+                            )}
+
+                            {quickCreateOpen && (
+                                <div
+                                    className="demo-step-enter absolute top-[calc(100%+0.65rem)] right-0 z-30 flex min-w-40 flex-col items-end gap-2"
+                                    role="menu"
+                                    aria-label={t('Ne eklemek istiyorsun?', 'What would you like to add?')}
+                                >
+                                    <button
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() => {
+                                            setQuickCreateOpen(false);
+                                            onCreateGoal();
+                                        }}
+                                        className="inline-flex h-11 min-w-36 items-center gap-2.5 rounded-full border border-black/[0.07] bg-white px-4 text-[13px] font-semibold shadow-[0_9px_28px_rgba(0,0,0,0.12)] transition hover:-translate-y-0.5 hover:bg-[#fbfbfd] active:scale-[0.98]"
+                                    >
+                                        <Target className="size-4 text-[#af52de]" />
+                                        {t('Hedef', 'Goal')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() => {
+                                            setQuickCreateOpen(false);
+                                            onCreatePlan();
+                                        }}
+                                        className="inline-flex h-11 min-w-36 items-center gap-2.5 rounded-full border border-black/[0.07] bg-white px-4 text-[13px] font-semibold shadow-[0_9px_28px_rgba(0,0,0,0.12)] transition hover:-translate-y-0.5 hover:bg-[#fbfbfd] active:scale-[0.98]"
+                                    >
+                                        <ListTodo className="size-4 text-[#007aff]" />
+                                        {t('Plan', 'Plan')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() => {
+                                            setQuickCreateOpen(false);
+                                            onCreateNote();
+                                        }}
+                                        className="inline-flex h-11 min-w-36 items-center gap-2.5 rounded-full border border-black/[0.07] bg-white px-4 text-[13px] font-semibold shadow-[0_9px_28px_rgba(0,0,0,0.12)] transition hover:-translate-y-0.5 hover:bg-[#fbfbfd] active:scale-[0.98]"
+                                    >
+                                        <NotebookPen className="size-4 text-[#ff9500]" />
+                                        {t('Not', 'Note')}
+                                    </button>
+                                </div>
+                            )}
+
                             <button
                                 type="button"
-                                onClick={() => onNavigate('plan')}
-                                className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full border border-black/[0.07] bg-white px-5 text-[14px] font-semibold text-[#1d1d1f] shadow-[0_5px_18px_rgba(0,0,0,0.04)] transition hover:bg-[#fbfbfd] active:scale-[0.98] sm:flex-none"
+                                onClick={() => setQuickCreateOpen((open) => !open)}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Escape') setQuickCreateOpen(false);
+                                }}
+                                className="relative z-30 grid size-12 place-items-center rounded-full bg-[#007aff] text-white shadow-[0_8px_24px_rgba(0,122,255,0.24)] transition hover:bg-[#006ee6] active:scale-[0.96]"
+                                aria-label={t('Yeni ekle', 'Create new')}
+                                aria-haspopup="menu"
+                                aria-expanded={quickCreateOpen}
                             >
-                                <ListTodo className="size-[17px] text-[#007aff]" />
-                                {t('Plan Ekle', 'Add Plan')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={onCreateGoal}
-                                className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#007aff] px-5 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(0,122,255,0.2)] transition hover:bg-[#006ee6] active:scale-[0.98] sm:flex-none"
-                            >
-                                <Plus className="size-[17px]" strokeWidth={2.5} />
-                                {t('Hedef Ekle', 'Add Goal')}
+                                <Plus className={`size-[20px] transition-transform ${quickCreateOpen ? 'rotate-45' : ''}`} strokeWidth={2.5} />
                             </button>
                         </div>
                     </div>
 
-                    <section className="mt-5 grid min-w-0 gap-3 sm:grid-cols-3" aria-label={t('Özet bilgiler', 'Summary information')}>
+                    <section className="mt-5 grid min-w-0 grid-cols-3 gap-2 sm:gap-3" aria-label={t('Özet bilgiler', 'Summary information')}>
                         <OverviewStat
                             icon={TrendingUp}
                             label={t('Genel ilerleme', 'Overall progress')}
@@ -1009,7 +1668,7 @@ function OverviewPanel({
                         <OverviewStat
                             icon={Target}
                             label={t('Aktif hedef', 'Active goals')}
-                            value={String(goals.length)}
+                            value={String(activeGoalCount)}
                             color="bg-[#af52de]/10 text-[#af52de]"
                         />
                         <OverviewStat
@@ -1032,6 +1691,51 @@ function OverviewPanel({
                     />
 
                     <GoalRoadmap t={t} goals={goals} onSelect={setSelectedGoalId} className="mt-5" />
+
+                    {paretoGoalsExist && (
+                        <section className="mt-5 overflow-hidden rounded-[26px] border border-[#007aff]/12 bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
+                            <div className="flex items-center gap-3 border-b border-black/[0.055] px-5 py-4 sm:px-6">
+                                <span className="grid size-9 shrink-0 place-items-center rounded-[13px] bg-[#007aff]/10 text-[#007aff]">
+                                    <Sparkles className="size-4" />
+                                </span>
+                                <div className="min-w-0">
+                                    <h2 className="text-[16px] font-semibold tracking-[-0.02em]">{t('20/80 Odağın', 'Your 20/80 Focus')}</h2>
+                                    <p className="mt-0.5 text-[11px] text-[#8e8e93]">
+                                        {t('En yüksek etkiyi oluşturacak yapı taşları', 'Building blocks that will create the greatest impact')}
+                                    </p>
+                                </div>
+                            </div>
+                            {paretoFocusItems.length === 0 ? (
+                                <div className="flex items-center gap-3 px-5 py-5 text-[#28a745] sm:px-6">
+                                    <CircleCheck className="size-5 shrink-0" />
+                                    <p className="text-[13px] font-semibold">
+                                        {t('Yüksek etkili adımların tamamlandı.', 'Your high-impact steps are complete.')}
+                                    </p>
+                                </div>
+                            ) : (
+                                paretoFocusItems.map(({ goalId, goalTitle, block }, index) => (
+                                    <button
+                                        key={`${goalId}:${block.id}`}
+                                        type="button"
+                                        onClick={() => onToggleGoalBlock(goalId, block.id)}
+                                        className={`flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-black/[0.02] sm:px-6 ${index !== 0 ? 'border-t border-black/[0.05]' : ''}`}
+                                    >
+                                        <span className="grid size-7 shrink-0 place-items-center rounded-full border border-[#007aff]/30 text-transparent transition hover:border-[#007aff]">
+                                            <Check className="size-4" strokeWidth={3} />
+                                        </span>
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block truncate text-[14px] font-semibold">{block.title}</span>
+                                            <span className="mt-1 block truncate text-[10px] text-[#8e8e93]">{goalTitle}</span>
+                                        </span>
+                                        <span className="flex shrink-0 items-center gap-1 text-[9px] font-semibold text-[#007aff]">
+                                            <Sparkles className="size-3" />
+                                            {t('Yüksek Etki', 'High Impact')}
+                                        </span>
+                                    </button>
+                                ))
+                            )}
+                        </section>
+                    )}
 
                     <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
                         <section className="min-w-0 overflow-hidden rounded-[26px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
@@ -1098,7 +1802,9 @@ function OverviewPanel({
                                                         {sourceGoal?.title ??
                                                             (item.source === 'reminder'
                                                                 ? t('Harici anımsatıcı', 'Standalone reminder')
-                                                                : t('Bağımsız plan', 'Independent plan'))}
+                                                                : item.source === 'team'
+                                                                  ? `${item.teamName ?? t('Ekip', 'Team')} · ${item.teamGoalTitle ?? t('Ekip hedefi', 'Team goal')}`
+                                                                  : t('Bağımsız plan', 'Independent plan'))}
                                                     </p>
                                                     {item.reminderAt && (
                                                         <p className="mt-1.5 flex items-center gap-1.5 truncate text-[11px] font-semibold text-[#007aff]">
@@ -1132,20 +1838,35 @@ function OverviewPanel({
                                     priorityGoals.map((goalRecord, index) => {
                                         const style = PRIORITY_STYLES[goalRecord.priority];
                                         const progress = calculateGoalProgress(goalRecord);
+                                        const completed = isGoalCompleted(goalRecord);
 
                                         return (
                                             <div
                                                 key={goalRecord.id}
-                                                className={`flex min-w-0 items-center gap-3 overflow-hidden px-5 py-4 ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
+                                                className={`flex min-w-0 items-center gap-3 overflow-hidden px-5 py-4 ${completed ? 'bg-[#34c759]/[0.045]' : ''} ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
                                             >
-                                                <span className={`size-2.5 shrink-0 rounded-full ${style.dot}`} />
+                                                {completed ? (
+                                                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[#34c759] text-white">
+                                                        <Check className="size-3.5" strokeWidth={3} />
+                                                    </span>
+                                                ) : (
+                                                    <span className={`size-2.5 shrink-0 rounded-full ${style.dot}`} />
+                                                )}
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="truncate text-[14px] font-semibold">{goalRecord.title}</p>
-                                                    <p className={`mt-1 text-[10px] font-semibold ${style.text}`}>
-                                                        {priorityLabel(goalRecord.priority, t)}
+                                                    <p
+                                                        className={`truncate text-[14px] font-semibold ${completed ? 'text-[#8e8e93] line-through' : ''}`}
+                                                    >
+                                                        {goalRecord.title}
+                                                    </p>
+                                                    <p className={`mt-1 text-[10px] font-semibold ${completed ? 'text-[#28a745]' : style.text}`}>
+                                                        {completed ? t('Tamamlandı', 'Completed') : priorityLabel(goalRecord.priority, t)}
                                                     </p>
                                                 </div>
-                                                <span className="text-[12px] font-semibold text-[#6e6e73] tabular-nums">%{progress}</span>
+                                                <span
+                                                    className={`text-[12px] font-semibold tabular-nums ${completed ? 'text-[#28a745]' : 'text-[#6e6e73]'}`}
+                                                >
+                                                    %{progress}
+                                                </span>
                                             </div>
                                         );
                                     })
@@ -1156,20 +1877,26 @@ function OverviewPanel({
                                 <div className="border-b border-black/[0.055] px-5 py-5">
                                     <h2 className="text-[17px] font-semibold tracking-[-0.02em]">{t('Yaklaşan Tarihler', 'Upcoming Dates')}</h2>
                                 </div>
-                                {upcomingGoals.map((goalRecord, index) => (
-                                    <div
-                                        key={goalRecord.id}
-                                        className={`flex min-w-0 items-center gap-3 overflow-hidden px-5 py-4 ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
-                                    >
-                                        <span className="grid size-9 shrink-0 place-items-center rounded-[12px] bg-[#f2f2f7] text-[#6e6e73]">
-                                            <CalendarDays className="size-4" />
-                                        </span>
-                                        <p className="min-w-0 flex-1 truncate text-[13px] font-medium">{goalRecord.title}</p>
-                                        <span className="shrink-0 text-[11px] font-medium whitespace-nowrap text-[#8e8e93]">
-                                            {formatGoalDate(goalRecord.deadline, locale)}
-                                        </span>
-                                    </div>
-                                ))}
+                                {upcomingGoals.length === 0 ? (
+                                    <p className="px-5 py-8 text-center text-[13px] leading-5 text-[#8e8e93]">
+                                        {t('Yaklaşan aktif hedefin yok.', 'You have no upcoming active goals.')}
+                                    </p>
+                                ) : (
+                                    upcomingGoals.map((goalRecord, index) => (
+                                        <div
+                                            key={goalRecord.id}
+                                            className={`flex min-w-0 items-center gap-3 overflow-hidden px-5 py-4 ${index !== 0 ? 'border-t border-black/[0.055]' : ''}`}
+                                        >
+                                            <span className="grid size-9 shrink-0 place-items-center rounded-[12px] bg-[#f2f2f7] text-[#6e6e73]">
+                                                <CalendarDays className="size-4" />
+                                            </span>
+                                            <p className="min-w-0 flex-1 truncate text-[13px] font-medium">{goalRecord.title}</p>
+                                            <span className="shrink-0 text-[11px] font-medium whitespace-nowrap text-[#8e8e93]">
+                                                {formatGoalDate(goalRecord.deadline, locale)}
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
                             </section>
                         </div>
                     </div>
@@ -1181,10 +1908,12 @@ function OverviewPanel({
                     t={t}
                     locale={locale}
                     goal={selectedGoal}
+                    profile={profile}
                     onClose={() => setSelectedGoalId(null)}
                     onToggleBlock={(buildingBlockId) => onToggleGoalBlock(selectedGoal.id, buildingBlockId)}
                     onUpdate={(updates) => onUpdateGoal(selectedGoal.id, updates)}
                     onAddBlock={(title) => onAddGoalBlock(selectedGoal.id, title)}
+                    onShare={() => onShareGoal(selectedGoal.id)}
                 />
             )}
         </>
@@ -1452,13 +2181,15 @@ function ReportExportDialog({
 
 function OverviewStat({ icon: Icon, label, value, color }: { icon: typeof Target; label: string; value: string; color: string }) {
     return (
-        <div className="flex min-w-0 items-center gap-4 overflow-hidden rounded-[22px] border border-black/[0.07] bg-white p-4 shadow-[0_8px_30px_rgba(0,0,0,0.035)] sm:p-5">
-            <span className={`grid size-11 shrink-0 place-items-center rounded-[14px] ${color}`}>
-                <Icon className="size-5" />
+        <div className="flex min-w-0 flex-col items-center justify-center gap-2 overflow-hidden rounded-[18px] border border-black/[0.07] bg-white px-2 py-3 text-center shadow-[0_8px_30px_rgba(0,0,0,0.035)] sm:flex-row sm:justify-start sm:gap-4 sm:rounded-[22px] sm:p-5 sm:text-left">
+            <span className={`grid size-9 shrink-0 place-items-center rounded-[12px] sm:size-11 sm:rounded-[14px] ${color}`}>
+                <Icon className="size-4 sm:size-5" />
             </span>
             <div className="min-w-0">
-                <p className="text-[22px] leading-none font-semibold tracking-[-0.03em] tabular-nums">{value}</p>
-                <p className="mt-1.5 truncate text-[11px] font-medium text-[#8e8e93]">{label}</p>
+                <p className="text-[19px] leading-none font-semibold tracking-[-0.03em] tabular-nums sm:text-[22px]">{value}</p>
+                <p className="mt-1 min-h-[22px] text-[9px] leading-[11px] font-medium text-[#8e8e93] sm:mt-1.5 sm:min-h-0 sm:truncate sm:text-[11px] sm:leading-normal">
+                    {label}
+                </p>
             </div>
         </div>
     );
@@ -1468,20 +2199,24 @@ function GoalsPanel({
     t,
     locale,
     goals,
+    profile,
     onCreateGoal,
     onNavigate,
     onToggleBlock,
     onUpdateGoal,
     onAddBlock,
+    onShareGoal,
 }: {
     t: Translate;
     locale: Locale;
     goals: GoalRecord[];
+    profile: ProfileData;
     onCreateGoal: () => void;
     onNavigate: (section: PanelSection) => void;
     onToggleBlock: (goalId: number, buildingBlockId: number) => void;
     onUpdateGoal: (goalId: number, updates: Pick<GoalRecord, 'title' | 'gain' | 'deadline' | 'priority' | 'category'>) => void;
     onAddBlock: (goalId: number, title: string) => void;
+    onShareGoal: (goalId: number) => void;
 }) {
     const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
     const [goalTab, setGoalTab] = useState<'active' | 'completed'>('active');
@@ -1670,10 +2405,12 @@ function GoalsPanel({
                     t={t}
                     locale={locale}
                     goal={selectedGoal}
+                    profile={profile}
                     onClose={() => setSelectedGoalId(null)}
                     onToggleBlock={toggleSelectedGoalBlock}
                     onUpdate={(updates) => onUpdateGoal(selectedGoal.id, updates)}
                     onAddBlock={(title) => onAddBlock(selectedGoal.id, title)}
+                    onShare={() => onShareGoal(selectedGoal.id)}
                 />
             )}
         </>
@@ -1694,7 +2431,7 @@ function GoalRoadmap({
     className?: string;
 }) {
     const [mobileOpen, setMobileOpen] = useState(false);
-    const mobileSheetRef = useRef<HTMLElement | null>(null);
+    const mobileSheetRef = useRef<HTMLDivElement | null>(null);
     const roadmapGoals = useMemo(
         () => [...goals].sort((first, second) => first.deadline.localeCompare(second.deadline) || first.createdAt - second.createdAt),
         [goals],
@@ -1796,8 +2533,10 @@ function GoalRoadmap({
                     </div>
 
                     <div className="relative mt-6 overflow-x-auto pb-2">
-                        <span className="absolute top-6 right-6 left-6 h-px bg-[#d1d1d6]" />
-                        <div className="relative flex min-w-max">{roadmapGoals.map((goalRecord) => roadmapNode(goalRecord, false))}</div>
+                        <div className="relative min-w-max">
+                            <span className="absolute top-6 right-6 left-6 h-px bg-[#d1d1d6]" />
+                            <div className="relative flex">{roadmapGoals.map((goalRecord) => roadmapNode(goalRecord, false))}</div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -1809,14 +2548,13 @@ function GoalRoadmap({
                     onMouseDown={() => setMobileOpen(false)}
                 >
                     <section
-                        ref={mobileSheetRef}
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="mobile-roadmap-title"
                         onMouseDown={(event) => event.stopPropagation()}
-                        className="max-h-[88svh] w-full overflow-y-auto rounded-t-[32px] bg-[#f5f5f7] px-5 pt-5 pb-[max(1.75rem,env(safe-area-inset-bottom))] shadow-[0_-20px_70px_rgba(0,0,0,0.2)]"
+                        className="flex max-h-[88svh] w-full flex-col overflow-hidden rounded-t-[32px] bg-[#f5f5f7] shadow-[0_-20px_70px_rgba(0,0,0,0.2)]"
                     >
-                        <div className="sticky top-0 z-20 flex items-center justify-between bg-[#f5f5f7]/90 pb-4 backdrop-blur-xl">
+                        <div className="z-20 flex shrink-0 items-center justify-between border-b border-black/[0.055] bg-[#f5f5f7]/90 px-5 pt-5 pb-4 backdrop-blur-xl">
                             <div>
                                 <p className="text-[11px] font-semibold text-[#007aff]">{t('AŞAĞIDAN YUKARI', 'BOTTOM TO TOP')}</p>
                                 <h2 id="mobile-roadmap-title" className="mt-1 text-[22px] font-semibold tracking-[-0.03em]">
@@ -1833,14 +2571,19 @@ function GoalRoadmap({
                             </button>
                         </div>
 
-                        <div className="relative mt-2">
-                            <span className="absolute top-6 bottom-6 left-[23px] w-px bg-[#d1d1d6]" />
-                            <div className="relative flex flex-col">{mobileGoals.map((goalRecord) => roadmapNode(goalRecord, true))}</div>
-                        </div>
+                        <div
+                            ref={mobileSheetRef}
+                            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-2 pb-[max(1.75rem,env(safe-area-inset-bottom))]"
+                        >
+                            <div className="relative">
+                                <span className="absolute top-6 bottom-6 left-[23px] w-px bg-[#d1d1d6]" />
+                                <div className="relative flex flex-col">{mobileGoals.map((goalRecord) => roadmapNode(goalRecord, true))}</div>
+                            </div>
 
-                        <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-semibold text-[#8e8e93]">
-                            <ChevronUp className="size-4 text-[#007aff]" />
-                            {t('Yol 1 numaralı hedeften yukarı doğru ilerler.', 'The journey moves upward from goal 1.')}
+                            <div className="mt-4 flex items-center justify-center gap-2 text-center text-[11px] font-semibold text-[#8e8e93]">
+                                <ChevronUp className="size-4 shrink-0 text-[#007aff]" />
+                                {t('Yol 1 numaralı hedeften yukarı doğru ilerler.', 'The journey moves upward from goal 1.')}
+                            </div>
                         </div>
                     </section>
                 </div>
@@ -1851,106 +2594,681 @@ function GoalRoadmap({
 
 function GoalCompletionDialog({
     t,
+    locale,
     goals,
     completedGoal,
+    profile,
     onClose,
     onOpenGoals,
 }: {
     t: Translate;
+    locale: Locale;
     goals: GoalRecord[];
     completedGoal: GoalRecord;
+    profile: ProfileData;
     onClose: () => void;
     onOpenGoals: () => void;
 }) {
+    const [storyOpen, setStoryOpen] = useState(false);
     const roadmapGoals = [...goals].sort(
         (first, second) => PRIORITY_RANK[first.priority] - PRIORITY_RANK[second.priority] || first.createdAt - second.createdAt,
     );
 
     return (
+        <>
+            <div
+                className="apple-interface fixed inset-0 z-[80] flex items-end justify-center bg-black/30 p-0 backdrop-blur-md sm:items-center sm:p-6"
+                role="presentation"
+                onMouseDown={onClose}
+            >
+                <section
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="goal-complete-title"
+                    onMouseDown={(event) => event.stopPropagation()}
+                    className="max-h-[94svh] w-full max-w-2xl overflow-y-auto rounded-t-[32px] bg-[#f5f5f7] px-5 pt-6 pb-[max(1.75rem,env(safe-area-inset-bottom))] shadow-[0_35px_100px_rgba(0,0,0,0.3)] sm:max-h-[90svh] sm:rounded-[32px] sm:px-7 sm:py-7"
+                >
+                    <div className="flex justify-end">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                            aria-label={t('Kapat', 'Close')}
+                        >
+                            <X className="size-[17px]" />
+                        </button>
+                    </div>
+
+                    <div className="-mt-3 text-center">
+                        <span className="mx-auto grid size-20 place-items-center rounded-full bg-[#34c759] text-white shadow-[0_14px_36px_rgba(52,199,89,0.3)]">
+                            <Sparkles className="size-9" strokeWidth={2.2} />
+                        </span>
+                        <p className="mt-6 text-[12px] font-semibold text-[#34a853]">{t('HEDEF TAMAMLANDI', 'GOAL COMPLETED')}</p>
+                        <h2
+                            id="goal-complete-title"
+                            className="mx-auto mt-2 max-w-lg text-[clamp(2rem,7vw,3rem)] leading-[1.04] font-semibold tracking-[-0.05em]"
+                        >
+                            {t('Harika iş çıkardın!', 'You did an amazing job!')}
+                        </h2>
+                        <p className="mx-auto mt-3 max-w-md text-[15px] leading-6 text-[#6e6e73]">
+                            <span className="font-semibold text-[#1d1d1f]">“{completedGoal.title}”</span>{' '}
+                            {t(
+                                'hedefini tamamladın. Şimdi yolundaki diğer hedeflere devam edebilirsin.',
+                                'is complete. Now you can continue with the other goals on your path.',
+                            )}
+                        </p>
+                        <div className="mx-auto mt-5 inline-flex items-center gap-1.5 rounded-full border border-[#005b67]/10 bg-white px-4 py-2 shadow-[0_6px_20px_rgba(0,91,103,0.1)]">
+                            <span className="text-[16px] font-semibold tracking-[-0.02em] text-[#005b67]">+1</span>
+                            <FuMark className="size-3" />
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setStoryOpen(true)}
+                        className="group mt-7 flex w-full items-center gap-4 overflow-hidden rounded-[22px] border border-[#005b67]/12 bg-white p-3.5 text-left shadow-[0_10px_34px_rgba(0,91,103,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_38px_rgba(0,91,103,0.13)] active:scale-[0.99] sm:p-4"
+                    >
+                        <span className="relative grid aspect-[9/16] h-[72px] shrink-0 place-items-center overflow-hidden rounded-[13px] bg-[radial-gradient(circle_at_80%_10%,rgba(99,199,209,0.8),transparent_35%),linear-gradient(145deg,#032f35,#006879_65%,#28aebd)] text-white shadow-[0_7px_18px_rgba(0,91,103,0.2)]">
+                            <Instagram className="size-6" />
+                            <span className="absolute right-1 bottom-1.5 text-[7px] font-bold tracking-[0.05em]">9:16</span>
+                        </span>
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-[14px] font-semibold tracking-[-0.015em] text-[#1d1d1f]">
+                                {t('Instagram Hikâyesinde paylaş', 'Share to Instagram Story')}
+                            </span>
+                            <span className="mt-1 block text-[11px] leading-4 text-[#8e8e93]">
+                                {t(
+                                    'Hedefini Fuevor tasarımlı bir başarı kartına dönüştür.',
+                                    'Turn your goal into a Fuevor-designed achievement card.',
+                                )}
+                            </span>
+                        </span>
+                        <ChevronRight className="size-5 shrink-0 text-[#007aff] transition-transform group-hover:translate-x-0.5" />
+                    </button>
+
+                    <GoalRoadmap t={t} goals={roadmapGoals} featuredGoalId={completedGoal.id} className="mt-5" />
+
+                    <div className="mt-5 grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="h-12 rounded-full bg-white text-[14px] font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
+                        >
+                            {t('Kapat', 'Close')}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onOpenGoals}
+                            className="h-12 rounded-full bg-[#007aff] text-[14px] font-semibold text-white shadow-[0_8px_22px_rgba(0,122,255,0.22)]"
+                        >
+                            {t('Hedeflerime Git', 'View My Goals')}
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            {storyOpen && <GoalStoryDialog t={t} locale={locale} goal={completedGoal} profile={profile} onClose={() => setStoryOpen(false)} />}
+        </>
+    );
+}
+
+function GoalStoryDialog({
+    t,
+    locale,
+    goal,
+    profile,
+    onClose,
+}: {
+    t: Translate;
+    locale: Locale;
+    goal: GoalRecord;
+    profile: ProfileData;
+    onClose: () => void;
+}) {
+    const [status, setStatus] = useState<'idle' | 'creating' | 'shared' | 'downloaded' | 'unsupported' | 'error'>('idle');
+    const [storyFile, setStoryFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState('');
+    const [previewFailed, setPreviewFailed] = useState(false);
+    const storyTranslation = useMemo<Translate>(() => (turkish, english) => translate(locale, turkish, english), [locale]);
+
+    useEffect(() => {
+        let disposed = false;
+        let objectUrl = '';
+
+        setPreviewFailed(false);
+        void createGoalStoryFile({ goal, profile, locale, t: storyTranslation })
+            .then((file) => {
+                if (disposed) return;
+                objectUrl = URL.createObjectURL(file);
+                setStoryFile(file);
+                setPreviewUrl(objectUrl);
+            })
+            .catch(() => {
+                if (!disposed) setPreviewFailed(true);
+            });
+
+        return () => {
+            disposed = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [goal, locale, profile, storyTranslation]);
+
+    const getStoryFile = async () => {
+        if (storyFile) return storyFile;
+        const file = await createGoalStoryFile({ goal, profile, locale, t: storyTranslation });
+        setStoryFile(file);
+        return file;
+    };
+
+    const downloadStory = async () => {
+        setStatus('creating');
+        try {
+            const file = await getStoryFile();
+            downloadFile(file);
+            setStatus('downloaded');
+        } catch {
+            setStatus('error');
+        }
+    };
+
+    const shareStory = async () => {
+        setStatus('creating');
+        try {
+            const file = await getStoryFile();
+            const shareData: ShareData = {
+                files: [file],
+                title: t('Hedefimi tamamladım', 'I completed my goal'),
+                text: t(`“${goal.title}” hedefimi Fuevor ile tamamladım.`, `I completed “${goal.title}” with Fuevor.`),
+            };
+
+            if (typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare(shareData))) {
+                await navigator.share(shareData);
+                setStatus('shared');
+                return;
+            }
+
+            setStatus('unsupported');
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                setStatus('idle');
+                return;
+            }
+            setStatus('error');
+        }
+    };
+
+    return (
         <div
-            className="apple-interface fixed inset-0 z-[80] flex items-end justify-center bg-black/30 p-0 backdrop-blur-md sm:items-center sm:p-6"
+            className="apple-interface fixed inset-0 z-[90] flex items-end justify-center bg-black/45 p-0 backdrop-blur-xl sm:items-center sm:p-6"
             role="presentation"
             onMouseDown={onClose}
         >
             <section
                 role="dialog"
                 aria-modal="true"
-                aria-labelledby="goal-complete-title"
+                aria-labelledby="goal-story-title"
                 onMouseDown={(event) => event.stopPropagation()}
-                className="max-h-[94svh] w-full max-w-2xl overflow-y-auto rounded-t-[32px] bg-[#f5f5f7] px-5 pt-6 pb-[max(1.75rem,env(safe-area-inset-bottom))] shadow-[0_35px_100px_rgba(0,0,0,0.3)] sm:max-h-[90svh] sm:rounded-[32px] sm:px-7 sm:py-7"
+                className="flex max-h-[96svh] w-full max-w-3xl flex-col overflow-hidden rounded-t-[32px] bg-[#f5f5f7] shadow-[0_35px_110px_rgba(0,0,0,0.38)] sm:max-h-[92svh] sm:rounded-[32px]"
             >
-                <div className="flex justify-end">
+                <header className="flex items-center justify-between gap-4 border-b border-black/[0.055] px-5 py-4 sm:px-6">
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-semibold tracking-[0.12em] text-[#007aff] uppercase">Instagram Story · 9:16</p>
+                        <h2 id="goal-story-title" className="mt-0.5 truncate text-[19px] font-semibold tracking-[-0.025em]">
+                            {t('Başarını paylaş', 'Share your achievement')}
+                        </h2>
+                    </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
+                        className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73]"
                         aria-label={t('Kapat', 'Close')}
                     >
                         <X className="size-[17px]" />
                     </button>
-                </div>
+                </header>
 
-                <div className="-mt-3 text-center">
-                    <span className="mx-auto grid size-20 place-items-center rounded-full bg-[#34c759] text-white shadow-[0_14px_36px_rgba(52,199,89,0.3)]">
-                        <Sparkles className="size-9" strokeWidth={2.2} />
-                    </span>
-                    <p className="mt-6 text-[12px] font-semibold text-[#34a853]">{t('HEDEF TAMAMLANDI', 'GOAL COMPLETED')}</p>
-                    <h2
-                        id="goal-complete-title"
-                        className="mx-auto mt-2 max-w-lg text-[clamp(2rem,7vw,3rem)] leading-[1.04] font-semibold tracking-[-0.05em]"
-                    >
-                        {t('Harika iş çıkardın!', 'You did an amazing job!')}
-                    </h2>
-                    <p className="mx-auto mt-3 max-w-md text-[15px] leading-6 text-[#6e6e73]">
-                        <span className="font-semibold text-[#1d1d1f]">“{completedGoal.title}”</span>{' '}
+                <div className="min-h-0 overflow-y-auto overscroll-contain px-5 py-5 sm:px-7 sm:py-6">
+                    <div className="mx-auto aspect-[9/16] w-full max-w-[330px] overflow-hidden rounded-[28px] bg-[#e5e5ea] shadow-[0_24px_70px_rgba(0,91,103,0.3)]">
+                        {previewUrl ? (
+                            <img
+                                src={previewUrl}
+                                alt={t(
+                                    `${goal.title} hedefi için Instagram hikâyesi önizlemesi`,
+                                    `Instagram story preview for the ${goal.title} goal`,
+                                )}
+                                className="size-full object-cover"
+                            />
+                        ) : (
+                            <div className="grid size-full place-items-center bg-[linear-gradient(145deg,#022d33,#0c92a4)] text-white">
+                                {previewFailed ? (
+                                    <p className="max-w-[220px] px-5 text-center text-[12px] leading-5 font-semibold">
+                                        {t(
+                                            'Önizleme oluşturulamadı. Tekrar deneyebilirsin.',
+                                            'The preview could not be generated. Please try again.',
+                                        )}
+                                    </p>
+                                ) : (
+                                    <span
+                                        className="size-7 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                                        aria-label={t('Önizleme hazırlanıyor', 'Preparing preview')}
+                                    />
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <p className="mx-auto mt-5 max-w-md text-center text-[11px] leading-5 text-[#8e8e93]">
                         {t(
-                            'hedefini tamamladın. Şimdi yolundaki diğer hedeflere devam edebilirsin.',
-                            'is complete. Now you can continue with the other goals on your path.',
+                            "Mobilde paylaşım menüsünden Instagram Hikâyeler'i seçebilirsin. Paylaşım menüsü desteklenmiyorsa Görseli İndir'i kullan.",
+                            'On mobile, choose Instagram Stories from the share sheet. If sharing is unavailable, use Download Image.',
                         )}
                     </p>
+
+                    {status !== 'idle' && status !== 'creating' && (
+                        <p
+                            className={`mt-2 text-center text-[11px] font-semibold ${status === 'error' ? 'text-[#ff3b30]' : status === 'unsupported' ? 'text-[#ff9500]' : 'text-[#28a745]'}`}
+                            role="status"
+                        >
+                            {status === 'shared'
+                                ? t('Paylaşım tamamlandı.', 'Sharing completed.')
+                                : status === 'downloaded'
+                                  ? t('Hikâye görseli indirildi.', 'The story image was downloaded.')
+                                  : status === 'unsupported'
+                                    ? t(
+                                          "Bu bağlantıda paylaşım menüsü kullanılamıyor. Görseli indirip Instagram Hikâyesi'ne ekleyebilirsin.",
+                                          'Sharing is unavailable on this connection. Download the image and add it to Instagram Stories.',
+                                      )
+                                    : t('Hikâye görseli oluşturulamadı. Tekrar dene.', 'The story image could not be created. Try again.')}
+                        </p>
+                    )}
                 </div>
 
-                <GoalRoadmap t={t} goals={roadmapGoals} featuredGoalId={completedGoal.id} className="mt-7" />
-
-                <div className="mt-5 grid grid-cols-2 gap-2">
+                <footer className="grid grid-cols-[0.8fr_1.2fr] gap-2 border-t border-black/[0.055] bg-white/75 px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-6 sm:pb-4">
                     <button
                         type="button"
-                        onClick={onClose}
-                        className="h-12 rounded-full bg-white text-[14px] font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
+                        onClick={() => void downloadStory()}
+                        disabled={status === 'creating'}
+                        className="h-12 rounded-full bg-black/[0.055] text-[13px] font-semibold text-[#3a3a3c] disabled:opacity-50"
                     >
-                        {t('Kapat', 'Close')}
+                        {t('Görseli İndir', 'Download Image')}
                     </button>
                     <button
                         type="button"
-                        onClick={onOpenGoals}
-                        className="h-12 rounded-full bg-[#007aff] text-[14px] font-semibold text-white shadow-[0_8px_22px_rgba(0,122,255,0.22)]"
+                        onClick={() => void shareStory()}
+                        disabled={status === 'creating'}
+                        className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#005b67,#0a8fa2)] px-5 text-[13px] font-semibold text-white shadow-[0_9px_24px_rgba(0,91,103,0.24)] disabled:opacity-60"
                     >
-                        {t('Hedeflerime Git', 'View My Goals')}
+                        {status === 'creating' ? (
+                            <span className="size-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                        ) : (
+                            <Share2 className="size-4" />
+                        )}
+                        {t("Instagram'da Paylaş", 'Share on Instagram')}
                     </button>
-                </div>
+                </footer>
             </section>
         </div>
     );
+}
+
+type GoalStoryFileInput = {
+    goal: GoalRecord;
+    profile: ProfileData;
+    locale: Locale;
+    t: Translate;
+};
+
+async function createGoalStoryFile({ goal, profile, locale, t }: GoalStoryFileInput): Promise<File> {
+    const width = 1080;
+    const height = 1920;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas is not supported.');
+
+    await document.fonts?.ready;
+
+    const fontFamily = '-apple-system, BlinkMacSystemFont, "SF Pro Display", Arial, sans-serif';
+    const completedAt = goal.fuAwardedAt ?? Date.now();
+    const completionDate = new Intl.DateTimeFormat(getIntlLocale(locale), {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    }).format(new Date(completedAt));
+    const displayName = profile.name.trim() || t('Fuevor kullanıcısı', 'Fuevor user');
+    const username = profile.username.trim().replace(/^@+/, '');
+
+    const background = context.createLinearGradient(0, 0, width, height);
+    background.addColorStop(0, '#022d33');
+    background.addColorStop(0.54, '#005b67');
+    background.addColorStop(1, '#0c92a4');
+    context.fillStyle = background;
+    context.fillRect(0, 0, width, height);
+
+    const topGlow = context.createRadialGradient(930, 80, 10, 930, 80, 520);
+    topGlow.addColorStop(0, 'rgba(103, 226, 236, 0.88)');
+    topGlow.addColorStop(1, 'rgba(103, 226, 236, 0)');
+    context.fillStyle = topGlow;
+    context.fillRect(400, 0, 680, 650);
+
+    const bottomGlow = context.createRadialGradient(60, 1780, 10, 60, 1780, 540);
+    bottomGlow.addColorStop(0, 'rgba(0, 122, 255, 0.48)');
+    bottomGlow.addColorStop(1, 'rgba(0, 122, 255, 0)');
+    context.fillStyle = bottomGlow;
+    context.fillRect(0, 1280, 700, 640);
+
+    const designHeight = width * (4 / 3);
+    const designTop = (height - designHeight) / 2;
+    context.save();
+    context.translate(0, designTop);
+
+    const [logoResult, fuResult, avatarResult] = await Promise.allSettled([
+        loadGoalStoryImage('/fuevor-white-logo.svg?v=2'),
+        loadGoalStoryImage('/fuevor-favicon.svg?v=4'),
+        profile.avatar ? loadGoalStoryImage(profile.avatar) : Promise.reject(new Error('No avatar')),
+    ]);
+
+    if (logoResult.status === 'fulfilled') {
+        drawContainedCanvasImage(context, logoResult.value, 320, 30, 440, 92);
+    } else {
+        context.fillStyle = '#ffffff';
+        context.font = `700 62px ${fontFamily}`;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText('fuevor', width / 2, 76);
+    }
+
+    context.fillStyle = 'rgba(255,255,255,0.82)';
+    context.font = `700 20px ${fontFamily}`;
+    context.textAlign = 'center';
+    context.textBaseline = 'alphabetic';
+    context.fillText('BUILD YOUR FUTURE SELF', width / 2, 155);
+
+    drawRoundedCanvasRect(context, 72, 230, 936, 930, 68);
+    const cardGradient = context.createLinearGradient(72, 230, 1008, 1160);
+    cardGradient.addColorStop(0, 'rgba(255,255,255,0.15)');
+    cardGradient.addColorStop(1, 'rgba(255,255,255,0.08)');
+    context.fillStyle = cardGradient;
+    context.fill();
+    context.strokeStyle = 'rgba(255,255,255,0.3)';
+    context.lineWidth = 3;
+    context.stroke();
+
+    context.save();
+    drawRoundedCanvasRect(context, 72, 230, 936, 930, 68);
+    context.clip();
+    context.globalAlpha = 0.1;
+    context.strokeStyle = '#ffffff';
+    context.lineWidth = 3;
+    context.beginPath();
+    context.arc(980, 830, 220, 0, Math.PI * 2);
+    context.stroke();
+    context.beginPath();
+    context.arc(980, 830, 128, 0, Math.PI * 2);
+    context.stroke();
+    context.restore();
+
+    context.beginPath();
+    context.arc(164, 340, 62, 0, Math.PI * 2);
+    context.fillStyle = '#ffffff';
+    context.shadowColor = 'rgba(0,0,0,0.18)';
+    context.shadowBlur = 28;
+    context.shadowOffsetY = 12;
+    context.fill();
+    context.shadowColor = 'transparent';
+    context.strokeStyle = '#005b67';
+    context.lineWidth = 12;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.beginPath();
+    context.moveTo(136, 342);
+    context.lineTo(157, 363);
+    context.lineTo(196, 318);
+    context.stroke();
+
+    drawRoundedCanvasRect(context, 822, 302, 154, 76, 38);
+    context.fillStyle = 'rgba(255,255,255,0.12)';
+    context.fill();
+    context.strokeStyle = 'rgba(255,255,255,0.26)';
+    context.lineWidth = 2;
+    context.stroke();
+    context.fillStyle = '#ffffff';
+    context.font = `700 29px ${fontFamily}`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText('100%', 899, 340);
+
+    context.textAlign = 'left';
+    context.textBaseline = 'alphabetic';
+    context.fillStyle = 'rgba(255,255,255,0.7)';
+    context.font = `700 25px ${fontFamily}`;
+    context.fillText(t('HEDEF TAMAMLANDI', 'GOAL COMPLETED'), 108, 475);
+
+    const titleLayout = fitGoalStoryTitle(context, goal.title, 820, 4, 74, 46);
+    context.fillStyle = '#ffffff';
+    context.font = `700 ${titleLayout.fontSize}px ${fontFamily}`;
+    let titleY = 555;
+    for (const line of titleLayout.lines) {
+        context.fillText(line, 108, titleY);
+        titleY += titleLayout.lineHeight;
+    }
+
+    const messageY = Math.min(titleY + 36, 885);
+    context.fillStyle = 'rgba(255,255,255,0.72)';
+    context.font = `400 29px ${fontFamily}`;
+    const messageLines = wrapGoalStoryText(
+        context,
+        t('Bir adım daha tamamlandı. Gelecekteki benliğime biraz daha yakınım.', 'One more step is complete. I am closer to my future self.'),
+        790,
+    ).slice(0, 2);
+    messageLines.forEach((line, index) => context.fillText(line, 108, messageY + index * 47));
+
+    drawRoundedCanvasRect(context, 108, 1038, 180, 76, 38);
+    context.fillStyle = '#ffffff';
+    context.fill();
+    context.fillStyle = '#005b67';
+    context.font = `700 34px ${fontFamily}`;
+    context.textBaseline = 'middle';
+    context.fillText('+1', 139, 1076);
+    if (fuResult.status === 'fulfilled') {
+        drawContainedCanvasImage(context, fuResult.value, 205, 1051, 50, 50);
+    } else {
+        context.font = `700 27px ${fontFamily}`;
+        context.fillText('fu', 205, 1076);
+    }
+
+    context.textAlign = 'right';
+    context.fillStyle = 'rgba(255,255,255,0.65)';
+    context.font = `600 24px ${fontFamily}`;
+    context.fillText(completionDate, 970, 1077);
+
+    const avatarX = 72;
+    const avatarY = 1220;
+    const avatarSize = 92;
+    context.beginPath();
+    context.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2 + 5, 0, Math.PI * 2);
+    context.fillStyle = 'rgba(255,255,255,0.78)';
+    context.fill();
+
+    if (avatarResult.status === 'fulfilled') {
+        drawCircularCanvasImage(context, avatarResult.value, avatarX, avatarY, avatarSize);
+    } else {
+        context.beginPath();
+        context.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+        context.fillStyle = 'rgba(255,255,255,0.14)';
+        context.fill();
+        context.fillStyle = '#ffffff';
+        context.font = `700 34px ${fontFamily}`;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(displayName.charAt(0).toLocaleUpperCase(getIntlLocale(locale)), avatarX + avatarSize / 2, avatarY + avatarSize / 2 + 1);
+    }
+
+    context.textAlign = 'left';
+    context.textBaseline = 'alphabetic';
+    context.fillStyle = '#ffffff';
+    context.font = `700 30px ${fontFamily}`;
+    context.fillText(ellipsizeGoalStoryText(context, displayName, 480), 190, 1258);
+    if (username) {
+        context.fillStyle = 'rgba(255,255,255,0.58)';
+        context.font = `500 22px ${fontFamily}`;
+        context.fillText(ellipsizeGoalStoryText(context, `@${username}`, 480), 190, 1295);
+    }
+
+    context.textAlign = 'center';
+    context.fillStyle = 'rgba(255,255,255,0.4)';
+    context.font = `600 17px ${fontFamily}`;
+    context.fillText('fuevor.com', width / 2, 1395);
+    context.restore();
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((result) => (result ? resolve(result) : reject(new Error('Story image could not be generated.'))), 'image/png', 1);
+    });
+    const safeGoalTitle =
+        goal.title
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLocaleLowerCase('en-US')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 48) || 'hedef';
+
+    return new File([blob], `${safeGoalTitle}-fuevor-story.png`, { type: 'image/png' });
+}
+
+function loadGoalStoryImage(source: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        if (!source.startsWith('data:') && !source.startsWith('blob:')) image.crossOrigin = 'anonymous';
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error(`Image could not be loaded: ${source}`));
+        image.src = source;
+    });
+}
+
+function drawRoundedCanvasRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+    const safeRadius = Math.min(radius, width / 2, height / 2);
+    context.beginPath();
+    context.moveTo(x + safeRadius, y);
+    context.arcTo(x + width, y, x + width, y + height, safeRadius);
+    context.arcTo(x + width, y + height, x, y + height, safeRadius);
+    context.arcTo(x, y + height, x, y, safeRadius);
+    context.arcTo(x, y, x + width, y, safeRadius);
+    context.closePath();
+}
+
+function drawContainedCanvasImage(
+    context: CanvasRenderingContext2D,
+    image: HTMLImageElement,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    alignment: 'left' | 'center' = 'center',
+) {
+    const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+    const drawWidth = image.naturalWidth * scale;
+    const drawHeight = image.naturalHeight * scale;
+    const drawX = alignment === 'left' ? x : x + (width - drawWidth) / 2;
+    context.drawImage(image, drawX, y + (height - drawHeight) / 2, drawWidth, drawHeight);
+}
+
+function drawCircularCanvasImage(context: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, size: number) {
+    const scale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
+    const sourceWidth = size / scale;
+    const sourceHeight = size / scale;
+    const sourceX = (image.naturalWidth - sourceWidth) / 2;
+    const sourceY = (image.naturalHeight - sourceHeight) / 2;
+
+    context.save();
+    context.beginPath();
+    context.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+    context.clip();
+    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, size, size);
+    context.restore();
+}
+
+function wrapGoalStoryText(context: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+    const words = text.trim().split(/\s+/);
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const word of words) {
+        const candidate = currentLine ? `${currentLine} ${word}` : word;
+        if (context.measureText(candidate).width <= maxWidth || !currentLine) {
+            currentLine = candidate;
+        } else {
+            lines.push(currentLine);
+            currentLine = word;
+        }
+    }
+    if (currentLine) lines.push(currentLine);
+    return lines;
+}
+
+function fitGoalStoryTitle(context: CanvasRenderingContext2D, title: string, maxWidth: number, maxLines: number, maxSize: number, minSize: number) {
+    const fontFamily = '-apple-system, BlinkMacSystemFont, "SF Pro Display", Arial, sans-serif';
+    let fontSize = maxSize;
+    let lines: string[] = [];
+
+    while (fontSize >= minSize) {
+        context.font = `700 ${fontSize}px ${fontFamily}`;
+        lines = wrapGoalStoryText(context, title, maxWidth);
+        if (lines.length <= maxLines) break;
+        fontSize -= 4;
+    }
+
+    if (lines.length > maxLines) {
+        lines = lines.slice(0, maxLines);
+        lines[maxLines - 1] = ellipsizeGoalStoryText(context, lines[maxLines - 1], maxWidth);
+    }
+
+    return { fontSize, lineHeight: Math.round(fontSize * 1.04), lines };
+}
+
+function ellipsizeGoalStoryText(context: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+    if (context.measureText(text).width <= maxWidth) return text;
+    let shortened = text;
+    while (shortened.length > 1 && context.measureText(`${shortened}…`).width > maxWidth) shortened = shortened.slice(0, -1);
+    return `${shortened.trimEnd()}…`;
+}
+
+function downloadFile(file: File) {
+    const objectUrl = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
 function GoalDetailPanel({
     t,
     locale,
     goal,
+    profile,
     onClose,
     onToggleBlock,
     onUpdate,
     onAddBlock,
+    onShare,
 }: {
     t: Translate;
     locale: Locale;
     goal: GoalRecord;
+    profile: ProfileData;
     onClose: () => void;
     onToggleBlock: (buildingBlockId: number) => void;
     onUpdate: (updates: Pick<GoalRecord, 'title' | 'gain' | 'deadline' | 'priority' | 'category'>) => void;
     onAddBlock: (title: string) => void;
+    onShare: () => void;
 }) {
     const [editing, setEditing] = useState(false);
+    const [storyOpen, setStoryOpen] = useState(false);
     const [editTitle, setEditTitle] = useState(goal.title);
     const [editGain, setEditGain] = useState(goal.gain);
     const [editDeadline, setEditDeadline] = useState(goal.deadline);
@@ -2053,6 +3371,48 @@ function GoalDetailPanel({
                             </div>
                         </div>
 
+                        <button
+                            type="button"
+                            onClick={onShare}
+                            className="mt-5 flex w-full items-center gap-3 rounded-[18px] border border-[#007aff]/15 bg-[#007aff]/8 px-4 py-3.5 text-left text-[#007aff] transition hover:bg-[#007aff]/12 active:scale-[0.99]"
+                        >
+                            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#007aff] text-white">
+                                <Globe2 className="size-[17px]" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-[13px] font-semibold">{t("Fuevor'da yayınla", 'Publish on Fuevor')}</span>
+                                <span className="mt-0.5 block text-[11px] text-[#007aff]/75">
+                                    {t("Hedefini kısa bir yorumla Fuevor'da yayınla.", 'Publish your goal on Fuevor with a short note.')}
+                                </span>
+                            </span>
+                            <ArrowRight className="size-4 shrink-0" />
+                        </button>
+
+                        {isGoalCompleted(goal) && (
+                            <button
+                                type="button"
+                                onClick={() => setStoryOpen(true)}
+                                className="group mt-3 flex w-full items-center gap-4 overflow-hidden rounded-[18px] border border-[#005b67]/12 bg-white p-3.5 text-left shadow-[0_8px_28px_rgba(0,91,103,0.07)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_34px_rgba(0,91,103,0.12)] active:scale-[0.99]"
+                            >
+                                <span className="relative grid aspect-[9/16] h-[64px] shrink-0 place-items-center overflow-hidden rounded-[12px] bg-[radial-gradient(circle_at_80%_10%,rgba(99,199,209,0.8),transparent_35%),linear-gradient(145deg,#032f35,#006879_65%,#28aebd)] text-white shadow-[0_7px_18px_rgba(0,91,103,0.18)]">
+                                    <Instagram className="size-5" />
+                                    <span className="absolute right-1 bottom-1 text-[6px] font-bold tracking-[0.05em]">9:16</span>
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block text-[13px] font-semibold tracking-[-0.015em] text-[#1d1d1f]">
+                                        {t("Instagram'da paylaş", 'Share on Instagram')}
+                                    </span>
+                                    <span className="mt-0.5 block text-[11px] leading-4 text-[#8e8e93]">
+                                        {t(
+                                            'Tamamlanan hedefini Fuevor tasarımlı bir hikâyeye dönüştür.',
+                                            'Turn your completed goal into a Fuevor-designed story.',
+                                        )}
+                                    </span>
+                                </span>
+                                <ArrowRight className="size-4 shrink-0 text-[#005b67] transition-transform group-hover:translate-x-0.5" />
+                            </button>
+                        )}
+
                         {editing ? (
                             <form
                                 onSubmit={saveGoal}
@@ -2154,6 +3514,12 @@ function GoalDetailPanel({
                                             `${completedCount} of ${goal.buildingBlocks.length} completed`,
                                         )}
                                     </p>
+                                    {goal.paretoEnabled && (
+                                        <p className="mt-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#007aff]">
+                                            <Sparkles className="size-3" />
+                                            {t('20/80 Odak Modu etkin', '20/80 Focus Mode is active')}
+                                        </p>
+                                    )}
                                 </div>
                                 <span className="text-[12px] font-semibold text-[#007aff]">%{progress}</span>
                             </div>
@@ -2170,10 +3536,16 @@ function GoalDetailPanel({
                                     >
                                         <Check className="size-4" strokeWidth={3} />
                                     </span>
-                                    <span
-                                        className={`min-w-0 flex-1 text-[15px] font-medium ${block.completed ? 'text-[#8e8e93] line-through' : ''}`}
-                                    >
-                                        {block.title}
+                                    <span className="min-w-0 flex-1">
+                                        <span className={`block text-[15px] font-medium ${block.completed ? 'text-[#8e8e93] line-through' : ''}`}>
+                                            {block.title}
+                                        </span>
+                                        {block.highImpact && (
+                                            <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-[#007aff]">
+                                                <Sparkles className="size-3" />
+                                                {t('Yüksek Etki', 'High Impact')}
+                                            </span>
+                                        )}
                                     </span>
                                     <span className="text-[11px] font-semibold text-[#aeaeb2] tabular-nums">{index + 1}</span>
                                 </button>
@@ -2214,6 +3586,8 @@ function GoalDetailPanel({
                     }}
                 />
             )}
+
+            {storyOpen && <GoalStoryDialog t={t} locale={locale} goal={goal} profile={profile} onClose={() => setStoryOpen(false)} />}
         </>
     );
 }
@@ -2227,6 +3601,8 @@ function NotesPanel({
     onAddNote,
     onUpdateNote,
     onRemoveNote,
+    initialComposerOpen = false,
+    onInitialComposerHandled,
 }: {
     t: Translate;
     locale: Locale;
@@ -2236,12 +3612,21 @@ function NotesPanel({
     onAddNote: (note: Omit<NoteRecord, 'id' | 'createdAt'>) => void;
     onUpdateNote: (id: number, note: Omit<NoteRecord, 'id' | 'createdAt'>) => void;
     onRemoveNote: (id: number) => void;
+    initialComposerOpen?: boolean;
+    onInitialComposerHandled?: () => void;
 }) {
-    const [composerOpen, setComposerOpen] = useState(notes.length === 0);
+    const [composerOpen, setComposerOpen] = useState(initialComposerOpen || notes.length === 0);
     const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [linkedBlockKey, setLinkedBlockKey] = useState('');
+
+    useEffect(() => {
+        if (!initialComposerOpen) return;
+
+        setComposerOpen(true);
+        onInitialComposerHandled?.();
+    }, [initialComposerOpen, onInitialComposerHandled]);
     const linkedBlock = useMemo(() => {
         if (!linkedBlockKey) return null;
 
@@ -2960,6 +4345,1920 @@ function LibraryPanel({
     );
 }
 
+function CommunityPanel({
+    t,
+    locale,
+    goals,
+    profile,
+    viewer,
+    posts,
+    books,
+    personalBooks,
+    bestScoreMs,
+    bestScorePlayer,
+    gamePlaysRemaining,
+    initialGoalId,
+    onInitialGoalHandled,
+    onNavigate,
+    liveGoalIds,
+}: {
+    t: Translate;
+    locale: Locale;
+    goals: GoalRecord[];
+    profile: ProfileData;
+    viewer: Viewer | null;
+    posts: CommunityPost[];
+    books: CommunityBook[];
+    personalBooks: BookRecord[];
+    bestScoreMs: number;
+    bestScorePlayer: GameScorePlayer | null;
+    gamePlaysRemaining: number;
+    initialGoalId: number | null;
+    onInitialGoalHandled: () => void;
+    onNavigate: (section: PanelSection) => void;
+    liveGoalIds: Record<string, number>;
+}) {
+    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
+    const [section, setSection] = useState<'goals' | 'library' | 'game'>('goals');
+    const demoUsername = profile.username.trim().replace(/^@+/, '').toLocaleLowerCase('tr-TR') || 'saidakdas';
+    const profileViewer: Viewer = {
+        id: viewer?.id ?? 0,
+        name: profile.name.trim() || viewer?.name || demoUsername,
+        username: demoUsername,
+        avatar: profile.avatar || viewer?.avatar,
+    };
+    const getFriendStatus = (username: string): CommunityFriendStatus | null =>
+        loadStoredFriendsData().relationships.find((relationship) => relationship.username === normalizeTeamUsername(username))?.status ?? null;
+    const handleFriendAction = (username: string) => {
+        const normalizedUsername = normalizeTeamUsername(username);
+        if (!normalizedUsername || normalizedUsername === demoUsername) return;
+
+        const data = loadStoredFriendsData();
+        const existing = data.relationships.find((relationship) => relationship.username === normalizedUsername);
+
+        if (existing?.status === 'friend' || existing?.status === 'outgoing') {
+            storeDemoData(DEMO_FRIENDS_STORAGE_KEY, {
+                ...data,
+                relationships: data.relationships.filter((candidate) => candidate.username !== normalizedUsername),
+                messages: data.messages.filter((message) => message.username !== normalizedUsername),
+            });
+            return;
+        }
+
+        const relationship: FriendRelationship = existing
+            ? { ...existing, status: 'friend', companion: false }
+            : { username: normalizedUsername, status: 'outgoing', companion: false, createdAt: Date.now() };
+
+        storeDemoData(DEMO_FRIENDS_STORAGE_KEY, {
+            ...data,
+            relationships: [...data.relationships.filter((candidate) => candidate.username !== normalizedUsername), relationship],
+        });
+    };
+    const finishedBooks = useMemo(
+        () =>
+            personalBooks
+                .filter((book) => book.status === 'finished')
+                .map((book) => ({
+                    id: String(book.id),
+                    title: book.title,
+                    author: book.author,
+                    rating: book.rating || null,
+                    comment: book.comment,
+                })),
+        [personalBooks],
+    );
+    const bookSyncSignature = JSON.stringify(finishedBooks);
+    const lastBookSync = useRef('');
+
+    useEffect(() => {
+        const syncKey = `${demoUsername}:${bookSyncSignature}`;
+        if (lastBookSync.current === syncKey) return;
+        lastBookSync.current = syncKey;
+
+        router.post(
+            route(betaMode ? 'community.books.sync' : 'demo.community.books.sync'),
+            betaMode ? { books: finishedBooks } : { demoUsername, books: finishedBooks },
+            { preserveScroll: true, preserveState: true, only: ['communityBooks'] },
+        );
+    }, [betaMode, bookSyncSignature, demoUsername, finishedBooks]);
+
+    useEffect(() => {
+        if (initialGoalId !== null) onInitialGoalHandled();
+    }, [initialGoalId, onInitialGoalHandled]);
+
+    return (
+        <div className="apple-interface min-h-screen overflow-x-hidden bg-[#f5f5f7] text-[#1d1d1f]">
+            <Head title={t('Topluluk', 'Community')} />
+            <CommunityHeader
+                t={t}
+                section={section}
+                profile={profile}
+                overallProgress={calculateOverallProgress(goals)}
+                onOpenProfile={() => onNavigate('overview')}
+                onSectionChange={setSection}
+            />
+            <main className="mx-auto max-w-3xl px-4 pt-24 pb-32 sm:px-6 sm:pt-28 sm:pb-16">
+                {section === 'goals' ? (
+                    <GoalsCommunity
+                        posts={posts}
+                        viewer={profileViewer}
+                        locale={locale}
+                        t={t}
+                        demoUsername={betaMode ? undefined : demoUsername}
+                        availableGoals={goals.flatMap((goal) => {
+                            const id = betaMode ? liveGoalIds[String(goal.id)] : goal.id;
+                            return id === undefined ? [] : [{ id, title: goal.title }];
+                        })}
+                        initialGoalId={betaMode && initialGoalId !== null ? liveGoalIds[String(initialGoalId)] : initialGoalId}
+                        getFriendStatus={betaMode ? undefined : getFriendStatus}
+                        onFriendAction={betaMode ? undefined : handleFriendAction}
+                    />
+                ) : section === 'library' ? (
+                    <PublicLibrary books={books} viewer={profileViewer} locale={locale} t={t} demoUsername={betaMode ? undefined : demoUsername} />
+                ) : (
+                    <CommunityGame
+                        locale={locale}
+                        t={t}
+                        initialBestScoreMs={bestScoreMs}
+                        initialBestScorePlayer={bestScorePlayer}
+                        initialPlaysRemaining={gamePlaysRemaining}
+                        playerName={profileViewer.name}
+                        playerAvatar={profileViewer.avatar}
+                    />
+                )}
+            </main>
+        </div>
+    );
+}
+
+function CommunityHeader({
+    t,
+    section,
+    profile,
+    overallProgress,
+    onOpenProfile,
+    onSectionChange,
+}: {
+    t: Translate;
+    section: 'goals' | 'library' | 'game';
+    profile: ProfileData;
+    overallProgress: number;
+    onOpenProfile: () => void;
+    onSectionChange: (section: 'goals' | 'library' | 'game') => void;
+}) {
+    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
+    const items = [
+        { id: 'goals' as const, label: t('Hedefler', 'Goals'), icon: Target, iconOnly: false },
+        { id: 'library' as const, label: t('Kitaplık', 'Library'), icon: BookOpen, iconOnly: false },
+        { id: 'game' as const, label: t('Oyun', 'Game'), icon: FuevorRunnerIcon, iconOnly: true },
+    ].filter((item) => !betaMode || item.id !== 'game');
+    const select = (id: (typeof items)[number]['id']) => {
+        onSectionChange(id);
+    };
+    const profileInitial = profile.name.trim().charAt(0).toLocaleUpperCase() || 'K';
+
+    return (
+        <>
+            <header className="fixed inset-x-0 top-0 z-30 border-b border-black/[0.055] bg-[#f5f5f7]/80 backdrop-blur-2xl">
+                <div className="mx-auto flex h-16 max-w-3xl items-center justify-center gap-4 px-5 sm:h-[72px] sm:justify-between sm:px-6">
+                    <button
+                        type="button"
+                        onClick={() => onSectionChange('goals')}
+                        className="relative h-9 w-28 shrink-0 sm:w-32"
+                        aria-label={t('Topluluk hedeflerine git', 'Go to community goals')}
+                    >
+                        <BrandLogo variant="black" className="demo-logo-light absolute inset-0 h-full w-full transition-opacity" />
+                        <BrandLogo variant="white" className="demo-logo-dark absolute inset-0 h-full w-full opacity-0 transition-opacity" />
+                        <img
+                            src="/fuevor-beta-text.svg"
+                            alt="Beta"
+                            className="pointer-events-none absolute -top-1 right-2 h-2.5 w-auto select-none sm:right-2.5 sm:h-3"
+                            draggable={false}
+                        />
+                    </button>
+
+                    <nav
+                        className="hidden items-center rounded-full bg-black/[0.045] p-1 sm:flex"
+                        aria-label={t('Topluluk bölümleri', 'Community sections')}
+                    >
+                        {items.map(({ id, label, icon: Icon, iconOnly }) => {
+                            const selected = id === section;
+
+                            return (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => select(id)}
+                                    className={`grid h-9 place-items-center rounded-full text-[12px] font-medium whitespace-nowrap transition ${iconOnly ? 'w-10 px-0' : 'px-5'} ${selected ? 'bg-white text-[#1d1d1f] shadow-[0_1px_5px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
+                                    aria-current={selected ? 'page' : undefined}
+                                    aria-label={iconOnly ? label : undefined}
+                                >
+                                    {iconOnly ? <Icon className="size-[21px]" /> : label}
+                                </button>
+                            );
+                        })}
+                    </nav>
+
+                    <button
+                        type="button"
+                        onClick={onOpenProfile}
+                        className="hidden size-11 shrink-0 place-items-center rounded-full p-[2.5px] text-[#6e6e73] shadow-[0_3px_12px_rgba(0,0,0,0.07)] transition hover:scale-[1.03] active:scale-95 sm:grid"
+                        style={{ background: `conic-gradient(#007aff ${overallProgress}%, rgba(142,142,147,0.2) 0)` }}
+                        aria-label={t('Kişisel profile dön', 'Return to personal profile')}
+                    >
+                        <span className="grid size-full place-items-center overflow-hidden rounded-full border-2 border-[#f5f5f7] bg-white">
+                            {profile.avatar ? (
+                                <img src={profile.avatar} alt="" className="size-full object-cover" />
+                            ) : (
+                                <span className="grid size-full place-items-center bg-[#007aff] text-[15px] font-semibold text-white">
+                                    {profileInitial}
+                                </span>
+                            )}
+                        </span>
+                    </button>
+                </div>
+            </header>
+
+            <div className="demo-mobile-dock fixed inset-x-0 bottom-0 z-40 flex items-end gap-2.5 px-3 sm:hidden">
+                <nav
+                    className="demo-mobile-navigation grid min-w-0 flex-1 grid-cols-3 rounded-[29px] border border-white/48 bg-white/45 p-1.5 shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px]"
+                    aria-label={t('Mobil topluluk bölümleri', 'Mobile community sections')}
+                >
+                    {items.map(({ id, label, icon: Icon, iconOnly }) => {
+                        const selected = id === section;
+
+                        return (
+                            <button
+                                key={id}
+                                type="button"
+                                onClick={() => select(id)}
+                                className={`demo-mobile-nav-item relative flex h-[56px] min-w-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-[23px] text-[10px] leading-none font-semibold whitespace-nowrap transition duration-300 ${selected ? 'is-active text-[#007aff]' : 'text-[#6e6e73]'}`}
+                                aria-current={selected ? 'page' : undefined}
+                            >
+                                <Icon className={`relative z-10 ${iconOnly ? 'size-[27px]' : 'size-[21px]'}`} strokeWidth={selected ? 2.5 : 2} />
+                                <span className={iconOnly ? 'sr-only' : 'relative z-10 max-w-full truncate px-1'}>{label}</span>
+                            </button>
+                        );
+                    })}
+                </nav>
+
+                <button
+                    type="button"
+                    onClick={onOpenProfile}
+                    className="demo-mobile-profile-island grid size-[69px] shrink-0 place-items-center rounded-full border border-white/48 bg-white/45 p-[6px] shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px] transition active:scale-95"
+                    aria-label={t('Kişisel profile dön', 'Return to personal profile')}
+                >
+                    <span
+                        className="grid size-full place-items-center rounded-full p-[3px]"
+                        style={{ background: `conic-gradient(#007aff ${overallProgress}%, rgba(142,142,147,0.2) 0)` }}
+                    >
+                        <span className="grid size-full place-items-center overflow-hidden rounded-full border-2 border-white/80 bg-[#f2f2f7]">
+                            {profile.avatar ? (
+                                <img
+                                    src={profile.avatar}
+                                    alt={t('Profil fotoğrafı', 'Profile photo')}
+                                    className="size-full rounded-full object-cover shadow-[0_3px_12px_rgba(0,0,0,0.16)]"
+                                />
+                            ) : (
+                                <span className="grid size-full place-items-center bg-[#007aff] text-[15px] font-semibold text-white">
+                                    {profileInitial}
+                                </span>
+                            )}
+                        </span>
+                    </span>
+                </button>
+            </div>
+        </>
+    );
+}
+
+function FriendsPanel({
+    t,
+    locale,
+    profile,
+    goals,
+    planItems,
+    posts,
+    onNavigate,
+}: {
+    t: Translate;
+    locale: Locale;
+    profile: ProfileData;
+    goals: GoalRecord[];
+    planItems: PlanItem[];
+    posts: CommunityPost[];
+    onNavigate: (section: PanelSection) => void;
+}) {
+    const [data, setData] = useState<FriendsData>(loadStoredFriendsData);
+    const [search, setSearch] = useState('');
+    const [message, setMessage] = useState('');
+    const [outgoingOpen, setOutgoingOpen] = useState(false);
+    const [messagesOpen, setMessagesOpen] = useState(false);
+    const [mobileChatOpen, setMobileChatOpen] = useState(false);
+    const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+    const [sharePicker, setSharePicker] = useState<'plan' | 'goal' | null>(null);
+    const [uploadKind, setUploadKind] = useState<'photo' | 'document'>('photo');
+    const [attachmentError, setAttachmentError] = useState('');
+    const attachmentInputRef = useRef<HTMLInputElement>(null);
+    const candidates = useMemo(() => {
+        const profiles = new Map<string, CommunityProfile>();
+
+        posts.forEach((post) => {
+            profiles.set(post.authorProfile.username, post.authorProfile);
+            post.ideas.forEach((idea) => {
+                profiles.set(idea.authorProfile.username, idea.authorProfile);
+                (idea.replies ?? []).forEach((reply) => profiles.set(reply.authorProfile.username, reply.authorProfile));
+            });
+        });
+
+        return Array.from(profiles.values()).filter((candidate) => candidate.username !== normalizeTeamUsername(profile.username));
+    }, [posts, profile.username]);
+    const profileByUsername = useMemo(() => new Map(candidates.map((candidate) => [candidate.username, candidate])), [candidates]);
+    const friends = data.relationships.filter((relationship) => relationship.status === 'friend');
+    const incoming = data.relationships.filter((relationship) => relationship.status === 'incoming');
+    const outgoing = data.relationships.filter((relationship) => relationship.status === 'outgoing');
+    const [activeUsername, setActiveUsername] = useState('');
+    const [chatUsername, setChatUsername] = useState('');
+    const activeRelationship = data.relationships.find(
+        (relationship) => relationship.username === activeUsername && relationship.status === 'friend',
+    );
+    const activeProfile = activeRelationship ? profileByUsername.get(activeRelationship.username) : undefined;
+    const chatRelationship = data.relationships.find((relationship) => relationship.username === chatUsername && relationship.status === 'friend');
+    const chatProfile = chatRelationship ? profileByUsername.get(chatRelationship.username) : undefined;
+    const today = formatDateKey(new Date());
+    const visiblePlanItems = useMemo(() => {
+        if (!activeRelationship?.companion || activeRelationship.accessScope === 'goal') return [];
+        const range: PlanRange = activeRelationship.accessScope === 'day' ? 'today' : activeRelationship.accessScope === 'year' ? 'year' : 'week';
+        return sortPlanItems(planItems.filter((item) => isPlanItemInPeriod(item, range, today)));
+    }, [activeRelationship, planItems, today]);
+    const visibleGoal =
+        activeRelationship?.companion && activeRelationship.accessScope === 'goal'
+            ? goals.find((goalRecord) => goalRecord.id === activeRelationship.goalId)
+            : undefined;
+    const conversation = data.messages.filter((item) => item.username === chatUsername).sort((first, second) => first.createdAt - second.createdAt);
+    const activeSharedContent = data.messages
+        .filter((item) => item.username === activeUsername && item.sender === 'self' && item.sharedContent)
+        .sort((first, second) => second.createdAt - first.createdAt);
+    const connectedUsernames = new Set(data.relationships.map((relationship) => relationship.username));
+    const normalizedSearch = search.trim().toLocaleLowerCase(getIntlLocale(locale));
+    const suggestions = candidates
+        .filter(
+            (candidate) =>
+                !connectedUsernames.has(candidate.username) &&
+                (!normalizedSearch || `${candidate.name} ${candidate.username}`.toLocaleLowerCase(getIntlLocale(locale)).includes(normalizedSearch)),
+        )
+        .slice(0, 4);
+
+    useEffect(() => {
+        storeDemoData(DEMO_FRIENDS_STORAGE_KEY, data);
+    }, [data]);
+
+    useEffect(() => {
+        if (activeUsername && !friends.some((friend) => friend.username === activeUsername)) setActiveUsername('');
+    }, [activeUsername, friends]);
+
+    useEffect(() => {
+        if (chatUsername && !friends.some((friend) => friend.username === chatUsername)) {
+            setChatUsername('');
+            setMobileChatOpen(false);
+        }
+    }, [chatUsername, friends]);
+
+    const updateRelationship = (username: string, update: (relationship: FriendRelationship) => FriendRelationship) => {
+        setData((current) => ({
+            ...current,
+            relationships: current.relationships.map((relationship) => (relationship.username === username ? update(relationship) : relationship)),
+        }));
+    };
+
+    const sendRequest = (username: string) => {
+        setData((current) => ({
+            ...current,
+            relationships: [
+                ...current.relationships.filter((relationship) => relationship.username !== username),
+                { username, status: 'outgoing', companion: false, createdAt: Date.now() },
+            ],
+        }));
+        setSearch('');
+    };
+
+    const acceptRequest = (username: string) => {
+        updateRelationship(username, (relationship) => ({ ...relationship, status: 'friend' }));
+        setActiveUsername(username);
+    };
+
+    const removeRelationship = (username: string) => {
+        setData((current) => ({
+            relationships: current.relationships.filter((relationship) => relationship.username !== username),
+            messages: current.messages.filter((item) => item.username !== username),
+        }));
+    };
+
+    const toggleCompanion = () => {
+        if (!activeRelationship) return;
+        updateRelationship(activeRelationship.username, (relationship) => ({
+            ...relationship,
+            companion: !relationship.companion,
+            accessScope: relationship.companion ? undefined : 'week',
+            goalId: relationship.companion ? undefined : goals[0]?.id,
+        }));
+    };
+
+    const changeAccessScope = (accessScope: CompanionAccessScope) => {
+        if (!activeRelationship) return;
+        updateRelationship(activeRelationship.username, (relationship) => ({
+            ...relationship,
+            accessScope,
+            goalId: accessScope === 'goal' ? (relationship.goalId ?? goals[0]?.id) : undefined,
+        }));
+    };
+
+    const sendMessage = (event: FormEvent) => {
+        event.preventDefault();
+        if (!chatRelationship || !message.trim()) return;
+
+        const body = message.trim();
+        appendChatMessage({ body });
+        setMessage('');
+    };
+
+    const appendChatMessage = (content: Pick<FriendMessage, 'body'> & Partial<Pick<FriendMessage, 'attachments' | 'sharedContent'>>) => {
+        if (!chatRelationship) return;
+
+        setData((current) => ({
+            ...current,
+            messages: [
+                ...current.messages,
+                {
+                    id: Date.now() + Math.floor(Math.random() * 1000),
+                    username: chatRelationship.username,
+                    sender: 'self',
+                    createdAt: Date.now(),
+                    ...content,
+                },
+            ],
+        }));
+        setAttachmentMenuOpen(false);
+        setSharePicker(null);
+        setAttachmentError('');
+    };
+
+    const openFilePicker = (kind: 'photo' | 'document') => {
+        setUploadKind(kind);
+        setAttachmentError('');
+        window.setTimeout(() => attachmentInputRef.current?.click(), 0);
+    };
+
+    const attachFile = async (file: File | undefined) => {
+        if (!file || !chatRelationship) return;
+        const isPhoto = uploadKind === 'photo';
+        if (isPhoto && !file.type.startsWith('image/')) {
+            setAttachmentError(t('Lütfen bir fotoğraf dosyası seç.', 'Please select an image file.'));
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            setAttachmentError(t('Dosya boyutu en fazla 10 MB olabilir.', 'The file can be up to 10 MB.'));
+            return;
+        }
+
+        let dataUrl: string | undefined;
+        try {
+            dataUrl = isPhoto && file.size <= 2 * 1024 * 1024 ? await readFileAsDataUrl(file) : undefined;
+        } catch {
+            setAttachmentError(t('Dosya okunamadı. Lütfen tekrar dene.', 'The file could not be read. Please try again.'));
+            return;
+        }
+        appendChatMessage({
+            body: '',
+            attachments: [{ kind: uploadKind, name: file.name, mimeType: file.type, size: file.size, dataUrl }],
+        });
+        if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+    };
+
+    const sharePlan = (item: PlanItem) => {
+        appendChatMessage({
+            body: '',
+            sharedContent: {
+                kind: 'plan',
+                itemId: item.id,
+                title: item.title,
+                scheduledFor: item.scheduledFor,
+                completed: item.completed,
+            },
+        });
+    };
+
+    const shareGoal = (goalRecord: GoalRecord) => {
+        appendChatMessage({
+            body: '',
+            sharedContent: {
+                kind: 'goal',
+                goalId: goalRecord.id,
+                title: goalRecord.title,
+                progress: calculateGoalProgress(goalRecord),
+                buildingBlockCount: goalRecord.buildingBlocks.length,
+            },
+        });
+    };
+
+    return (
+        <div className="apple-interface min-h-screen overflow-x-hidden bg-[#f5f5f7] text-[#1d1d1f]">
+            <Head title={t('Yol Arkadaşları', 'Companions')} />
+            <PanelHeader t={t} active="friends" goals={goals} onNavigate={onNavigate} />
+
+            <main className="mx-auto max-w-6xl px-5 pt-24 pb-32 sm:px-8 sm:pt-32 sm:pb-16">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <p className="text-[12px] font-semibold text-[#007aff]">{t('BİRLİKTE İLERLE', 'MOVE FORWARD TOGETHER')}</p>
+                        <h1 className="mt-2 text-[clamp(2.3rem,6vw,4rem)] leading-none font-semibold tracking-[-0.055em]">
+                            {t('Yol Arkadaşları', 'Companions')}
+                        </h1>
+                        <p className="mt-3 max-w-2xl text-[15px] leading-6 text-[#6e6e73]">
+                            {t(
+                                'Arkadaşlarını ekle; güvendiğin birine plan veya hedef bazında Yol Arkadaşı görevi ver.',
+                                'Add friends and give someone you trust Companion access to a plan or goal.',
+                            )}
+                        </p>
+                    </div>
+                    <div className="rounded-full bg-[#007aff]/9 px-4 py-2 text-[11px] font-semibold text-[#007aff]">
+                        {friends.length} {t('arkadaş', 'friends')}
+                    </div>
+                </div>
+
+                <section className="mt-7 rounded-[26px] border border-black/[0.06] bg-white p-4 shadow-[0_10px_38px_rgba(0,0,0,0.045)] sm:p-5">
+                    <div className="flex items-center gap-3">
+                        <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#007aff]/10 text-[#007aff]">
+                            <UserPlus className="size-5" />
+                        </span>
+                        <label className="min-w-0 flex-1">
+                            <span className="sr-only">{t('Arkadaş ara', 'Search friends')}</span>
+                            <input
+                                value={search}
+                                onChange={(event) => setSearch(event.target.value)}
+                                placeholder={t('İsim veya @kullanıcıadı ile arkadaş ara', 'Search by name or @username')}
+                                className="h-11 w-full rounded-full border border-black/[0.08] bg-[#f8f8fa] px-4 text-[13px] outline-none focus:border-[#007aff]"
+                            />
+                        </label>
+                    </div>
+                    {suggestions.length > 0 && (
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                            {suggestions.map((candidate) => (
+                                <div key={candidate.username} className="flex min-w-0 items-center gap-2.5 rounded-[18px] bg-[#f5f5f7] p-3">
+                                    <FriendAvatar profile={candidate} />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-[12px] font-semibold">{candidate.name}</p>
+                                        <p className="truncate text-[10px] text-[#8e8e93]">@{candidate.username}</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => sendRequest(candidate.username)}
+                                        className="grid size-8 shrink-0 place-items-center rounded-full bg-[#007aff] text-white"
+                                        aria-label={t(
+                                            `${candidate.name} kişisine arkadaşlık isteği gönder`,
+                                            `Send a friend request to ${candidate.name}`,
+                                        )}
+                                    >
+                                        <Plus className="size-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section>
+
+                {(incoming.length > 0 || outgoing.length > 0) && (
+                    <section className="mt-5 grid gap-4 lg:grid-cols-2">
+                        {incoming.length > 0 && (
+                            <div className="rounded-[24px] border border-[#007aff]/12 bg-[#007aff]/5 p-4">
+                                <h2 className="text-[13px] font-semibold text-[#007aff]">{t('Gelen İstekler', 'Incoming Requests')}</h2>
+                                <div className="mt-3 space-y-2">
+                                    {incoming.map((relationship) => {
+                                        const candidate = profileByUsername.get(relationship.username);
+                                        return (
+                                            <div
+                                                key={relationship.username}
+                                                className="flex items-center gap-3 rounded-[17px] bg-white p-3 shadow-sm"
+                                            >
+                                                <FriendAvatar profile={candidate} username={relationship.username} />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-[12px] font-semibold">
+                                                        {candidate?.name ?? `@${relationship.username}`}
+                                                    </p>
+                                                    <p className="truncate text-[10px] text-[#8e8e93]">@{relationship.username}</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => acceptRequest(relationship.username)}
+                                                    className="grid size-8 place-items-center rounded-full bg-[#34c759] text-white"
+                                                    aria-label={t('Kabul et', 'Accept')}
+                                                >
+                                                    <Check className="size-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeRelationship(relationship.username)}
+                                                    className="grid size-8 place-items-center rounded-full bg-black/[0.055] text-[#8e8e93]"
+                                                    aria-label={t('Reddet', 'Decline')}
+                                                >
+                                                    <X className="size-4" />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                        {outgoing.length > 0 && (
+                            <div className="h-fit rounded-[24px] border border-black/[0.06] bg-white p-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setOutgoingOpen((open) => !open)}
+                                    aria-expanded={outgoingOpen}
+                                    className="flex w-full items-center justify-between gap-4 text-left"
+                                >
+                                    <span className="flex min-w-0 items-center gap-2.5">
+                                        <span className="text-[13px] font-semibold">{t('Gönderilen İstekler', 'Sent Requests')}</span>
+                                        <span className="grid min-w-6 place-items-center rounded-full bg-black/[0.055] px-2 py-1 text-[9px] font-semibold text-[#6e6e73]">
+                                            {outgoing.length}
+                                        </span>
+                                    </span>
+                                    <ChevronDown
+                                        className={`size-4 shrink-0 text-[#8e8e93] transition-transform ${outgoingOpen ? 'rotate-180' : ''}`}
+                                    />
+                                </button>
+                                {outgoingOpen && (
+                                    <div className="mt-3 max-h-[360px] space-y-2 overflow-y-auto overscroll-contain pr-1">
+                                        {outgoing.map((relationship) => {
+                                            const candidate = profileByUsername.get(relationship.username);
+                                            return (
+                                                <div key={relationship.username} className="flex items-center gap-3 rounded-[17px] bg-[#f5f5f7] p-3">
+                                                    <FriendAvatar profile={candidate} username={relationship.username} />
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="truncate text-[12px] font-semibold">
+                                                            {candidate?.name ?? `@${relationship.username}`}
+                                                        </p>
+                                                        <p className="truncate text-[10px] text-[#8e8e93]">
+                                                            {t('Yanıt bekleniyor', 'Awaiting response')}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeRelationship(relationship.username)}
+                                                        className="text-[10px] font-semibold text-[#ff3b30]"
+                                                    >
+                                                        {t('İptal', 'Cancel')}
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </section>
+                )}
+
+                <section className="mt-6 overflow-hidden rounded-[28px] border border-black/[0.06] bg-white shadow-[0_12px_42px_rgba(0,0,0,0.05)]">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setMessagesOpen((open) => !open);
+                            setAttachmentMenuOpen(false);
+                            setSharePicker(null);
+                        }}
+                        aria-expanded={messagesOpen}
+                        className={`flex w-full items-center gap-3 px-5 py-4 text-left sm:px-6 ${messagesOpen ? 'border-b border-black/[0.055]' : ''}`}
+                    >
+                        <span className="grid size-10 place-items-center rounded-[13px] bg-[#007aff]/10 text-[#007aff]">
+                            <MessageCircle className="size-[18px]" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            <h2 className="text-[17px] font-semibold">{t('Mesajlar', 'Messages')}</h2>
+                            <p className="mt-0.5 text-[10px] text-[#8e8e93]">
+                                {t('Tüm özel konuşmaların tek bir yerde.', 'All your private conversations in one place.')}
+                            </p>
+                        </div>
+                        <ChevronDown className={`size-4 shrink-0 text-[#8e8e93] transition-transform ${messagesOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {messagesOpen &&
+                        (friends.length === 0 ? (
+                            <p className="px-5 py-12 text-center text-[12px] text-[#8e8e93]">
+                                {t('Mesajlaşmak için önce bir arkadaş ekle.', 'Add a friend before starting a conversation.')}
+                            </p>
+                        ) : (
+                            <div className="grid lg:grid-cols-[280px_minmax(0,1fr)]">
+                                <div
+                                    className={`${mobileChatOpen ? 'hidden' : 'block'} max-h-[420px] overflow-y-auto overscroll-contain bg-[#fbfbfc] lg:block lg:border-r lg:border-black/[0.055]`}
+                                >
+                                    {friends.map((relationship) => {
+                                        const candidate = profileByUsername.get(relationship.username);
+                                        const selected = relationship.username === chatUsername;
+                                        const userMessages = data.messages
+                                            .filter((item) => item.username === relationship.username)
+                                            .sort((first, second) => first.createdAt - second.createdAt);
+                                        const lastMessage = userMessages[userMessages.length - 1];
+
+                                        return (
+                                            <button
+                                                key={relationship.username}
+                                                type="button"
+                                                onClick={() => {
+                                                    setChatUsername(relationship.username);
+                                                    setMessage('');
+                                                    setMobileChatOpen(true);
+                                                    setAttachmentMenuOpen(false);
+                                                    setSharePicker(null);
+                                                }}
+                                                className={`flex w-full items-center gap-3 border-b border-black/[0.045] px-4 py-4 text-left transition last:border-b-0 ${selected ? 'bg-[#007aff]/8' : 'hover:bg-black/[0.025]'}`}
+                                            >
+                                                <FriendAvatar profile={candidate} username={relationship.username} />
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block truncate text-[12px] font-semibold">
+                                                        {candidate?.name ?? `@${relationship.username}`}
+                                                    </span>
+                                                    <span className="mt-0.5 block truncate text-[9px] text-[#8e8e93]">
+                                                        {lastMessage
+                                                            ? getFriendMessagePreview(lastMessage, t)
+                                                            : t('Henüz mesaj yok', 'No messages yet')}
+                                                    </span>
+                                                </span>
+                                                <ChevronRight className="size-4 shrink-0 text-[#c7c7cc] lg:hidden" />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {chatRelationship ? (
+                                    <div className={`${mobileChatOpen ? 'block' : 'hidden'} min-w-0 lg:block`}>
+                                        <div className="flex items-center gap-3 border-b border-black/[0.055] px-4 py-3.5">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setMobileChatOpen(false);
+                                                    setAttachmentMenuOpen(false);
+                                                    setSharePicker(null);
+                                                }}
+                                                className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.045] text-[#515154] lg:hidden"
+                                                aria-label={t('Konuşmalara dön', 'Back to conversations')}
+                                            >
+                                                <ArrowLeft className="size-4" />
+                                            </button>
+                                            <FriendAvatar profile={chatProfile} username={chatRelationship.username} />
+                                            <div className="min-w-0">
+                                                <p className="truncate text-[13px] font-semibold">
+                                                    {chatProfile?.name ?? `@${chatRelationship.username}`}
+                                                </p>
+                                                <p className="truncate text-[9px] text-[#8e8e93]">@{chatRelationship.username}</p>
+                                            </div>
+                                        </div>
+                                        <div className="max-h-80 min-h-52 space-y-2 overflow-y-auto overscroll-contain bg-[#f8f8fa] p-4">
+                                            {conversation.length === 0 ? (
+                                                <p className="py-14 text-center text-[11px] text-[#8e8e93]">
+                                                    {t('Sohbeti başlatmak için bir mesaj gönder.', 'Send a message to start the conversation.')}
+                                                </p>
+                                            ) : (
+                                                conversation.map((item) => (
+                                                    <div key={item.id} className={`flex ${item.sender === 'self' ? 'justify-end' : 'justify-start'}`}>
+                                                        <div
+                                                            className={`max-w-[82%] rounded-[17px] px-3.5 py-2.5 ${item.sender === 'self' ? 'rounded-br-[6px] bg-[#007aff] text-white' : 'rounded-bl-[6px] bg-white text-[#1d1d1f] shadow-sm'}`}
+                                                        >
+                                                            {item.body && <p className="text-[11px] leading-5 whitespace-pre-wrap">{item.body}</p>}
+                                                            {item.attachments?.map((attachment, index) => (
+                                                                <div
+                                                                    key={`${attachment.name}-${index}`}
+                                                                    className={`${item.body ? 'mt-2' : ''} overflow-hidden rounded-[13px] ${item.sender === 'self' ? 'bg-white/15' : 'bg-[#f5f5f7]'}`}
+                                                                >
+                                                                    {attachment.kind === 'photo' && attachment.dataUrl ? (
+                                                                        <img
+                                                                            src={attachment.dataUrl}
+                                                                            alt={attachment.name}
+                                                                            className="max-h-52 w-full object-cover"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2.5 p-3">
+                                                                            {attachment.kind === 'photo' ? (
+                                                                                <ImageIcon className="size-5 shrink-0" />
+                                                                            ) : (
+                                                                                <FileText className="size-5 shrink-0" />
+                                                                            )}
+                                                                            <span className="min-w-0">
+                                                                                <span className="block truncate text-[10px] font-semibold">
+                                                                                    {attachment.name}
+                                                                                </span>
+                                                                                <span
+                                                                                    className={`block text-[8px] ${item.sender === 'self' ? 'text-white/70' : 'text-[#8e8e93]'}`}
+                                                                                >
+                                                                                    {formatFileSize(attachment.size, locale)}
+                                                                                </span>
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                            {item.sharedContent && (
+                                                                <FriendSharedContentCard content={item.sharedContent} locale={locale} t={t} compact />
+                                                            )}
+                                                            <time
+                                                                className={`mt-1 block text-right text-[8px] ${item.sender === 'self' ? 'text-white/70' : 'text-[#8e8e93]'}`}
+                                                            >
+                                                                {formatFriendMessageTime(item.createdAt, locale)}
+                                                            </time>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                        <form
+                                            onSubmit={sendMessage}
+                                            className="relative flex items-center gap-2 border-t border-black/[0.055] p-3 sm:p-4"
+                                        >
+                                            <input
+                                                ref={attachmentInputRef}
+                                                type="file"
+                                                accept={
+                                                    uploadKind === 'photo'
+                                                        ? 'image/*'
+                                                        : '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,application/*'
+                                                }
+                                                className="hidden"
+                                                onChange={(event) => void attachFile(event.target.files?.[0])}
+                                            />
+                                            <div className="relative shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setAttachmentMenuOpen((open) => !open);
+                                                        setSharePicker(null);
+                                                        setAttachmentError('');
+                                                    }}
+                                                    aria-expanded={attachmentMenuOpen}
+                                                    aria-label={t('Fotoğraf, belge, plan veya hedef ekle', 'Add a photo, document, plan, or goal')}
+                                                    className={`grid size-11 place-items-center rounded-full transition ${attachmentMenuOpen ? 'rotate-45 bg-[#1d1d1f] text-white' : 'bg-black/[0.055] text-[#515154]'}`}
+                                                >
+                                                    <Plus className="size-5" />
+                                                </button>
+
+                                                {attachmentMenuOpen && (
+                                                    <div className="absolute bottom-14 left-0 z-20 w-[min(280px,calc(100vw-64px))] overflow-hidden rounded-[20px] border border-black/[0.08] bg-white p-2 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
+                                                        {sharePicker === null ? (
+                                                            <div className="grid gap-1">
+                                                                <AttachmentMenuButton
+                                                                    icon={<ImageIcon className="size-4" />}
+                                                                    label={t('Fotoğraf gönder', 'Send photo')}
+                                                                    onClick={() => openFilePicker('photo')}
+                                                                />
+                                                                <AttachmentMenuButton
+                                                                    icon={<FileText className="size-4" />}
+                                                                    label={t('Belge gönder', 'Send document')}
+                                                                    onClick={() => openFilePicker('document')}
+                                                                />
+                                                                <AttachmentMenuButton
+                                                                    icon={<CalendarDays className="size-4" />}
+                                                                    label={t('Plan paylaş', 'Share plan')}
+                                                                    onClick={() => setSharePicker('plan')}
+                                                                />
+                                                                <AttachmentMenuButton
+                                                                    icon={<Target className="size-4" />}
+                                                                    label={t('Hedef paylaş', 'Share goal')}
+                                                                    onClick={() => setSharePicker('goal')}
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSharePicker(null)}
+                                                                    className="mb-1 flex w-full items-center gap-2 rounded-[12px] px-3 py-2 text-left text-[10px] font-semibold text-[#007aff]"
+                                                                >
+                                                                    <ArrowLeft className="size-3.5" />
+                                                                    {t('Geri', 'Back')}
+                                                                </button>
+                                                                <p className="px-3 pb-2 text-[10px] font-semibold text-[#6e6e73]">
+                                                                    {sharePicker === 'plan'
+                                                                        ? t('Takip edilecek planı seç', 'Select a plan to follow')
+                                                                        : t('Paylaşılacak hedefi seç', 'Select a goal to share')}
+                                                                </p>
+                                                                <div className="max-h-52 space-y-1 overflow-y-auto overscroll-contain">
+                                                                    {sharePicker === 'plan' ? (
+                                                                        planItems.length > 0 ? (
+                                                                            sortPlanItems(planItems).map((item) => (
+                                                                                <button
+                                                                                    key={item.id}
+                                                                                    type="button"
+                                                                                    onClick={() => sharePlan(item)}
+                                                                                    className="flex w-full items-center gap-2 rounded-[12px] px-3 py-2.5 text-left hover:bg-[#f5f5f7]"
+                                                                                >
+                                                                                    <CircleCheck
+                                                                                        className={`size-4 shrink-0 ${item.completed ? 'text-[#34c759]' : 'text-[#8e8e93]'}`}
+                                                                                    />
+                                                                                    <span className="min-w-0 flex-1 truncate text-[10px] font-medium">
+                                                                                        {item.title}
+                                                                                    </span>
+                                                                                </button>
+                                                                            ))
+                                                                        ) : (
+                                                                            <p className="px-3 py-5 text-center text-[10px] text-[#8e8e93]">
+                                                                                {t('Paylaşılabilir plan yok.', 'No plans to share.')}
+                                                                            </p>
+                                                                        )
+                                                                    ) : goals.length > 0 ? (
+                                                                        goals.map((goalRecord) => (
+                                                                            <button
+                                                                                key={goalRecord.id}
+                                                                                type="button"
+                                                                                onClick={() => shareGoal(goalRecord)}
+                                                                                className="flex w-full items-center gap-2 rounded-[12px] px-3 py-2.5 text-left hover:bg-[#f5f5f7]"
+                                                                            >
+                                                                                <Target className="size-4 shrink-0 text-[#007aff]" />
+                                                                                <span className="min-w-0 flex-1 truncate text-[10px] font-medium">
+                                                                                    {goalRecord.title}
+                                                                                </span>
+                                                                            </button>
+                                                                        ))
+                                                                    ) : (
+                                                                        <p className="px-3 py-5 text-center text-[10px] text-[#8e8e93]">
+                                                                            {t('Paylaşılabilir hedef yok.', 'No goals to share.')}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {attachmentError && (
+                                                            <p className="px-3 py-2 text-[9px] leading-4 text-[#ff3b30]">{attachmentError}</p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <input
+                                                value={message}
+                                                onChange={(event) => setMessage(event.target.value)}
+                                                maxLength={1000}
+                                                placeholder={t(
+                                                    `@${chatRelationship.username} kişisine mesaj yaz`,
+                                                    `Message @${chatRelationship.username}`,
+                                                )}
+                                                className="h-11 min-w-0 flex-1 rounded-full border border-black/[0.08] bg-[#f8f8fa] px-4 text-[12px] outline-none focus:border-[#007aff]"
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={!message.trim()}
+                                                className="grid size-11 shrink-0 place-items-center rounded-full bg-[#007aff] text-white disabled:bg-[#c7c7cc]"
+                                                aria-label={t('Mesaj gönder', 'Send message')}
+                                            >
+                                                <Send className="size-4" />
+                                            </button>
+                                        </form>
+                                    </div>
+                                ) : (
+                                    <p className="hidden min-h-64 place-items-center p-6 text-center text-[11px] text-[#8e8e93] lg:grid">
+                                        {t('Bir konuşma seç.', 'Select a conversation.')}
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                </section>
+
+                <div className="mt-6 grid gap-5 lg:grid-cols-[310px_minmax(0,1fr)]">
+                    <section className="h-fit overflow-hidden rounded-[28px] border border-black/[0.06] bg-white shadow-[0_12px_42px_rgba(0,0,0,0.05)]">
+                        <div className="border-b border-black/[0.055] px-5 py-4">
+                            <h2 className="text-[17px] font-semibold">{t('Arkadaşların', 'Your Friends')}</h2>
+                            <p className="mt-1 text-[11px] text-[#8e8e93]">
+                                {t('Yol Arkadaşı yetkisi için birini seç.', 'Select someone for Companion access.')}
+                            </p>
+                        </div>
+                        {friends.length === 0 ? (
+                            <p className="px-5 py-10 text-center text-[12px] text-[#8e8e93]">
+                                {t('Henüz arkadaşın yok.', 'You have no friends yet.')}
+                            </p>
+                        ) : (
+                            friends.map((relationship) => {
+                                const candidate = profileByUsername.get(relationship.username);
+                                const selected = relationship.username === activeUsername;
+                                return (
+                                    <button
+                                        key={relationship.username}
+                                        type="button"
+                                        onClick={() => setActiveUsername(relationship.username)}
+                                        className={`flex w-full items-center gap-3 border-b border-black/[0.045] px-4 py-4 text-left last:border-b-0 ${selected ? 'bg-[#007aff]/7' : 'hover:bg-black/[0.025]'}`}
+                                    >
+                                        <FriendAvatar profile={candidate} username={relationship.username} />
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block truncate text-[13px] font-semibold">
+                                                {candidate?.name ?? `@${relationship.username}`}
+                                            </span>
+                                            <span className="mt-0.5 block truncate text-[10px] text-[#8e8e93]">@{relationship.username}</span>
+                                        </span>
+                                        {relationship.companion && (
+                                            <span className="shrink-0 rounded-full bg-[#007aff]/10 px-2 py-1 text-[9px] font-semibold text-[#007aff]">
+                                                {t('Yol Arkadaşı', 'Companion')}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })
+                        )}
+                    </section>
+
+                    {activeRelationship ? (
+                        <div className="min-w-0">
+                            <section className="rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_12px_42px_rgba(0,0,0,0.05)] sm:p-6">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                                    <FriendAvatar profile={activeProfile} username={activeRelationship.username} large />
+                                    <div className="min-w-0 flex-1">
+                                        <h2 className="truncate text-[22px] font-semibold tracking-[-0.03em]">
+                                            {activeProfile?.name ?? `@${activeRelationship.username}`}
+                                        </h2>
+                                        <p className="mt-1 truncate text-[12px] text-[#8e8e93]">@{activeRelationship.username}</p>
+                                        {activeProfile?.profession && <p className="mt-1 text-[11px] text-[#6e6e73]">{activeProfile.profession}</p>}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={toggleCompanion}
+                                        className={`h-11 rounded-full px-5 text-[12px] font-semibold transition ${activeRelationship.companion ? 'bg-black/[0.055] text-[#6e6e73]' : 'bg-[#007aff] text-white'}`}
+                                    >
+                                        {activeRelationship.companion ? t('Görevi Kaldır', 'Remove Role') : t('Yol Arkadaşı Yap', 'Make Companion')}
+                                    </button>
+                                </div>
+
+                                <div className="mt-5 rounded-[20px] bg-[#f5f5f7] p-4">
+                                    <p className="text-[12px] font-semibold">{t('Yol Arkadaşı nedir?', 'What is a Companion?')}</p>
+                                    <p className="mt-1 text-[11px] leading-5 text-[#6e6e73]">
+                                        {t(
+                                            'Sana hedef ve planlarında eşlik eden, yalnızca izin verdiğin alanları görebilen güvendiğin arkadaşındır.',
+                                            'A trusted friend who supports your goals and can only see the areas you explicitly allow.',
+                                        )}
+                                    </p>
+                                </div>
+
+                                {activeSharedContent.length > 0 && (
+                                    <div className="mt-5 border-t border-black/[0.055] pt-5">
+                                        <div className="flex items-center gap-2">
+                                            <Share2 className="size-4 text-[#007aff]" />
+                                            <h3 className="text-[12px] font-semibold">
+                                                {t('Bu arkadaşla paylaşılanlar', 'Shared with this friend')}
+                                            </h3>
+                                            <span className="rounded-full bg-[#007aff]/10 px-2 py-0.5 text-[9px] font-semibold text-[#007aff]">
+                                                {activeSharedContent.length}
+                                            </span>
+                                        </div>
+                                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                            {activeSharedContent.map((item) => (
+                                                <FriendSharedContentCard key={item.id} content={item.sharedContent!} locale={locale} t={t} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {activeRelationship.companion && (
+                                    <div className="mt-5 border-t border-black/[0.055] pt-5">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                                            <label className="grid min-w-0 flex-1 gap-1.5 text-[11px] font-semibold text-[#6e6e73]">
+                                                {t('Görebileceği alan', 'Visible area')}
+                                                <select
+                                                    value={activeRelationship.accessScope ?? 'week'}
+                                                    onChange={(event) => changeAccessScope(event.target.value as CompanionAccessScope)}
+                                                    className="h-11 w-full max-w-full rounded-[14px] border border-black/[0.08] bg-white px-3 text-[12px] text-[#1d1d1f] outline-none focus:border-[#007aff]"
+                                                >
+                                                    <option value="day">{t('Günlük plan', 'Daily plan')}</option>
+                                                    <option value="week">{t('Haftalık plan', 'Weekly plan')}</option>
+                                                    <option value="year">{t('Yıllık plan', 'Yearly plan')}</option>
+                                                    <option value="goal">{t('Belirli bir hedef', 'A specific goal')}</option>
+                                                </select>
+                                            </label>
+                                            {activeRelationship.accessScope === 'goal' && (
+                                                <label className="grid min-w-0 flex-1 gap-1.5 text-[11px] font-semibold text-[#6e6e73]">
+                                                    {t('Hedef', 'Goal')}
+                                                    <select
+                                                        value={activeRelationship.goalId ?? goals[0]?.id ?? ''}
+                                                        onChange={(event) =>
+                                                            updateRelationship(activeRelationship.username, (relationship) => ({
+                                                                ...relationship,
+                                                                goalId: Number(event.target.value),
+                                                            }))
+                                                        }
+                                                        className="h-11 w-full max-w-full rounded-[14px] border border-black/[0.08] bg-white px-3 text-[12px] text-[#1d1d1f] outline-none focus:border-[#007aff]"
+                                                    >
+                                                        {goals.map((goalRecord) => (
+                                                            <option key={goalRecord.id} value={goalRecord.id}>
+                                                                {goalRecord.title}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </label>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-4 rounded-[20px] border border-[#007aff]/12 bg-[#007aff]/5 p-4">
+                                            <div className="flex items-center gap-2 text-[11px] font-semibold text-[#007aff]">
+                                                <Eye className="size-4" />
+                                                {t('Arkadaş görünümü', 'Friend view')}
+                                            </div>
+                                            {activeRelationship.accessScope === 'goal' ? (
+                                                visibleGoal ? (
+                                                    <div className="mt-3">
+                                                        <p className="text-[14px] font-semibold">{visibleGoal.title}</p>
+                                                        <p className="mt-1 text-[10px] text-[#6e6e73]">
+                                                            %{calculateGoalProgress(visibleGoal)} · {visibleGoal.buildingBlocks.length}{' '}
+                                                            {t('yapı taşı', 'building blocks')}
+                                                        </p>
+                                                        <div className="mt-3 space-y-1.5">
+                                                            {visibleGoal.buildingBlocks.slice(0, 5).map((block) => (
+                                                                <p key={block.id} className="flex items-center gap-2 text-[11px] text-[#515154]">
+                                                                    <span
+                                                                        className={`size-2 rounded-full ${block.completed ? 'bg-[#34c759]' : 'bg-[#c7c7cc]'}`}
+                                                                    />
+                                                                    <span className={block.completed ? 'line-through opacity-60' : ''}>
+                                                                        {block.title}
+                                                                    </span>
+                                                                </p>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="mt-3 text-[11px] text-[#8e8e93]">
+                                                        {t('Paylaşılacak bir hedef seç.', 'Select a goal to share.')}
+                                                    </p>
+                                                )
+                                            ) : visiblePlanItems.length > 0 ? (
+                                                <div className="mt-3 space-y-2">
+                                                    {visiblePlanItems.slice(0, 6).map((item) => (
+                                                        <div key={item.id} className="flex items-center gap-2 rounded-[12px] bg-white/80 px-3 py-2">
+                                                            <CircleCheck
+                                                                className={`size-4 shrink-0 ${item.completed ? 'text-[#34c759]' : 'text-[#8e8e93]'}`}
+                                                            />
+                                                            <span
+                                                                className={`min-w-0 flex-1 truncate text-[11px] ${item.completed ? 'line-through opacity-60' : ''}`}
+                                                            >
+                                                                {item.title}
+                                                            </span>
+                                                            <span className="text-[9px] text-[#8e8e93]">
+                                                                {formatDateKey(parseDateKey(item.scheduledFor))}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="mt-3 text-[11px] text-[#8e8e93]">
+                                                    {t('Bu dönemde plan bulunmuyor.', 'There are no plans in this period.')}
+                                                </p>
+                                            )}
+                                            <p className="mt-3 text-[9px] leading-4 text-[#8e8e93]">
+                                                {t(
+                                                    'Bu yetki yalnızca görüntüleme içindir; Yol Arkadaşın planlarını veya hedeflerini değiştiremez.',
+                                                    'This is view-only access; your Companion cannot edit your plans or goals.',
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button
+                                    type="button"
+                                    onClick={() => removeRelationship(activeRelationship.username)}
+                                    className="mt-5 text-[10px] font-semibold text-[#ff3b30]"
+                                >
+                                    {t('Arkadaşlıktan çıkar', 'Remove friend')}
+                                </button>
+                            </section>
+                        </div>
+                    ) : (
+                        <section className="grid min-h-80 place-items-center rounded-[28px] border border-dashed border-black/[0.12] bg-white/55 p-8 text-center">
+                            <div>
+                                <Users className="mx-auto size-8 text-[#8e8e93]" />
+                                <p className="mt-3 text-[14px] font-semibold">{t('Bir arkadaş seç', 'Select a friend')}</p>
+                                <p className="mt-1 text-[11px] text-[#8e8e93]">
+                                    {t('Yol Arkadaşı yetkisi burada açılır.', 'Companion access opens here.')}
+                                </p>
+                            </div>
+                        </section>
+                    )}
+                </div>
+            </main>
+        </div>
+    );
+}
+
+function AttachmentMenuButton({ icon, label, onClick }: { icon: ReactNode; label: string; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="flex w-full items-center gap-3 rounded-[13px] px-3 py-2.5 text-left text-[11px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7]"
+        >
+            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#007aff]/10 text-[#007aff]">{icon}</span>
+            {label}
+        </button>
+    );
+}
+
+function FriendSharedContentCard({
+    content,
+    locale,
+    t,
+    compact = false,
+}: {
+    content: FriendSharedContent;
+    locale: Locale;
+    t: Translate;
+    compact?: boolean;
+}) {
+    const isPlan = content.kind === 'plan';
+
+    return (
+        <div className={`${compact ? 'mt-2 bg-white/95 p-3 text-[#1d1d1f]' : 'border border-[#007aff]/10 bg-[#007aff]/5 p-4'} rounded-[16px]`}>
+            <div className="flex items-center gap-2 text-[9px] font-semibold text-[#007aff]">
+                {isPlan ? <CalendarDays className="size-3.5" /> : <Target className="size-3.5" />}
+                {isPlan ? t('TAKİP EDİLECEK PLAN', 'PLAN TO FOLLOW') : t('PAYLAŞILAN HEDEF', 'SHARED GOAL')}
+            </div>
+            <p className="mt-2 line-clamp-2 text-[11px] leading-4 font-semibold">{content.title}</p>
+            <p className="mt-1 text-[9px] text-[#6e6e73]">
+                {content.kind === 'plan'
+                    ? `${formatGoalDate(content.scheduledFor, locale)} · ${content.completed ? t('Tamamlandı', 'Completed') : t('Takip ediliyor', 'Following')}`
+                    : `%${content.progress} · ${content.buildingBlockCount} ${t('yapı taşı', 'building blocks')}`}
+            </p>
+        </div>
+    );
+}
+
+function FriendAvatar({ profile, username, large = false }: { profile?: CommunityProfile; username?: string; large?: boolean }) {
+    const label = profile?.name ?? username ?? 'FU';
+    const initials = label
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part.charAt(0).toLocaleUpperCase('tr-TR'))
+        .join('');
+    const size = large ? 'size-16 text-[18px]' : 'size-10 text-[11px]';
+
+    if (profile?.avatar) return <img src={profile.avatar} alt="" className={`${size} shrink-0 rounded-full object-cover`} />;
+
+    return (
+        <span
+            className={`grid shrink-0 place-items-center rounded-full font-semibold text-white ${size}`}
+            style={{ background: `linear-gradient(145deg, ${profile?.accentFrom ?? '#005b67'}, ${profile?.accentTo ?? '#52b8c4'})` }}
+        >
+            {initials || 'FU'}
+        </span>
+    );
+}
+
+function TeamPanel({
+    t,
+    profile,
+    goals,
+    friendSuggestions,
+    settings,
+    planItems,
+    onNavigate,
+    onSettingsChange,
+    onAddBlockToPlan,
+    onBlockCompletionChange,
+    onDeleteTeam,
+}: {
+    t: Translate;
+    profile: ProfileData;
+    goals: GoalRecord[];
+    friendSuggestions: TeamFriendSuggestion[];
+    settings: SettingsData;
+    planItems: PlanItem[];
+    onNavigate: (section: PanelSection) => void;
+    onSettingsChange: (settings: SettingsData) => void;
+    onAddBlockToPlan: (input: TeamPlanBlockInput) => void;
+    onBlockCompletionChange: (teamId: number, goalId: number, blockId: number, completed: boolean) => void;
+    onDeleteTeam: (teamId: number) => void;
+}) {
+    if (typeof window !== 'undefined' && window.localStorage.getItem('fuevor.demo.use-legacy-team') === '1') {
+        return (
+            <LegacyTeamPanel t={t} profile={profile} goals={goals} settings={settings} onNavigate={onNavigate} onSettingsChange={onSettingsChange} />
+        );
+    }
+
+    return (
+        <div className="apple-interface min-h-screen overflow-x-hidden bg-[#f5f5f7] text-[#1d1d1f]">
+            <Head title={t('Ekip Modu', 'Team Mode')} />
+            <PanelHeader t={t} active="team" goals={goals} onNavigate={onNavigate} />
+            <TeamWorkspacePanel
+                t={t}
+                profile={profile}
+                friendSuggestions={friendSuggestions}
+                enabled={settings.teamModeEnabled}
+                onEnabledChange={(enabled) => onSettingsChange({ ...settings, teamModeEnabled: enabled })}
+                plannedBlockKeys={planItems.flatMap((item) =>
+                    item.source === 'team' && item.teamId !== undefined && item.teamGoalId !== undefined && item.teamBlockId !== undefined
+                        ? [teamPlanBlockKey(item.teamId, item.teamGoalId, item.teamBlockId)]
+                        : [],
+                )}
+                onAddBlockToPlan={onAddBlockToPlan}
+                onBlockCompletionChange={onBlockCompletionChange}
+                onDeleteTeam={onDeleteTeam}
+            />
+        </div>
+    );
+}
+
+function LegacyTeamPanel({
+    t,
+    profile,
+    goals,
+    settings,
+    onNavigate,
+    onSettingsChange,
+}: {
+    t: Translate;
+    profile: ProfileData;
+    goals: GoalRecord[];
+    settings: SettingsData;
+    onNavigate: (section: PanelSection) => void;
+    onSettingsChange: (settings: SettingsData) => void;
+}) {
+    const [teamData, setTeamData] = useState<TeamModeData>(() => loadStoredTeamData(profile));
+    const [viewerId, setViewerId] = useState(1);
+    const [memberUsername, setMemberUsername] = useState('');
+    const [memberError, setMemberError] = useState('');
+    const [goalTitle, setGoalTitle] = useState('');
+    const viewer = teamData.members.find((member) => member.id === viewerId) ?? teamData.members[0];
+    const canManageTeam = viewer?.role === 'manager';
+    const canManageWork = viewer?.role === 'manager' || viewer?.role === 'assistant';
+    const completedTasks = teamData.goals.flatMap((goalRecord) => goalRecord.tasks).filter((task) => task.completed).length;
+    const totalTasks = teamData.goals.reduce((total, goalRecord) => total + goalRecord.tasks.length, 0);
+
+    useEffect(() => {
+        storeDemoData(DEMO_TEAM_STORAGE_KEY, teamData);
+    }, [teamData]);
+
+    useEffect(() => {
+        const name = profile.name.trim() || 'Sen';
+        const username = normalizeTeamUsername(profile.username) || 'ben';
+
+        setTeamData((current) => {
+            const self = current.members.find((member) => member.id === 1);
+            if (self?.name === name && self.username === username) return current;
+
+            return {
+                ...current,
+                members: current.members.map((member) => (member.id === 1 ? { ...member, name, username } : member)),
+            };
+        });
+    }, [profile.name, profile.username]);
+
+    useEffect(() => {
+        if (!teamData.members.some((member) => member.id === viewerId)) setViewerId(teamData.members[0]?.id ?? 1);
+    }, [teamData.members, viewerId]);
+
+    const addMember = (event: FormEvent) => {
+        event.preventDefault();
+        if (!canManageTeam) return;
+
+        const username = normalizeTeamUsername(memberUsername);
+        if (username.length < 3) {
+            setMemberError(t('En az 3 karakterlik bir kullanıcı adı gir.', 'Enter a username with at least 3 characters.'));
+            return;
+        }
+        if (teamData.members.some((member) => member.username.toLocaleLowerCase() === username.toLocaleLowerCase())) {
+            setMemberError(t('Bu kullanıcı zaten ekipte.', 'This user is already on the team.'));
+            return;
+        }
+
+        setTeamData((current) => ({
+            ...current,
+            members: [...current.members, { id: Date.now(), username, name: `@${username}`, role: 'member', joinedAt: Date.now() }],
+        }));
+        setMemberUsername('');
+        setMemberError('');
+    };
+
+    const updateMemberRole = (memberId: number, role: TeamRole) => {
+        if (!canManageTeam) return;
+
+        setTeamData((current) => {
+            const selectedMember = current.members.find((member) => member.id === memberId);
+            if (!selectedMember || (selectedMember.role === 'manager' && role !== 'manager')) return current;
+
+            return {
+                ...current,
+                members: current.members.map((member) => {
+                    if (role === 'manager' && member.role === 'manager') return { ...member, role: 'member' as const };
+                    return member.id === memberId ? { ...member, role } : member;
+                }),
+            };
+        });
+    };
+
+    const removeMember = (memberId: number) => {
+        if (!canManageTeam) return;
+        const selectedMember = teamData.members.find((member) => member.id === memberId);
+        if (!selectedMember || selectedMember.id === 1 || selectedMember.role === 'manager') return;
+
+        setTeamData((current) => ({
+            members: current.members.filter((member) => member.id !== memberId),
+            goals: current.goals.map((goalRecord) => ({
+                ...goalRecord,
+                tasks: goalRecord.tasks.map((task) => (task.assigneeId === memberId ? { ...task, assigneeId: 1 } : task)),
+            })),
+        }));
+    };
+
+    const createGoal = (event: FormEvent) => {
+        event.preventDefault();
+        if (!canManageWork || !goalTitle.trim()) return;
+
+        setTeamData((current) => ({
+            ...current,
+            goals: [...current.goals, { id: Date.now(), title: goalTitle.trim(), tasks: [], createdAt: Date.now() }],
+        }));
+        setGoalTitle('');
+    };
+
+    const addTask = (goalId: number, title: string, assigneeId: number, share: number) => {
+        if (!canManageWork) return;
+        setTeamData((current) => ({
+            ...current,
+            goals: current.goals.map((goalRecord) =>
+                goalRecord.id === goalId
+                    ? {
+                          ...goalRecord,
+                          tasks: [...goalRecord.tasks, { id: Date.now(), title, assigneeId, share, completed: false }],
+                      }
+                    : goalRecord,
+            ),
+        }));
+    };
+
+    const toggleTask = (goalId: number, taskId: number) => {
+        setTeamData((current) => ({
+            ...current,
+            goals: current.goals.map((goalRecord) => {
+                if (goalRecord.id !== goalId) return goalRecord;
+                const selectedTask = goalRecord.tasks.find((task) => task.id === taskId);
+                if (!selectedTask || (!canManageWork && selectedTask.assigneeId !== viewer?.id)) return goalRecord;
+
+                return {
+                    ...goalRecord,
+                    tasks: goalRecord.tasks.map((task) =>
+                        task.id === taskId ? { ...task, completed: !task.completed, completedAt: !task.completed ? Date.now() : undefined } : task,
+                    ),
+                };
+            }),
+        }));
+    };
+
+    return (
+        <div className="apple-interface min-h-screen overflow-x-hidden bg-[#f5f5f7] text-[#1d1d1f]">
+            <Head title={t('Ekip Modu', 'Team Mode')} />
+            <PanelHeader t={t} active="team" goals={goals} onNavigate={onNavigate} />
+
+            <main className="mx-auto max-w-6xl px-5 pt-24 pb-32 sm:px-8 sm:pt-32 sm:pb-16">
+                {!settings.teamModeEnabled ? (
+                    <section className="mx-auto max-w-2xl rounded-[32px] border border-black/[0.06] bg-white px-6 py-12 text-center shadow-[0_18px_60px_rgba(0,0,0,0.07)] sm:px-12 sm:py-16">
+                        <span className="mx-auto grid size-20 place-items-center rounded-[24px] bg-[#5856d6]/10 text-[#5856d6]">
+                            <Users className="size-9" />
+                        </span>
+                        <h1 className="mt-6 text-[32px] font-semibold tracking-[-0.045em] sm:text-[42px]">{t('Ekip Modu', 'Team Mode')}</h1>
+                        <p className="mx-auto mt-3 max-w-lg text-[15px] leading-6 text-[#6e6e73]">
+                            {t(
+                                'Ortak hedefler oluştur, üyeleri kullanıcı adıyla ekle, görevleri ve yüzde paylarını birlikte yönet.',
+                                'Create shared goals, add members by username, and manage tasks and percentage shares together.',
+                            )}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => onSettingsChange({ ...settings, teamModeEnabled: true })}
+                            className="mt-7 h-12 rounded-full bg-[#007aff] px-7 text-[15px] font-semibold text-white shadow-[0_9px_25px_rgba(0,122,255,0.24)] transition active:scale-[0.98]"
+                        >
+                            {t('Ekip Modunu Etkinleştir', 'Enable Team Mode')}
+                        </button>
+                    </section>
+                ) : (
+                    <>
+                        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                                <p className="text-[12px] font-semibold text-[#5856d6]">{t('BİRLİKTE İLERLE', 'MOVE FORWARD TOGETHER')}</p>
+                                <h1 className="mt-2 text-[clamp(2.3rem,6vw,4rem)] leading-none font-semibold tracking-[-0.055em]">
+                                    {t('Ekip Modu', 'Team Mode')}
+                                </h1>
+                                <p className="mt-3 max-w-xl text-[15px] leading-6 text-[#6e6e73]">
+                                    {t(
+                                        'Roller, ortak hedefler, görev durumu ve pay dağılımı tek yerde.',
+                                        'Roles, shared goals, task status, and share allocation in one place.',
+                                    )}
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <label className="text-[12px] font-medium text-[#8e8e93]" htmlFor="team-viewer">
+                                    {t('Görünüm', 'View as')}
+                                </label>
+                                <select
+                                    id="team-viewer"
+                                    value={viewer?.id ?? 1}
+                                    onChange={(event) => setViewerId(Number(event.target.value))}
+                                    className="h-11 rounded-full border border-black/[0.08] bg-white px-4 text-[13px] font-semibold outline-none"
+                                >
+                                    {teamData.members.map((member) => (
+                                        <option key={member.id} value={member.id}>
+                                            {member.name} · {teamRoleLabel(member.role, t)}
+                                        </option>
+                                    ))}
+                                </select>
+                                <button
+                                    type="button"
+                                    onClick={() => onSettingsChange({ ...settings, teamModeEnabled: false })}
+                                    className="h-11 rounded-full bg-black/[0.055] px-4 text-[13px] font-semibold text-[#6e6e73]"
+                                >
+                                    {t('Kapat', 'Disable')}
+                                </button>
+                            </div>
+                        </div>
+
+                        <section className="mt-8 grid gap-3 sm:grid-cols-3">
+                            <TeamStat icon={Users} label={t('Üye', 'Members')} value={teamData.members.length} tone="violet" />
+                            <TeamStat icon={Target} label={t('Ortak hedef', 'Shared goals')} value={teamData.goals.length} tone="blue" />
+                            <TeamStat
+                                icon={CircleCheck}
+                                label={t('Tamamlanan görev', 'Completed tasks')}
+                                value={`${completedTasks}/${totalTasks}`}
+                                tone="green"
+                            />
+                        </section>
+
+                        <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_0.85fr]">
+                            <section className="overflow-hidden rounded-[28px] border border-black/[0.06] bg-white shadow-[0_12px_42px_rgba(0,0,0,0.05)]">
+                                <div className="flex items-center gap-3 border-b border-black/[0.055] px-5 py-5 sm:px-6">
+                                    <span className="grid size-11 place-items-center rounded-[14px] bg-[#5856d6]/10 text-[#5856d6]">
+                                        <Users className="size-5" />
+                                    </span>
+                                    <div>
+                                        <h2 className="text-[18px] font-semibold">{t('Ekip Üyeleri', 'Team Members')}</h2>
+                                        <p className="mt-0.5 text-[12px] text-[#8e8e93]">
+                                            {t('Rolleri ve yetkileri yönet.', 'Manage roles and permissions.')}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    {teamData.members.map((member) => (
+                                        <div
+                                            key={member.id}
+                                            className="flex items-center gap-3 border-b border-black/[0.045] px-5 py-4 last:border-b-0 sm:px-6"
+                                        >
+                                            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#007aff] text-[13px] font-semibold text-white">
+                                                {(member.name || member.username).charAt(0).toLocaleUpperCase()}
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-[14px] font-semibold">{member.name}</p>
+                                                <p className="mt-0.5 truncate text-[11px] text-[#8e8e93]">@{member.username}</p>
+                                            </div>
+                                            {canManageTeam ? (
+                                                <select
+                                                    value={member.role}
+                                                    onChange={(event) => updateMemberRole(member.id, event.target.value as TeamRole)}
+                                                    className="h-9 rounded-full border border-black/[0.08] bg-[#f5f5f7] px-3 text-[11px] font-semibold outline-none"
+                                                >
+                                                    <option value="manager">{t('Yönetici', 'Manager')}</option>
+                                                    <option value="assistant">{t('Yönetici Yardımcısı', 'Assistant Manager')}</option>
+                                                    <option value="member">{t('Üye', 'Member')}</option>
+                                                </select>
+                                            ) : (
+                                                <span className="rounded-full bg-black/[0.045] px-3 py-1.5 text-[10px] font-semibold text-[#6e6e73]">
+                                                    {teamRoleLabel(member.role, t)}
+                                                </span>
+                                            )}
+                                            {canManageTeam && member.id !== 1 && member.role !== 'manager' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeMember(member.id)}
+                                                    className="grid size-8 shrink-0 place-items-center rounded-full text-[#aeaeb2] hover:bg-[#ff3b30]/10 hover:text-[#ff3b30]"
+                                                    aria-label={t('Üyeyi çıkar', 'Remove member')}
+                                                >
+                                                    <X className="size-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {canManageTeam && (
+                                    <form onSubmit={addMember} className="border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-6">
+                                        <div className="flex gap-2">
+                                            <div className="relative min-w-0 flex-1">
+                                                <span className="absolute inset-y-0 left-3 flex items-center text-[13px] text-[#8e8e93]">@</span>
+                                                <input
+                                                    value={memberUsername}
+                                                    onChange={(event) => {
+                                                        setMemberUsername(event.target.value);
+                                                        setMemberError('');
+                                                    }}
+                                                    className="h-11 w-full rounded-full border border-black/[0.08] bg-white pr-4 pl-7 text-[13px] outline-none focus:border-[#007aff]"
+                                                    placeholder={t('kullanıcı adı', 'username')}
+                                                />
+                                            </div>
+                                            <button
+                                                type="submit"
+                                                className="grid size-11 shrink-0 place-items-center rounded-full bg-[#007aff] text-white"
+                                            >
+                                                <UserPlus className="size-5" />
+                                            </button>
+                                        </div>
+                                        {memberError && <p className="mt-2 px-2 text-[11px] font-medium text-[#ff3b30]">{memberError}</p>}
+                                    </form>
+                                )}
+                            </section>
+
+                            <section className="rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_12px_42px_rgba(0,0,0,0.05)] sm:p-6">
+                                <span className="grid size-11 place-items-center rounded-[14px] bg-[#007aff]/10 text-[#007aff]">
+                                    <Target className="size-5" />
+                                </span>
+                                <h2 className="mt-4 text-[19px] font-semibold">{t('Ortak Çalışma Hedefi', 'Shared Goal')}</h2>
+                                <p className="mt-1 text-[12px] leading-5 text-[#8e8e93]">
+                                    {canManageWork
+                                        ? t('Ekip için yeni bir hedef oluştur.', 'Create a new goal for the team.')
+                                        : t(
+                                              'Yeni hedefi yönetici veya yardımcısı oluşturabilir.',
+                                              'A manager or assistant manager can create a goal.',
+                                          )}
+                                </p>
+                                <form onSubmit={createGoal} className="mt-5">
+                                    <input
+                                        value={goalTitle}
+                                        onChange={(event) => setGoalTitle(event.target.value)}
+                                        disabled={!canManageWork}
+                                        className="h-12 w-full rounded-[16px] border border-black/[0.08] bg-[#fbfbfd] px-4 text-[14px] outline-none focus:border-[#007aff] disabled:opacity-50"
+                                        placeholder={t('Hedef başlığı', 'Goal title')}
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={!canManageWork || !goalTitle.trim()}
+                                        className="mt-3 h-11 w-full rounded-full bg-[#007aff] text-[14px] font-semibold text-white disabled:bg-[#d1d1d6]"
+                                    >
+                                        {t('Ortak Hedef Oluştur', 'Create Shared Goal')}
+                                    </button>
+                                </form>
+                                <div className="mt-5 rounded-[18px] bg-[#f5f5f7] p-4 text-[11px] leading-5 text-[#6e6e73]">
+                                    <p className="font-semibold text-[#1d1d1f]">{t('Rol Yetkileri', 'Role Permissions')}</p>
+                                    <p>{t('Yönetici: ekip, roller, hedefler ve tüm görevler.', 'Manager: team, roles, goals, and all tasks.')}</p>
+                                    <p>{t('Yardımcı: hedef ve görev yönetimi.', 'Assistant: goal and task management.')}</p>
+                                    <p>
+                                        {t(
+                                            'Üye: tüm durumu görür, kendi görevini tamamlar.',
+                                            'Member: sees all status and completes assigned tasks.',
+                                        )}
+                                    </p>
+                                </div>
+                            </section>
+                        </div>
+
+                        <section className="mt-8 space-y-5">
+                            <div className="flex items-end justify-between gap-4 px-1">
+                                <div>
+                                    <p className="text-[11px] font-semibold text-[#007aff]">{t('ORTAK İLERLEME', 'SHARED PROGRESS')}</p>
+                                    <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.035em]">{t('Ekip Hedefleri', 'Team Goals')}</h2>
+                                </div>
+                                <p className="text-[12px] text-[#8e8e93]">
+                                    {teamData.goals.length} {t('hedef', 'goals')}
+                                </p>
+                            </div>
+
+                            {teamData.goals.length === 0 ? (
+                                <div className="rounded-[28px] border border-dashed border-black/[0.12] bg-white/60 px-6 py-12 text-center text-[14px] text-[#8e8e93]">
+                                    {t('Henüz ortak hedef yok.', 'No shared goals yet.')}
+                                </div>
+                            ) : (
+                                teamData.goals.map((goalRecord) => (
+                                    <TeamGoalCard
+                                        key={goalRecord.id}
+                                        t={t}
+                                        goal={goalRecord}
+                                        members={teamData.members}
+                                        viewer={viewer}
+                                        canManageWork={canManageWork}
+                                        onAddTask={addTask}
+                                        onToggleTask={toggleTask}
+                                    />
+                                ))
+                            )}
+                        </section>
+                    </>
+                )}
+            </main>
+        </div>
+    );
+}
+
+function TeamGoalCard({
+    t,
+    goal,
+    members,
+    viewer,
+    canManageWork,
+    onAddTask,
+    onToggleTask,
+}: {
+    t: Translate;
+    goal: TeamGoalRecord;
+    members: TeamMember[];
+    viewer?: TeamMember;
+    canManageWork: boolean;
+    onAddTask: (goalId: number, title: string, assigneeId: number, share: number) => void;
+    onToggleTask: (goalId: number, taskId: number) => void;
+}) {
+    const [title, setTitle] = useState('');
+    const [assigneeId, setAssigneeId] = useState(members[0]?.id ?? 1);
+    const [share, setShare] = useState(10);
+    const completedTasks = goal.tasks.filter((task) => task.completed).length;
+    const progress = goal.tasks.length === 0 ? 0 : Math.round((completedTasks / goal.tasks.length) * 100);
+    const completed = goal.tasks.length > 0 && completedTasks === goal.tasks.length;
+    const allocatedShare = goal.tasks.reduce((total, task) => total + task.share, 0);
+    const remainingShare = Math.max(0, 100 - allocatedShare);
+    const shareByMember = members
+        .map((member) => ({
+            member,
+            share: goal.tasks.filter((task) => task.assigneeId === member.id).reduce((total, task) => total + task.share, 0),
+        }))
+        .filter((item) => item.share > 0);
+
+    useEffect(() => {
+        if (!members.some((member) => member.id === assigneeId)) setAssigneeId(members[0]?.id ?? 1);
+    }, [assigneeId, members]);
+
+    const submitTask = (event: FormEvent) => {
+        event.preventDefault();
+        const normalizedShare = Math.min(remainingShare, Math.max(1, Math.round(share)));
+        if (!title.trim() || !canManageWork || remainingShare === 0) return;
+        onAddTask(goal.id, title.trim(), assigneeId, normalizedShare);
+        setTitle('');
+        setShare(Math.min(10, Math.max(1, remainingShare - normalizedShare)));
+    };
+
+    return (
+        <article className="overflow-hidden rounded-[30px] border border-black/[0.06] bg-white shadow-[0_14px_48px_rgba(0,0,0,0.055)]">
+            <div className="px-5 py-5 sm:px-7 sm:py-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-[21px] font-semibold tracking-[-0.03em]">{goal.title}</h3>
+                            <span
+                                className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${completed ? 'bg-[#34c759]/10 text-[#248a3d]' : 'bg-[#007aff]/10 text-[#007aff]'}`}
+                            >
+                                {completed ? t('Tamamlandı', 'Completed') : t('Devam ediyor', 'In progress')}
+                            </span>
+                        </div>
+                        <p className="mt-1 text-[12px] text-[#8e8e93]">
+                            {completedTasks}/{goal.tasks.length} {t('görev tamamlandı', 'tasks completed')}
+                        </p>
+                    </div>
+                    <p className="text-[24px] font-semibold tracking-[-0.04em] text-[#007aff] tabular-nums">%{progress}</p>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/[0.055]">
+                    <div className="h-full rounded-full bg-[#007aff] transition-[width] duration-500" style={{ width: `${progress}%` }} />
+                </div>
+
+                <div className="mt-5 rounded-[20px] bg-[#f5f5f7] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[12px] font-semibold">{t('Pay Dağılımı', 'Share Allocation')}</p>
+                        <span className={`text-[11px] font-semibold ${allocatedShare === 100 ? 'text-[#248a3d]' : 'text-[#ff9500]'}`}>
+                            %{allocatedShare}/100 {completed ? t('kesinleşti', 'finalized') : t('dağıtıldı', 'allocated')}
+                        </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {shareByMember.length === 0 ? (
+                            <span className="text-[11px] text-[#8e8e93]">{t('Henüz pay atanmadı.', 'No shares assigned yet.')}</span>
+                        ) : (
+                            shareByMember.map(({ member, share: memberShare }) => (
+                                <span
+                                    key={member.id}
+                                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold shadow-sm"
+                                >
+                                    @{member.username} <strong className="text-[#5856d6]">%{memberShare}</strong>
+                                </span>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="border-t border-black/[0.055]">
+                {goal.tasks.map((task) => {
+                    const assignee = members.find((member) => member.id === task.assigneeId);
+                    const canToggle = canManageWork || task.assigneeId === viewer?.id;
+
+                    return (
+                        <div key={task.id} className="flex items-center gap-3 border-b border-black/[0.045] px-5 py-4 last:border-b-0 sm:px-7">
+                            <button
+                                type="button"
+                                onClick={() => onToggleTask(goal.id, task.id)}
+                                disabled={!canToggle}
+                                className={`grid size-7 shrink-0 place-items-center rounded-full border transition ${task.completed ? 'border-[#34c759] bg-[#34c759] text-white' : 'border-[#c7c7cc] text-transparent'} disabled:cursor-default disabled:opacity-70`}
+                                aria-label={task.completed ? t('Tamamlandı', 'Completed') : t('Bekliyor', 'Pending')}
+                            >
+                                <Check className="size-4" strokeWidth={3} />
+                            </button>
+                            <div className="min-w-0 flex-1">
+                                <p className={`truncate text-[14px] font-semibold ${task.completed ? 'text-[#8e8e93] line-through' : ''}`}>
+                                    {task.title}
+                                </p>
+                                <p className="mt-1 text-[11px] text-[#8e8e93]">
+                                    {t('Atanan', 'Assigned to')}:{' '}
+                                    <span className="font-semibold text-[#6e6e73]">@{assignee?.username ?? t('bilinmiyor', 'unknown')}</span>
+                                    {' · '}
+                                    <span className={task.completed ? 'text-[#248a3d]' : ''}>
+                                        {task.completed ? t('Yapıldı', 'Done') : t('Bekliyor', 'Pending')}
+                                    </span>
+                                </p>
+                            </div>
+                            <span className="rounded-full bg-[#5856d6]/10 px-2.5 py-1 text-[11px] font-semibold text-[#5856d6]">%{task.share}</span>
+                        </div>
+                    );
+                })}
+
+                {goal.tasks.length === 0 && (
+                    <p className="px-5 py-6 text-center text-[12px] text-[#8e8e93]">{t('Henüz görev atanmadı.', 'No tasks assigned yet.')}</p>
+                )}
+            </div>
+
+            {canManageWork && (
+                <form onSubmit={submitTask} className="border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_170px_100px_auto]">
+                        <input
+                            value={title}
+                            onChange={(event) => setTitle(event.target.value)}
+                            className="h-11 min-w-0 rounded-[14px] border border-black/[0.08] bg-white px-3 text-[13px] outline-none focus:border-[#007aff]"
+                            placeholder={t('Yeni görev', 'New task')}
+                        />
+                        <select
+                            value={assigneeId}
+                            onChange={(event) => setAssigneeId(Number(event.target.value))}
+                            className="h-11 rounded-[14px] border border-black/[0.08] bg-white px-3 text-[12px] outline-none"
+                        >
+                            {members.map((member) => (
+                                <option key={member.id} value={member.id}>
+                                    @{member.username}
+                                </option>
+                            ))}
+                        </select>
+                        <label className="relative">
+                            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[12px] text-[#8e8e93]">%</span>
+                            <input
+                                type="number"
+                                min={1}
+                                max={Math.max(1, remainingShare)}
+                                value={share}
+                                onChange={(event) => setShare(Number(event.target.value))}
+                                disabled={remainingShare === 0}
+                                className="h-11 w-full rounded-[14px] border border-black/[0.08] bg-white pr-2 pl-7 text-[12px] outline-none disabled:opacity-50"
+                            />
+                        </label>
+                        <button
+                            type="submit"
+                            disabled={!title.trim() || remainingShare === 0}
+                            className="grid size-11 place-items-center rounded-[14px] bg-[#007aff] text-white disabled:bg-[#d1d1d6]"
+                            aria-label={t('Görev ekle', 'Add task')}
+                        >
+                            <Plus className="size-5" />
+                        </button>
+                    </div>
+                    <p className="mt-2 px-1 text-[10px] text-[#8e8e93]">
+                        {t(`Dağıtılabilir kalan pay: %${remainingShare}`, `Remaining share: ${remainingShare}%`)}
+                    </p>
+                </form>
+            )}
+        </article>
+    );
+}
+
+function TeamStat({
+    icon: Icon,
+    label,
+    value,
+    tone,
+}: {
+    icon: typeof Users;
+    label: string;
+    value: number | string;
+    tone: 'violet' | 'blue' | 'green';
+}) {
+    const tones = {
+        violet: 'bg-[#5856d6]/10 text-[#5856d6]',
+        blue: 'bg-[#007aff]/10 text-[#007aff]',
+        green: 'bg-[#34c759]/10 text-[#248a3d]',
+    };
+
+    return (
+        <div className="flex items-center gap-3 rounded-[22px] border border-black/[0.055] bg-white p-4 shadow-[0_8px_28px_rgba(0,0,0,0.04)]">
+            <span className={`grid size-11 shrink-0 place-items-center rounded-[14px] ${tones[tone]}`}>
+                <Icon className="size-5" />
+            </span>
+            <div>
+                <p className="text-[20px] font-semibold tabular-nums">{value}</p>
+                <p className="text-[11px] text-[#8e8e93]">{label}</p>
+            </div>
+        </div>
+    );
+}
+
+function teamRoleLabel(role: TeamRole, t: Translate): string {
+    return { manager: t('Yönetici', 'Manager'), assistant: t('Yönetici Yardımcısı', 'Assistant Manager'), member: t('Üye', 'Member') }[role];
+}
+
 function PanelHeader({
     t,
     active,
@@ -2971,13 +6270,19 @@ function PanelHeader({
     goals: GoalRecord[];
     onNavigate: (section: PanelSection) => void;
 }) {
+    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
     const navigationItems = [
         { section: 'overview' as const, label: t('Genel Bakış', 'Overview'), mobileLabel: t('Genel', 'Home'), icon: Layers3 },
         { section: 'goals' as const, label: t('Hedefler', 'Goals'), mobileLabel: t('Hedefler', 'Goals'), icon: Target },
         { section: 'plan' as const, label: t('Planla', 'Plan'), mobileLabel: t('Planla', 'Plan'), icon: ListTodo },
+        { section: 'team' as const, label: t('Ekip', 'Team'), mobileLabel: t('Ekip', 'Team'), icon: Users },
+        { section: 'friends' as const, label: t('Arkadaşlar', 'Friends'), mobileLabel: t('Arkadaşlar', 'Friends'), icon: UserRound },
         { section: 'notes' as const, label: t('Notlar', 'Notes'), mobileLabel: t('Notlar', 'Notes'), icon: NotebookPen },
         { section: 'library' as const, label: t('Kitaplık', 'Library'), mobileLabel: t('Kitaplık', 'Library'), icon: BookOpen },
-    ];
+    ].filter((item) => !betaMode || (item.section !== 'team' && item.section !== 'friends'));
+    const mobileNavigationItems = navigationItems.filter(
+        (item) => item.section !== 'notes' && item.section !== 'library' && item.section !== 'friends',
+    );
     const storedProfile = loadStoredProfile();
     const profileInitial = storedProfile.name.trim().charAt(0).toLocaleUpperCase() || 'K';
     const overallProgress = calculateOverallProgress(goals);
@@ -2986,10 +6291,22 @@ function PanelHeader({
         <>
             <header className="fixed inset-x-0 top-0 z-30 border-b border-black/[0.055] bg-[#f5f5f7]/80 backdrop-blur-2xl">
                 <div className="mx-auto flex h-16 max-w-6xl items-center justify-center gap-4 px-5 sm:h-[72px] sm:justify-between sm:px-8">
-                    <div className="relative h-9 w-28 shrink-0 sm:w-32">
+                    <button
+                        type="button"
+                        onClick={() => onNavigate('community')}
+                        className="relative h-9 w-28 shrink-0 sm:w-32"
+                        aria-label={t('Topluluğa git', 'Go to community')}
+                        aria-current={active === 'community' ? 'page' : undefined}
+                    >
                         <BrandLogo variant="black" className="demo-logo-light absolute inset-0 h-full w-full transition-opacity" />
                         <BrandLogo variant="white" className="demo-logo-dark absolute inset-0 h-full w-full opacity-0 transition-opacity" />
-                    </div>
+                        <img
+                            src="/fuevor-beta-text.svg"
+                            alt="Beta"
+                            className="pointer-events-none absolute -top-1 right-2 h-2.5 w-auto select-none sm:right-2.5 sm:h-3"
+                            draggable={false}
+                        />
+                    </button>
                     <nav
                         className="hidden items-center rounded-full bg-black/[0.045] p-1 sm:flex"
                         aria-label={t('Panel bölümleri', 'Panel sections')}
@@ -2999,7 +6316,7 @@ function PanelHeader({
                                 key={item.section}
                                 type="button"
                                 onClick={() => onNavigate(item.section)}
-                                className={`rounded-full px-5 py-2 text-[13px] font-medium whitespace-nowrap transition ${active === item.section ? 'bg-white text-[#1d1d1f] shadow-[0_1px_5px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
+                                className={`rounded-full px-4 py-2 text-[12px] font-medium whitespace-nowrap transition ${active === item.section ? 'bg-white text-[#1d1d1f] shadow-[0_1px_5px_rgba(0,0,0,0.1)]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'}`}
                             >
                                 {item.label}
                             </button>
@@ -3032,10 +6349,10 @@ function PanelHeader({
 
             <div className="demo-mobile-dock fixed inset-x-0 bottom-0 z-40 flex items-end gap-2.5 px-3 sm:hidden">
                 <nav
-                    className="demo-mobile-navigation grid min-w-0 flex-1 grid-cols-5 rounded-[29px] border border-white/48 bg-white/45 p-1.5 shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px]"
+                    className="demo-mobile-navigation grid min-w-0 flex-1 grid-cols-4 rounded-[29px] border border-white/48 bg-white/45 p-1.5 shadow-[0_12px_34px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.68)] backdrop-blur-[34px]"
                     aria-label={t('Mobil panel bölümleri', 'Mobile panel sections')}
                 >
-                    {navigationItems.map((item) => {
+                    {mobileNavigationItems.map((item) => {
                         const Icon = item.icon;
                         const selected = active === item.section;
 
@@ -3082,11 +6399,62 @@ function PanelHeader({
     );
 }
 
-function ProfilePreferences({ t, settings, onChange }: { t: Translate; settings: SettingsData; onChange: (settings: SettingsData) => void }) {
+function ProfileSettingsTabs({
+    t,
+    active,
+    onChange,
+}: {
+    t: Translate;
+    active: ProfileSettingsSection;
+    onChange: (section: ProfileSettingsSection) => void;
+}) {
+    const tabs = [
+        { value: 'privacy-security' as const, icon: LockKeyhole, label: t('Gizlilik ve Güvenlik', 'Privacy & Security') },
+        { value: 'language' as const, icon: Languages, label: t('Dil Ayarları', 'Language Settings') },
+        { value: 'appearance' as const, icon: Sun, label: t('Görünüm Ayarları', 'Appearance Settings') },
+        { value: 'usage' as const, icon: Settings2, label: t('Kullanım Ayarları', 'Usage Settings') },
+    ];
+
     return (
-        <div>
-            <section>
-                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Görünüm', 'Appearance')}</h2>
+        <nav
+            className="grid grid-cols-2 gap-2 rounded-[24px] border border-black/[0.06] bg-white/70 p-2 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sm:grid-cols-4"
+            aria-label={t('Ayar bölümleri', 'Settings sections')}
+        >
+            {tabs.map(({ value, icon: Icon, label }) => {
+                const selected = active === value;
+
+                return (
+                    <button
+                        key={value}
+                        type="button"
+                        onClick={() => onChange(value)}
+                        className={`flex min-h-20 flex-col items-center justify-center gap-2 rounded-[18px] px-3 py-3 text-center transition ${selected ? 'bg-[#007aff] text-white shadow-[0_7px_20px_rgba(0,122,255,0.22)]' : 'text-[#6e6e73] hover:bg-black/[0.035]'}`}
+                        aria-current={selected ? 'page' : undefined}
+                    >
+                        <Icon className="size-[19px]" />
+                        <span className="text-[12px] leading-4 font-semibold">{label}</span>
+                    </button>
+                );
+            })}
+        </nav>
+    );
+}
+
+function ProfilePreferences({
+    t,
+    settings,
+    section,
+    onChange,
+}: {
+    t: Translate;
+    settings: SettingsData;
+    section: ProfileSettingsSection;
+    onChange: (settings: SettingsData) => void;
+}) {
+    if (section === 'appearance') {
+        return (
+            <section className="mt-6">
+                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Görünüm Ayarları', 'Appearance Settings')}</h2>
                 <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.04)]">
                     <SettingOption
                         icon={Sun}
@@ -3105,9 +6473,13 @@ function ProfilePreferences({ t, settings, onChange }: { t: Translate; settings:
                     />
                 </div>
             </section>
+        );
+    }
 
-            <section className="mt-8">
-                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Dil', 'Language')}</h2>
+    if (section === 'language') {
+        return (
+            <section className="mt-6">
+                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Dil Ayarları', 'Language Settings')}</h2>
                 <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.04)]">
                     {SUPPORTED_LOCALES.map((language, index) => (
                         <SettingOption
@@ -3122,9 +6494,39 @@ function ProfilePreferences({ t, settings, onChange }: { t: Translate; settings:
                     ))}
                 </div>
             </section>
+        );
+    }
 
-            <section className="mt-8">
-                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Planlar', 'Plans')}</h2>
+    if (section === 'usage') {
+        return (
+            <section className="mt-6">
+                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Kullanım Ayarları', 'Usage Settings')}</h2>
+                <button
+                    type="button"
+                    onClick={() => onChange({ ...settings, teamModeEnabled: !settings.teamModeEnabled })}
+                    className="flex w-full items-center gap-4 rounded-[24px] border border-black/[0.07] bg-white px-5 py-4 text-left shadow-[0_12px_45px_rgba(0,0,0,0.04)] transition active:bg-black/[0.025] sm:px-6"
+                    aria-pressed={settings.teamModeEnabled}
+                >
+                    <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#5856d6]/10 text-[#5856d6]">
+                        <Users className="size-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-[16px] font-semibold tracking-[-0.01em]">{t('Ekip Modu', 'Team Mode')}</span>
+                        <span className="mt-0.5 block text-[13px] leading-5 text-[#8e8e93]">
+                            {t(
+                                'Ortak hedefler oluştur, görevleri ve payları ekip üyelerine dağıt.',
+                                'Create shared goals and assign tasks and shares.',
+                            )}
+                        </span>
+                    </span>
+                    <span
+                        className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition ${settings.teamModeEnabled ? 'bg-[#34c759]' : 'bg-[#d1d1d6]'}`}
+                    >
+                        <span
+                            className={`absolute top-0.5 size-[27px] rounded-full bg-white shadow-[0_2px_5px_rgba(0,0,0,0.22)] transition-transform ${settings.teamModeEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
+                        />
+                    </span>
+                </button>
                 <button
                     type="button"
                     onClick={() =>
@@ -3134,7 +6536,7 @@ function ProfilePreferences({ t, settings, onChange }: { t: Translate; settings:
                             carryOverPreferenceSet: true,
                         })
                     }
-                    className="flex w-full items-center gap-4 rounded-[24px] border border-black/[0.07] bg-white px-5 py-4 text-left shadow-[0_12px_45px_rgba(0,0,0,0.04)] transition active:bg-black/[0.025] sm:px-6"
+                    className="mt-3 flex w-full items-center gap-4 rounded-[24px] border border-black/[0.07] bg-white px-5 py-4 text-left shadow-[0_12px_45px_rgba(0,0,0,0.04)] transition active:bg-black/[0.025] sm:px-6"
                     aria-pressed={settings.carryOverIncompletePlans}
                 >
                     <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#ff9500]/10 text-[#ff9500]">
@@ -3160,11 +6562,40 @@ function ProfilePreferences({ t, settings, onChange }: { t: Translate; settings:
                     </span>
                 </button>
             </section>
+        );
+    }
 
-            <p className="mt-5 px-1 text-[12px] leading-relaxed text-[#8e8e93]">
-                {t('Değişiklikler anında uygulanır ve bu cihazda saklanır.', 'Changes apply instantly and are saved on this device.')}
-            </p>
-        </div>
+    return (
+        <section className="mt-6">
+            <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Gizlilik', 'Privacy')}</h2>
+            <button
+                type="button"
+                onClick={() => onChange({ ...settings, showFuPublicly: !settings.showFuPublicly })}
+                className="flex w-full items-center gap-4 rounded-[24px] border border-black/[0.07] bg-white px-5 py-4 text-left shadow-[0_12px_45px_rgba(0,0,0,0.04)] transition active:bg-black/[0.025] sm:px-6"
+                aria-pressed={settings.showFuPublicly}
+            >
+                <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#005b67]/10 text-[#005b67]">
+                    {settings.showFuPublicly ? <Eye className="size-5" /> : <EyeOff className="size-5" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="block text-[16px] font-semibold tracking-[-0.01em]">
+                        {t('fu puanını herkese göster', 'Show fu points publicly')}
+                    </span>
+                    <span className="mt-0.5 block text-[13px] leading-5 text-[#8e8e93]">
+                        {settings.showFuPublicly
+                            ? t('fu puanın profilinde herkese görünür.', 'Your fu points are visible to everyone on your profile.')
+                            : t('fu puanın yalnızca sana görünür.', 'Your fu points are visible only to you.')}
+                    </span>
+                </span>
+                <span
+                    className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition ${settings.showFuPublicly ? 'bg-[#34c759]' : 'bg-[#d1d1d6]'}`}
+                >
+                    <span
+                        className={`absolute top-0.5 size-[27px] rounded-full bg-white shadow-[0_2px_5px_rgba(0,0,0,0.22)] transition-transform ${settings.showFuPublicly ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
+                    />
+                </span>
+            </button>
+        </section>
     );
 }
 
@@ -3213,8 +6644,12 @@ function ProfilePanel({
     profile,
     settings,
     overallProgress,
+    fuBalance,
+    finishedBookCount,
     onClose,
+    onOpenCommunity,
     onExportReport,
+    onOpenSection,
     onSave,
     onSettingsChange,
 }: {
@@ -3223,12 +6658,17 @@ function ProfilePanel({
     profile: ProfileData;
     settings: SettingsData;
     overallProgress: number;
+    fuBalance: number;
+    finishedBookCount: number;
     onClose: () => void;
+    onOpenCommunity: () => void;
     onExportReport: () => void;
+    onOpenSection: (section: 'notes' | 'library' | 'friends') => void;
     onSave: (profile: ProfileData) => void;
     onSettingsChange: (settings: SettingsData) => void;
 }) {
     const [tab, setTab] = useState<'public' | 'personal' | 'settings'>('public');
+    const [settingsSection, setSettingsSection] = useState<ProfileSettingsSection>('privacy-security');
     const [draft, setDraft] = useState(profile);
     const [saved, setSaved] = useState(false);
     const [currentPassword, setCurrentPassword] = useState('');
@@ -3239,6 +6679,7 @@ function ProfilePanel({
     const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
     const [resetEmail, setResetEmail] = useState(profile.email);
     const [resetSent, setResetSent] = useState(false);
+    const profileSheetGesture = useSwipeDownDismiss<HTMLElement>(onClose);
     const profileInitial = draft.name.trim().charAt(0).toLocaleUpperCase() || 'K';
     const selectedCountry = isCountryCode(draft.country) ? draft.country : null;
     const phoneIsValid = selectedCountry ? isNationalPhoneLengthValid(draft.phone, selectedCountry) : false;
@@ -3250,16 +6691,13 @@ function ProfilePanel({
     };
 
     useEffect(() => {
-        const previousOverflow = document.body.style.overflow;
         const closeOnEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') onClose();
         };
 
-        document.body.style.overflow = 'hidden';
         window.addEventListener('keydown', closeOnEscape);
 
         return () => {
-            document.body.style.overflow = previousOverflow;
             window.removeEventListener('keydown', closeOnEscape);
         };
     }, [onClose]);
@@ -3309,10 +6747,12 @@ function ProfilePanel({
                 onMouseDown={onClose}
             >
                 <section
+                    ref={profileSheetGesture.ref}
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="profile-sheet-title"
                     onMouseDown={(event) => event.stopPropagation()}
+                    style={profileSheetGesture.style}
                     className="demo-profile-sheet absolute inset-x-0 top-[max(0.65rem,env(safe-area-inset-top))] bottom-0 overflow-y-auto rounded-t-[38px] border border-white/55 bg-[#f2f2f7] shadow-[0_-12px_70px_rgba(0,0,0,0.24)]"
                 >
                     <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/[0.055] bg-[#f2f2f7]/82 px-5 py-4 backdrop-blur-2xl sm:px-8 sm:py-5">
@@ -3327,10 +6767,21 @@ function ProfilePanel({
                                     <ArrowLeft className="size-[18px]" />
                                 </button>
                             )}
-                            <div className="relative h-8 w-24 shrink-0">
+                            <button
+                                type="button"
+                                onClick={onOpenCommunity}
+                                className="relative h-8 w-24 shrink-0"
+                                aria-label={t('Topluluğa git', 'Go to community')}
+                            >
                                 <BrandLogo variant="black" className="demo-logo-light absolute inset-0 size-full" />
                                 <BrandLogo variant="white" className="demo-logo-dark absolute inset-0 size-full opacity-0" />
-                            </div>
+                                <img
+                                    src="/fuevor-beta-text.svg"
+                                    alt="Beta"
+                                    className="pointer-events-none absolute -top-1 right-[7px] h-2.5 w-auto select-none"
+                                    draggable={false}
+                                />
+                            </button>
                             <span className="h-5 w-px bg-black/[0.1]" aria-hidden="true" />
                             <h1 id="profile-sheet-title" className="truncate text-[17px] font-semibold tracking-[-0.025em]">
                                 {tab === 'public' ? t('Profil', 'Profile') : t('Hesap', 'Account')}
@@ -3353,8 +6804,12 @@ function ProfilePanel({
                                 locale={locale}
                                 profile={draft}
                                 overallProgress={overallProgress}
+                                fuBalance={fuBalance}
+                                finishedBookCount={finishedBookCount}
+                                showFuPublicly={settings.showFuPublicly}
                                 onEdit={() => setTab('personal')}
                                 onExportReport={onExportReport}
+                                onOpenSection={onOpenSection}
                                 onSettings={() => setTab('settings')}
                             />
                         ) : (
@@ -3390,9 +6845,18 @@ function ProfilePanel({
                                         </label>
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <h2 className="truncate text-[20px] font-semibold tracking-[-0.025em]">
-                                            {draft.name || t('Ad Soyad', 'Full Name')}
-                                        </h2>
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <h2 className="truncate text-[20px] font-semibold tracking-[-0.025em]">
+                                                {draft.name || t('Ad Soyad', 'Full Name')}
+                                            </h2>
+                                            <span className="text-[#c7c7cc]" aria-hidden="true">
+                                                |
+                                            </span>
+                                            <span className="inline-flex shrink-0 items-center gap-1 text-[14px] font-semibold tabular-nums">
+                                                {fuBalance}
+                                                <FuMark className="size-3.5" />
+                                            </span>
+                                        </div>
                                         <p className="mt-1 truncate text-[13px] font-medium text-[#6e6e73]">
                                             {draft.username ? `@${draft.username}` : t('Kullanıcı adı', 'Username')}
                                         </p>
@@ -3575,112 +7039,115 @@ function ProfilePanel({
                                     </form>
                                 ) : (
                                     <div className="demo-step-enter mt-6">
-                                        <ProfilePreferences t={t} settings={settings} onChange={onSettingsChange} />
+                                        <ProfileSettingsTabs t={t} active={settingsSection} onChange={setSettingsSection} />
+                                        <ProfilePreferences t={t} settings={settings} section={settingsSection} onChange={onSettingsChange} />
 
-                                        <section className="mt-8">
-                                            <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Güvenlik', 'Security')}</h2>
-                                            <form
-                                                onSubmit={updatePassword}
-                                                className="overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
-                                            >
-                                                <div className="flex items-center gap-4 border-b border-black/[0.055] px-5 py-6 sm:px-7">
-                                                    <span className="grid size-12 shrink-0 place-items-center rounded-[15px] bg-[#007aff]/10 text-[#007aff]">
-                                                        <LockKeyhole className="size-[21px]" />
-                                                    </span>
-                                                    <div>
-                                                        <h2 className="text-[19px] font-semibold tracking-[-0.02em]">
-                                                            {t('Şifreyi değiştir', 'Change password')}
-                                                        </h2>
-                                                        <p className="mt-1 text-[13px] text-[#8e8e93]">
-                                                            {t(
-                                                                'Hesabın için güçlü ve benzersiz bir şifre kullan.',
-                                                                'Use a strong, unique password for your account.',
-                                                            )}
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-5 px-5 py-6 sm:px-7">
-                                                    <ProfileField
-                                                        label={t('Mevcut Şifre', 'Current Password')}
-                                                        value={currentPassword}
-                                                        onChange={setCurrentPassword}
-                                                        autoComplete="current-password"
-                                                        type="password"
-                                                        icon={LockKeyhole}
-                                                    />
-                                                    <ProfileField
-                                                        label={t('Yeni Şifre', 'New Password')}
-                                                        value={newPassword}
-                                                        onChange={(value) => {
-                                                            setNewPassword(value);
-                                                            setPasswordMessage(null);
-                                                        }}
-                                                        autoComplete="new-password"
-                                                        type="password"
-                                                        icon={LockKeyhole}
-                                                    />
-                                                    <ProfileField
-                                                        label={t('Yeni Şifre Tekrar', 'Confirm New Password')}
-                                                        value={passwordConfirmation}
-                                                        onChange={(value) => {
-                                                            setPasswordConfirmation(value);
-                                                            setPasswordMessage(null);
-                                                        }}
-                                                        autoComplete="new-password"
-                                                        type="password"
-                                                        icon={LockKeyhole}
-                                                    />
-                                                    {passwordMessage === 'mismatch' && (
-                                                        <p className="text-[13px] font-medium text-[#ff3b30]">
-                                                            {t('Yeni şifreler birbiriyle eşleşmiyor.', 'The new passwords do not match.')}
-                                                        </p>
-                                                    )}
-                                                </div>
-
-                                                <div className="flex items-center justify-end gap-4 border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
-                                                    {passwordMessage === 'success' && (
-                                                        <span className="text-[13px] font-medium text-[#28a745]">
-                                                            {t('Şifre güncellendi', 'Password updated')}
+                                        {settingsSection === 'privacy-security' && (
+                                            <section className="mt-8">
+                                                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Güvenlik', 'Security')}</h2>
+                                                <form
+                                                    onSubmit={updatePassword}
+                                                    className="overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]"
+                                                >
+                                                    <div className="flex items-center gap-4 border-b border-black/[0.055] px-5 py-6 sm:px-7">
+                                                        <span className="grid size-12 shrink-0 place-items-center rounded-[15px] bg-[#007aff]/10 text-[#007aff]">
+                                                            <LockKeyhole className="size-[21px]" />
                                                         </span>
-                                                    )}
-                                                    <button
-                                                        type="submit"
-                                                        disabled={!currentPassword || newPassword.length < 8 || !passwordConfirmation}
-                                                        className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition hover:bg-[#006ee6] active:scale-[0.98] disabled:bg-[#d1d1d6]"
-                                                    >
-                                                        {t('Şifreyi Güncelle', 'Update Password')}
-                                                    </button>
-                                                </div>
-                                                <div className="flex items-center gap-4 border-t border-black/[0.055] px-5 py-5 sm:px-7">
-                                                    <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#ff9500]/10 text-[#ff9500]">
-                                                        <Mail className="size-[19px]" />
-                                                    </span>
-                                                    <div className="min-w-0 flex-1">
-                                                        <h3 className="text-[15px] font-semibold">
-                                                            {t('Şifreni mi unuttun?', 'Forgot your password?')}
-                                                        </h3>
-                                                        <p className="mt-1 text-[12px] leading-5 text-[#8e8e93]">
-                                                            {t(
-                                                                'E-postana güvenli bir sıfırlama bağlantısı gönder.',
-                                                                'Send a secure reset link to your email.',
-                                                            )}
-                                                        </p>
+                                                        <div>
+                                                            <h2 className="text-[19px] font-semibold tracking-[-0.02em]">
+                                                                {t('Şifreyi değiştir', 'Change password')}
+                                                            </h2>
+                                                            <p className="mt-1 text-[13px] text-[#8e8e93]">
+                                                                {t(
+                                                                    'Hesabın için güçlü ve benzersiz bir şifre kullan.',
+                                                                    'Use a strong, unique password for your account.',
+                                                                )}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setResetEmail(draft.email);
-                                                            setResetSent(false);
-                                                            setForgotPasswordOpen(true);
-                                                        }}
-                                                        className="shrink-0 rounded-full bg-[#007aff]/10 px-4 py-2 text-[13px] font-semibold text-[#007aff] transition active:scale-95"
-                                                    >
-                                                        {t('Sıfırla', 'Reset')}
-                                                    </button>
-                                                </div>
-                                            </form>
-                                        </section>
+
+                                                    <div className="space-y-5 px-5 py-6 sm:px-7">
+                                                        <ProfileField
+                                                            label={t('Mevcut Şifre', 'Current Password')}
+                                                            value={currentPassword}
+                                                            onChange={setCurrentPassword}
+                                                            autoComplete="current-password"
+                                                            type="password"
+                                                            icon={LockKeyhole}
+                                                        />
+                                                        <ProfileField
+                                                            label={t('Yeni Şifre', 'New Password')}
+                                                            value={newPassword}
+                                                            onChange={(value) => {
+                                                                setNewPassword(value);
+                                                                setPasswordMessage(null);
+                                                            }}
+                                                            autoComplete="new-password"
+                                                            type="password"
+                                                            icon={LockKeyhole}
+                                                        />
+                                                        <ProfileField
+                                                            label={t('Yeni Şifre Tekrar', 'Confirm New Password')}
+                                                            value={passwordConfirmation}
+                                                            onChange={(value) => {
+                                                                setPasswordConfirmation(value);
+                                                                setPasswordMessage(null);
+                                                            }}
+                                                            autoComplete="new-password"
+                                                            type="password"
+                                                            icon={LockKeyhole}
+                                                        />
+                                                        {passwordMessage === 'mismatch' && (
+                                                            <p className="text-[13px] font-medium text-[#ff3b30]">
+                                                                {t('Yeni şifreler birbiriyle eşleşmiyor.', 'The new passwords do not match.')}
+                                                            </p>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex items-center justify-end gap-4 border-t border-black/[0.055] bg-[#fbfbfd] px-5 py-4 sm:px-7">
+                                                        {passwordMessage === 'success' && (
+                                                            <span className="text-[13px] font-medium text-[#28a745]">
+                                                                {t('Şifre güncellendi', 'Password updated')}
+                                                            </span>
+                                                        )}
+                                                        <button
+                                                            type="submit"
+                                                            disabled={!currentPassword || newPassword.length < 8 || !passwordConfirmation}
+                                                            className="h-11 rounded-full bg-[#007aff] px-6 text-[14px] font-semibold text-white transition hover:bg-[#006ee6] active:scale-[0.98] disabled:bg-[#d1d1d6]"
+                                                        >
+                                                            {t('Şifreyi Güncelle', 'Update Password')}
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex items-center gap-4 border-t border-black/[0.055] px-5 py-5 sm:px-7">
+                                                        <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#ff9500]/10 text-[#ff9500]">
+                                                            <Mail className="size-[19px]" />
+                                                        </span>
+                                                        <div className="min-w-0 flex-1">
+                                                            <h3 className="text-[15px] font-semibold">
+                                                                {t('Şifreni mi unuttun?', 'Forgot your password?')}
+                                                            </h3>
+                                                            <p className="mt-1 text-[12px] leading-5 text-[#8e8e93]">
+                                                                {t(
+                                                                    'E-postana güvenli bir sıfırlama bağlantısı gönder.',
+                                                                    'Send a secure reset link to your email.',
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setResetEmail(draft.email);
+                                                                setResetSent(false);
+                                                                setForgotPasswordOpen(true);
+                                                            }}
+                                                            className="shrink-0 rounded-full bg-[#007aff]/10 px-4 py-2 text-[13px] font-semibold text-[#007aff] transition active:scale-95"
+                                                        >
+                                                            {t('Sıfırla', 'Reset')}
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </section>
+                                        )}
                                     </div>
                                 )}
                             </>
@@ -3720,16 +7187,24 @@ function PublicProfileView({
     locale,
     profile,
     overallProgress,
+    fuBalance,
+    finishedBookCount,
+    showFuPublicly,
     onEdit,
     onExportReport,
+    onOpenSection,
     onSettings,
 }: {
     t: Translate;
     locale: Locale;
     profile: ProfileData;
     overallProgress: number;
+    fuBalance: number;
+    finishedBookCount: number;
+    showFuPublicly: boolean;
     onEdit: () => void;
     onExportReport: () => void;
+    onOpenSection: (section: 'notes' | 'library' | 'friends') => void;
     onSettings: () => void;
 }) {
     const initial = profile.name.trim().charAt(0).toLocaleUpperCase(getIntlLocale(locale)) || 'K';
@@ -3766,17 +7241,19 @@ function PublicProfileView({
                 </button>
             </div>
 
-            <article className="overflow-hidden rounded-[32px] border border-black/[0.055] bg-white shadow-[0_16px_55px_rgba(0,0,0,0.07)]">
-                <div className="relative h-36 overflow-hidden bg-[linear-gradient(135deg,#001f26_0%,#005b67_48%,#37b9c5_100%)] sm:h-44">
-                    <span className="absolute -top-16 -right-12 size-52 rounded-full bg-white/12 blur-2xl" />
-                    <span className="absolute -bottom-24 -left-10 size-64 rounded-full bg-[#007aff]/30 blur-3xl" />
-                    <span className="absolute top-8 left-[42%] size-20 rounded-full bg-white/8 blur-xl" />
-                </div>
-
-                <div className="px-5 pb-7 text-center sm:px-8 sm:pb-8">
+            <article className="relative">
+                <div
+                    className="pointer-events-none absolute inset-x-0 top-[72px] bottom-0 rounded-[32px] border border-black/[0.055] bg-white shadow-[0_16px_55px_rgba(0,0,0,0.07)]"
+                    aria-hidden="true"
+                />
+                <span
+                    className="pointer-events-none absolute top-0 left-1/2 z-10 size-36 -translate-x-1/2 rounded-full bg-[#f2f2f7]"
+                    aria-hidden="true"
+                />
+                <div className="relative z-20 px-5 pt-2 pb-7 text-center sm:px-8 sm:pb-8">
                     <div
-                        className="relative mx-auto -mt-16 grid size-32 place-items-center rounded-full p-[5px] shadow-[0_14px_34px_rgba(0,0,0,0.18)]"
-                        style={{ background: `conic-gradient(#007aff ${overallProgress}%, rgba(255,255,255,0.42) 0)` }}
+                        className="relative mx-auto grid size-32 place-items-center rounded-full p-[5px] shadow-[0_14px_34px_rgba(0,0,0,0.14)]"
+                        style={{ background: `conic-gradient(#007aff ${overallProgress}%, rgba(142,142,147,0.2) 0)` }}
                     >
                         <span className="grid size-full place-items-center overflow-hidden rounded-full border-4 border-white bg-white">
                             {profile.avatar ? (
@@ -3793,7 +7270,30 @@ function PublicProfileView({
                         </span>
                     </div>
 
-                    <h2 className="mt-4 text-[28px] font-semibold tracking-[-0.04em] sm:text-[32px]">{profile.name || t('Ad Soyad', 'Full Name')}</h2>
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+                        <h2 className="text-[28px] font-semibold tracking-[-0.04em] sm:text-[32px]">{profile.name || t('Ad Soyad', 'Full Name')}</h2>
+                        {showFuPublicly && (
+                            <>
+                                <span className="text-[24px] font-light text-[#c7c7cc]" aria-hidden="true">
+                                    |
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 text-[20px] font-semibold tracking-[-0.025em] tabular-nums sm:text-[22px]">
+                                    {fuBalance}
+                                    <FuMark className="size-4" />
+                                </span>
+                            </>
+                        )}
+                        <span className="text-[24px] font-light text-[#c7c7cc]" aria-hidden="true">
+                            |
+                        </span>
+                        <span
+                            className="inline-flex items-center gap-1.5 text-[20px] font-semibold tracking-[-0.025em] tabular-nums sm:text-[22px]"
+                            aria-label={t(`${finishedBookCount} kitap bitirdi`, `${finishedBookCount} books finished`)}
+                        >
+                            {finishedBookCount}
+                            <BookOpen className="size-[17px] text-[#007aff]" strokeWidth={2.3} />
+                        </span>
+                    </div>
                     <p className="mt-1 text-[14px] font-medium text-[#8e8e93]">
                         {profile.username ? `@${profile.username}` : t('Kullanıcı adı eklenmedi', 'No username yet')}
                     </p>
@@ -3821,7 +7321,46 @@ function PublicProfileView({
                 </div>
             </article>
 
-            <div className={`mt-5 grid gap-5 ${hasEducation ? 'md:grid-cols-[0.82fr_1.18fr]' : ''}`}>
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:hidden" aria-label={t('Profil kısayolları', 'Profile shortcuts')}>
+                <button
+                    type="button"
+                    onClick={() => onOpenSection('notes')}
+                    className="flex min-w-0 items-center gap-3 rounded-[20px] border border-black/[0.055] bg-white p-4 text-left shadow-[0_8px_26px_rgba(0,0,0,0.045)] transition active:scale-[0.98]"
+                >
+                    <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#ff9500]/10 text-[#ff9500]">
+                        <NotebookPen className="size-[18px]" />
+                    </span>
+                    <span className="min-w-0 truncate text-[13px] font-semibold">{t('Notlar', 'Notes')}</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onOpenSection('library')}
+                    className="flex min-w-0 items-center gap-3 rounded-[20px] border border-black/[0.055] bg-white p-4 text-left shadow-[0_8px_26px_rgba(0,0,0,0.045)] transition active:scale-[0.98]"
+                >
+                    <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#5856d6]/10 text-[#5856d6]">
+                        <BookOpen className="size-[18px]" />
+                    </span>
+                    <span className="min-w-0 truncate text-[13px] font-semibold">{t('Kitaplık', 'Library')}</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onOpenSection('friends')}
+                    className="col-span-2 flex min-w-0 items-center gap-3 rounded-[20px] border border-black/[0.055] bg-white p-4 text-left shadow-[0_8px_26px_rgba(0,0,0,0.045)] transition active:scale-[0.98]"
+                >
+                    <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#007aff]/10 text-[#007aff]">
+                        <Users className="size-[18px]" />
+                    </span>
+                    <span className="min-w-0">
+                        <span className="block truncate text-[13px] font-semibold">{t('Yol Arkadaşları', 'Companions')}</span>
+                        <span className="mt-0.5 block truncate text-[10px] text-[#8e8e93]">
+                            {t('Arkadaşlık, erişim ve sohbet', 'Friends, access, and chat')}
+                        </span>
+                    </span>
+                    <ChevronRight className="ml-auto size-4 shrink-0 text-[#c7c7cc]" />
+                </button>
+            </div>
+
+            <div className="mt-5 grid gap-5">
                 <section className="rounded-[26px] border border-black/[0.055] bg-white p-5 shadow-[0_10px_35px_rgba(0,0,0,0.045)] sm:p-6">
                     <div className="flex items-center gap-3">
                         <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#007aff]/10 text-[#007aff]">
@@ -5415,6 +8954,8 @@ function PlanPanel({
     onReorderItems,
     onUpdateReminder,
     onCreateReminder,
+    initialComposerOpen = false,
+    onInitialComposerHandled,
 }: {
     t: Translate;
     locale: Locale;
@@ -5433,8 +8974,10 @@ function PlanPanel({
     onReorderItems: (orderedIds: number[]) => void;
     onUpdateReminder: (id: number, reminderAt?: string) => void;
     onCreateReminder: (date: string) => void;
+    initialComposerOpen?: boolean;
+    onInitialComposerHandled?: () => void;
 }) {
-    const [composerOpen, setComposerOpen] = useState(false);
+    const [composerOpen, setComposerOpen] = useState(initialComposerOpen);
     const [independentTitle, setIndependentTitle] = useState('');
     const [independentPriority, setIndependentPriority] = useState<Priority>('important');
     const [pendingFirstItem, setPendingFirstItem] = useState<Omit<PlanItem, 'id' | 'completed' | 'createdAt'> | null>(null);
@@ -5444,6 +8987,32 @@ function PlanPanel({
     const [reminderTime, setReminderTime] = useState(suggestedReminderTime);
     const [reminderCalendarOpen, setReminderCalendarOpen] = useState(false);
     const [editingReminderId, setEditingReminderId] = useState<number | null>(null);
+
+    const resetComposerDraft = () => {
+        setIndependentTitle('');
+        setIndependentPriority('important');
+        setReminderEnabled(false);
+        setReminderDate(suggestedReminderDate(date));
+        setReminderTime(suggestedReminderTime());
+        setReminderCalendarOpen(false);
+    };
+
+    const openComposer = () => {
+        resetComposerDraft();
+        setComposerOpen(true);
+    };
+
+    const closeComposer = () => {
+        setComposerOpen(false);
+        resetComposerDraft();
+    };
+
+    useEffect(() => {
+        if (!initialComposerOpen) return;
+
+        setComposerOpen(true);
+        onInitialComposerHandled?.();
+    }, [initialComposerOpen, onInitialComposerHandled]);
 
     const visibleItems = useMemo(() => sortPlanItems(items.filter((item) => isPlanItemInPeriod(item, range, date))), [date, items, range]);
     const completedCount = visibleItems.filter((item) => item.completed).length;
@@ -5469,9 +9038,7 @@ function PlanPanel({
         if (!title || !reminderIsValid) return;
 
         requestAddItem({ title, range, scheduledFor: date, source: 'independent', priority: independentPriority, reminderAt });
-        setIndependentTitle('');
-        setComposerOpen(false);
-        setReminderEnabled(false);
+        closeComposer();
     };
 
     const addGoalBlock = (goalRecord: GoalRecord, block: BuildingBlock) => {
@@ -5559,7 +9126,7 @@ function PlanPanel({
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setComposerOpen(true)}
+                                onClick={openComposer}
                                 className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-full bg-[#007aff] px-4 text-[13px] font-semibold text-white shadow-[0_8px_24px_rgba(0,122,255,0.2)] transition hover:bg-[#006ee6] active:scale-[0.98] sm:px-6 sm:text-[15px]"
                             >
                                 <Plus className="size-[18px] shrink-0" strokeWidth={2.5} />
@@ -5602,11 +9169,7 @@ function PlanPanel({
                                 <h3 className="mt-5 text-[17px] font-semibold">
                                     {t('Planın hazır olduğunda burada görünecek.', 'Your plan will appear here when it is ready.')}
                                 </h3>
-                                <button
-                                    type="button"
-                                    onClick={() => setComposerOpen(true)}
-                                    className="mt-3 text-[14px] font-medium text-[#007aff] hover:underline"
-                                >
+                                <button type="button" onClick={openComposer} className="mt-3 text-[14px] font-medium text-[#007aff] hover:underline">
                                     {t('İlk maddeyi ekle', 'Add the first item')}
                                 </button>
                             </div>
@@ -5652,7 +9215,9 @@ function PlanPanel({
                                                         ? sourceGoal.title
                                                         : item.source === 'reminder'
                                                           ? t('Harici anımsatıcı', 'Standalone reminder')
-                                                          : t('Bağımsız plan', 'Independent plan')}
+                                                          : item.source === 'team'
+                                                            ? `${item.teamName ?? t('Ekip', 'Team')} · ${item.teamGoalTitle ?? t('Ekip hedefi', 'Team goal')}`
+                                                            : t('Bağımsız plan', 'Independent plan')}
                                                 </p>
                                                 <button
                                                     type="button"
@@ -5706,7 +9271,7 @@ function PlanPanel({
                 <div
                     className="apple-interface fixed inset-0 z-50 flex items-end justify-center bg-black/20 p-0 backdrop-blur-sm sm:items-center sm:p-5"
                     role="presentation"
-                    onMouseDown={() => setComposerOpen(false)}
+                    onMouseDown={closeComposer}
                 >
                     <section
                         role="dialog"
@@ -5724,7 +9289,7 @@ function PlanPanel({
                             </div>
                             <button
                                 type="button"
-                                onClick={() => setComposerOpen(false)}
+                                onClick={closeComposer}
                                 className="grid size-9 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73] transition hover:bg-black/[0.09]"
                                 aria-label={t('Kapat', 'Close')}
                             >
@@ -5861,30 +9426,40 @@ function PlanPanel({
                                                     />
                                                     {goalRecord.title}
                                                 </p>
-                                                {goalRecord.buildingBlocks.map((block) => {
-                                                    const planned = isBlockPlanned(goalRecord.id, block.id);
+                                                {[...goalRecord.buildingBlocks]
+                                                    .sort((first, second) => Number(Boolean(second.highImpact)) - Number(Boolean(first.highImpact)))
+                                                    .map((block) => {
+                                                        const planned = isBlockPlanned(goalRecord.id, block.id);
 
-                                                    return (
-                                                        <button
-                                                            key={block.id}
-                                                            type="button"
-                                                            disabled={planned || !reminderIsValid}
-                                                            onClick={() => addGoalBlock(goalRecord, block)}
-                                                            className="flex w-full items-center gap-3 border-t border-black/[0.045] px-4 py-3.5 text-left transition hover:bg-black/[0.02] disabled:cursor-default disabled:opacity-45"
-                                                        >
-                                                            <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{block.title}</span>
-                                                            {planned ? (
-                                                                <span className="text-[11px] font-medium text-[#8e8e93]">
-                                                                    {t('Planlandı', 'Planned')}
+                                                        return (
+                                                            <button
+                                                                key={block.id}
+                                                                type="button"
+                                                                disabled={planned || !reminderIsValid}
+                                                                onClick={() => addGoalBlock(goalRecord, block)}
+                                                                className="flex w-full items-center gap-3 border-t border-black/[0.045] px-4 py-3.5 text-left transition hover:bg-black/[0.02] disabled:cursor-default disabled:opacity-45"
+                                                            >
+                                                                <span className="min-w-0 flex-1">
+                                                                    <span className="block truncate text-[14px] font-medium">{block.title}</span>
+                                                                    {block.highImpact && (
+                                                                        <span className="mt-1 flex items-center gap-1 text-[9px] font-semibold text-[#007aff]">
+                                                                            <Sparkles className="size-3" />
+                                                                            {t('20/80 · Yüksek Etki', '20/80 · High Impact')}
+                                                                        </span>
+                                                                    )}
                                                                 </span>
-                                                            ) : (
-                                                                <span className="grid size-7 place-items-center rounded-full bg-[#007aff]/10 text-[#007aff]">
-                                                                    <Plus className="size-4" />
-                                                                </span>
-                                                            )}
-                                                        </button>
-                                                    );
-                                                })}
+                                                                {planned ? (
+                                                                    <span className="text-[11px] font-medium text-[#8e8e93]">
+                                                                        {t('Planlandı', 'Planned')}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="grid size-7 place-items-center rounded-full bg-[#007aff]/10 text-[#007aff]">
+                                                                        <Plus className="size-4" />
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
                                             </div>
                                         ))
                                     )}
@@ -6288,7 +9863,6 @@ function GoalStep({ t, value, onChange }: { t: Translate; value: string; onChang
             </label>
             <input
                 id="first-goal"
-                autoFocus
                 autoCapitalize="sentences"
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
@@ -6303,7 +9877,7 @@ function CategoryStep({ t, value, onChange }: { t: Translate; value: GoalCategor
     const categories: Array<{ value: GoalCategory; label: string; description: string; icon: typeof Target; color: string }> = [
         {
             value: 'health',
-            label: t('Sağlık', 'Health'),
+            label: t('Sağlık & Spor', 'Health & Sports'),
             description: t('Beden ve zihin', 'Body and mind'),
             icon: HeartPulse,
             color: 'bg-[#ff3b30]/10 text-[#ff3b30]',
@@ -6401,7 +9975,6 @@ function GainStep({ t, value, onChange }: { t: Translate; value: string; onChang
             </label>
             <textarea
                 id="goal-gain"
-                autoFocus
                 autoCapitalize="sentences"
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
@@ -6451,7 +10024,6 @@ function BuildingBlocksStep({
                         </label>
                         <input
                             id={`building-block-${block.id}`}
-                            autoFocus={index === 0}
                             autoCapitalize="sentences"
                             value={block.title}
                             onChange={(event) => onChange(block.id, event.target.value)}
@@ -6479,6 +10051,110 @@ function BuildingBlocksStep({
             >
                 <Plus className="size-5" strokeWidth={2.5} />
             </button>
+        </section>
+    );
+}
+
+function ParetoPrompt({ t, onChoose }: { t: Translate; onChoose: (enabled: boolean) => void }) {
+    return (
+        <div
+            className="fixed inset-0 z-50 grid h-[100dvh] place-items-center overflow-y-auto overscroll-contain bg-black/30 p-5 backdrop-blur-sm"
+            role="presentation"
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="pareto-prompt-title"
+                className="demo-step-enter max-h-[calc(100dvh-2.5rem)] w-full max-w-md overflow-y-auto rounded-[28px] border border-black/[0.07] bg-white p-6 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-7"
+            >
+                <span className="grid size-12 place-items-center rounded-[16px] bg-[#007aff]/10 text-[#007aff]">
+                    <Sparkles className="size-5" />
+                </span>
+                <h2 id="pareto-prompt-title" className="mt-5 text-[24px] font-semibold tracking-[-0.035em]">
+                    {t('20/80 Odak Modu', '20/80 Focus Mode')}
+                </h2>
+                <p className="mt-2 text-[14px] leading-6 text-[#6e6e73]">
+                    {t(
+                        'Sonuçların büyük kısmı, en etkili az sayıdaki adımdan gelir. Önemli yapı taşlarını öne çıkaralım mı?',
+                        'Most results come from a small number of high-impact steps. Shall we highlight them?',
+                    )}
+                </p>
+                <div className="mt-6 grid grid-cols-2 gap-2.5">
+                    <button
+                        type="button"
+                        onClick={() => onChoose(false)}
+                        className="h-12 rounded-full bg-[#f2f2f7] text-[13px] font-semibold text-[#3a3a3c] transition hover:bg-[#e9e9ee] active:scale-[0.98]"
+                    >
+                        {t('Şimdi değil', 'Not now')}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onChoose(true)}
+                        className="h-12 rounded-full bg-[#007aff] text-[13px] font-semibold text-white shadow-[0_8px_22px_rgba(0,122,255,0.22)] transition hover:bg-[#006ee6] active:scale-[0.98]"
+                    >
+                        {t('Uygula', 'Apply')}
+                    </button>
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function ParetoFocusStep({
+    t,
+    blocks,
+    targetCount,
+    onToggle,
+}: {
+    t: Translate;
+    blocks: BuildingBlock[];
+    targetCount: number;
+    onToggle: (id: number) => void;
+}) {
+    const selectedCount = blocks.filter((block) => block.highImpact).length;
+
+    return (
+        <section>
+            <StepHeading
+                eyebrow={t('20/80 Odağı', '20/80 Focus')}
+                title={t('En yüksek etkiyi oluşturacak adımları seç.', 'Choose the steps that will create the greatest impact.')}
+                description={t(
+                    `${blocks.length} yapı taşından ${targetCount} tanesini seç. Bu seçim ilerleme yüzdesini değiştirmez.`,
+                    `Choose ${targetCount} of ${blocks.length} building blocks. This does not change your progress percentage.`,
+                )}
+            />
+
+            <div className="space-y-3">
+                {blocks.map((block, index) => {
+                    const selected = Boolean(block.highImpact);
+                    const limitReached = !selected && selectedCount >= targetCount;
+
+                    return (
+                        <button
+                            key={block.id}
+                            type="button"
+                            onClick={() => onToggle(block.id)}
+                            disabled={limitReached}
+                            aria-pressed={selected}
+                            className={`flex w-full items-center gap-3 rounded-[18px] border p-3.5 text-left shadow-[0_6px_24px_rgba(0,0,0,0.035)] transition disabled:opacity-45 ${selected ? 'border-[#007aff]/30 bg-[#007aff]/8' : 'border-black/[0.07] bg-white'}`}
+                        >
+                            <span
+                                className={`grid size-9 shrink-0 place-items-center rounded-full ${selected ? 'bg-[#007aff] text-white' : 'bg-[#f2f2f7] text-[#8e8e93]'}`}
+                            >
+                                {selected ? <Sparkles className="size-4" /> : <span className="text-xs font-semibold">{index + 1}</span>}
+                            </span>
+                            <span className="min-w-0 flex-1 text-[15px] font-medium">{block.title}</span>
+                            <span className={`text-[11px] font-semibold ${selected ? 'text-[#007aff]' : 'text-[#aeaeb2]'}`}>
+                                {selected ? t('Yüksek Etki', 'High Impact') : t('Seç', 'Select')}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+
+            <p className="mt-5 text-center text-[12px] font-semibold text-[#007aff]">
+                {t(`${selectedCount} / ${targetCount} seçildi`, `${selectedCount} of ${targetCount} selected`)}
+            </p>
         </section>
     );
 }
@@ -6526,6 +10202,12 @@ function OrderingStep({
                             {index + 1}
                         </span>
                         <p className="min-w-0 flex-1 truncate text-[16px] font-medium tracking-[-0.01em]">{block.title}</p>
+                        {block.highImpact && (
+                            <span className="hidden items-center gap-1 rounded-full bg-[#007aff]/10 px-2.5 py-1 text-[10px] font-semibold text-[#007aff] sm:inline-flex">
+                                <Sparkles className="size-3" />
+                                {t('Yüksek Etki', 'High Impact')}
+                            </span>
+                        )}
                         <span className="rounded-full bg-[#f2f2f7] px-2.5 py-1 text-[11px] font-semibold text-[#6e6e73]">
                             %{progressParts[index]}
                         </span>
@@ -6690,7 +10372,7 @@ function priorityLabel(priority: Priority, t: Translate): string {
 
 function categoryLabel(category: GoalCategory, t: Translate): string {
     return {
-        health: t('Sağlık', 'Health'),
+        health: t('Sağlık & Spor', 'Health & Sports'),
         work: t('İş', 'Work'),
         venture: t('Girişim', 'Venture'),
         skill: t('Yetenek', 'Skill'),
@@ -7073,7 +10755,9 @@ function openFuevorReport({
                                       sourceGoal?.title ??
                                       (item.source === 'reminder'
                                           ? t('Harici anımsatıcı', 'Standalone reminder')
-                                          : t('Bağımsız plan', 'Independent plan'));
+                                          : item.source === 'team'
+                                            ? `${item.teamName ?? t('Ekip', 'Team')} · ${item.teamGoalTitle ?? t('Ekip hedefi', 'Team goal')}`
+                                            : t('Bağımsız plan', 'Independent plan'));
                                   return `<article class="plan-row keep-together">
                                       <span class="check ${item.completed ? 'done' : ''}">${item.completed ? '✓' : ''}</span>
                                       <div><strong class="${item.completed ? 'completed' : ''}">${h(item.title)}</strong><p>${h(source)}</p></div>
@@ -7437,15 +11121,26 @@ function sortPlanItems(items: PlanItem[]): PlanItem[] {
     });
 }
 
-function loadStoredGoals(): GoalRecord[] {
-    return loadStoredArray<GoalRecord>(DEMO_GOALS_STORAGE_KEY).map((goalRecord) => ({
-        ...goalRecord,
-        category: isGoalCategory(goalRecord.category) ? goalRecord.category : 'other',
-    }));
+function loadStoredGoals(source?: unknown): GoalRecord[] {
+    return loadStoredArray<GoalRecord>(DEMO_GOALS_STORAGE_KEY, source).map((goalRecord) => {
+        const normalizedGoal = {
+            ...goalRecord,
+            category: isGoalCategory(goalRecord.category) ? goalRecord.category : ('other' as const),
+        };
+
+        return {
+            ...normalizedGoal,
+            fuAwardedAt: Number.isFinite(goalRecord.fuAwardedAt)
+                ? goalRecord.fuAwardedAt
+                : isGoalCompleted(normalizedGoal)
+                  ? goalRecord.createdAt
+                  : undefined,
+        };
+    });
 }
 
-function loadStoredPlanItems(): PlanItem[] {
-    return loadStoredArray<PlanItem>(DEMO_PLAN_STORAGE_KEY).map((item) => {
+function loadStoredPlanItems(source?: unknown): PlanItem[] {
+    return loadStoredArray<PlanItem>(DEMO_PLAN_STORAGE_KEY, source).map((item) => {
         const reminderAt =
             typeof item.reminderAt === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(item.reminderAt) ? item.reminderAt : undefined;
         const normalizedItem = {
@@ -7463,14 +11158,14 @@ function loadStoredPlanItems(): PlanItem[] {
     });
 }
 
-function loadStoredNotes(): NoteRecord[] {
-    return loadStoredArray<NoteRecord>(DEMO_NOTES_STORAGE_KEY).filter(
+function loadStoredNotes(source?: unknown): NoteRecord[] {
+    return loadStoredArray<NoteRecord>(DEMO_NOTES_STORAGE_KEY, source).filter(
         (note) => typeof note.title === 'string' && typeof note.content === 'string' && Number.isFinite(note.id),
     );
 }
 
-function loadStoredBooks(): BookRecord[] {
-    return loadStoredArray<Partial<BookRecord>>(DEMO_BOOKS_STORAGE_KEY).flatMap((book, index) => {
+function loadStoredBooks(source?: unknown): BookRecord[] {
+    return loadStoredArray<Partial<BookRecord>>(DEMO_BOOKS_STORAGE_KEY, source).flatMap((book, index) => {
         if (!Number.isFinite(book.id) || typeof book.title !== 'string' || !book.title.trim() || !isBookStatus(book.status)) return [];
 
         return [
@@ -7501,7 +11196,7 @@ function isBookStatus(value: unknown): value is BookStatus {
     return value === 'reading' || value === 'not-started' || value === 'finished';
 }
 
-function loadStoredProfile(): ProfileData {
+function loadStoredProfile(source?: unknown): ProfileData {
     const emptyProfile: ProfileData = {
         name: '',
         username: '',
@@ -7514,10 +11209,10 @@ function loadStoredProfile(): ProfileData {
         educations: [],
         avatar: '',
     };
-    if (typeof window === 'undefined') return emptyProfile;
+    if (source === undefined && typeof window === 'undefined') return emptyProfile;
 
     try {
-        const value: unknown = JSON.parse(window.localStorage.getItem(DEMO_PROFILE_STORAGE_KEY) ?? 'null');
+        const value: unknown = source === undefined ? JSON.parse(window.localStorage.getItem(DEMO_PROFILE_STORAGE_KEY) ?? 'null') : source;
         if (!value || typeof value !== 'object') return emptyProfile;
 
         const profile = value as Partial<ProfileData> & { educationLevel?: unknown; university?: unknown };
@@ -7554,23 +11249,137 @@ function loadStoredProfile(): ProfileData {
     }
 }
 
-function loadStoredSettings(defaultLanguage: Locale): SettingsData {
+function normalizeTeamUsername(value: string): string {
+    return normalizeUsernameInput(value).toLocaleLowerCase('tr-TR');
+}
+
+function isTeamRole(value: unknown): value is TeamRole {
+    return value === 'manager' || value === 'assistant' || value === 'member';
+}
+
+function loadStoredTeamData(profile: ProfileData): TeamModeData {
+    const now = Date.now();
+    const selfMember: TeamMember = {
+        id: 1,
+        username: normalizeTeamUsername(profile.username) || 'ben',
+        name: profile.name.trim() || 'Sen',
+        role: 'manager',
+        joinedAt: now,
+    };
+    const emptyTeam: TeamModeData = { members: [selfMember], goals: [] };
+    if (typeof window === 'undefined') return emptyTeam;
+
+    try {
+        const value: unknown = JSON.parse(window.localStorage.getItem(DEMO_TEAM_STORAGE_KEY) ?? 'null');
+        if (!value || typeof value !== 'object') return emptyTeam;
+
+        const stored = value as { members?: unknown; goals?: unknown };
+        const normalizedMembers = (Array.isArray(stored.members) ? stored.members : []).flatMap((candidate, index) => {
+            if (!candidate || typeof candidate !== 'object') return [];
+
+            const member = candidate as Partial<TeamMember>;
+            const username = normalizeTeamUsername(typeof member.username === 'string' ? member.username : '');
+            if (!username) return [];
+
+            return [
+                {
+                    id: typeof member.id === 'number' && Number.isFinite(member.id) ? member.id : now + index + 1,
+                    username,
+                    name: typeof member.name === 'string' && member.name.trim() ? member.name.trim().slice(0, 80) : `@${username}`,
+                    role: isTeamRole(member.role) ? member.role : ('member' as const),
+                    joinedAt: typeof member.joinedAt === 'number' && Number.isFinite(member.joinedAt) ? member.joinedAt : now,
+                },
+            ];
+        });
+
+        const membersById = new Map<number, TeamMember>();
+        for (const member of normalizedMembers) membersById.set(member.id, member);
+        membersById.set(1, { ...selfMember, role: membersById.get(1)?.role ?? 'manager' });
+
+        let managerAssigned = false;
+        const members = Array.from(membersById.values()).map((member) => {
+            if (member.role !== 'manager') return member;
+            if (managerAssigned) return { ...member, role: 'member' as const };
+            managerAssigned = true;
+            return member;
+        });
+        if (!managerAssigned) {
+            const selfIndex = members.findIndex((member) => member.id === 1);
+            members[selfIndex] = { ...members[selfIndex], role: 'manager' };
+        }
+
+        const memberIds = new Set(members.map((member) => member.id));
+        const goals = (Array.isArray(stored.goals) ? stored.goals : []).flatMap((candidate, goalIndex) => {
+            if (!candidate || typeof candidate !== 'object') return [];
+
+            const goal = candidate as Partial<TeamGoalRecord>;
+            const title = typeof goal.title === 'string' ? goal.title.trim().slice(0, 120) : '';
+            if (!title) return [];
+
+            let remainingShare = 100;
+            const tasks = (Array.isArray(goal.tasks) ? goal.tasks : []).flatMap((taskCandidate, taskIndex) => {
+                if (!taskCandidate || typeof taskCandidate !== 'object' || remainingShare === 0) return [];
+
+                const task = taskCandidate as Partial<TeamTask>;
+                const taskTitle = typeof task.title === 'string' ? task.title.trim().slice(0, 160) : '';
+                if (!taskTitle) return [];
+
+                const requestedShare = typeof task.share === 'number' && Number.isFinite(task.share) ? Math.round(task.share) : 1;
+                const share = Math.min(remainingShare, Math.max(1, requestedShare));
+                remainingShare -= share;
+
+                return [
+                    {
+                        id: typeof task.id === 'number' && Number.isFinite(task.id) ? task.id : now + goalIndex * 100 + taskIndex + 1,
+                        title: taskTitle,
+                        assigneeId: typeof task.assigneeId === 'number' && memberIds.has(task.assigneeId) ? task.assigneeId : 1,
+                        share,
+                        completed: task.completed === true,
+                        completedAt:
+                            task.completed === true && typeof task.completedAt === 'number' && Number.isFinite(task.completedAt)
+                                ? task.completedAt
+                                : undefined,
+                    },
+                ];
+            });
+
+            return [
+                {
+                    id: typeof goal.id === 'number' && Number.isFinite(goal.id) ? goal.id : now + goalIndex + 1,
+                    title,
+                    tasks,
+                    createdAt: typeof goal.createdAt === 'number' && Number.isFinite(goal.createdAt) ? goal.createdAt : now,
+                },
+            ];
+        });
+
+        return { members, goals };
+    } catch {
+        return emptyTeam;
+    }
+}
+
+function loadStoredSettings(defaultLanguage: Locale, source?: unknown): SettingsData {
     const defaultSettings: SettingsData = {
         appearance: 'light',
         language: defaultLanguage,
+        showFuPublicly: true,
+        teamModeEnabled: false,
         carryOverIncompletePlans: false,
         carryOverPreferenceSet: false,
     };
-    if (typeof window === 'undefined') return defaultSettings;
+    if (source === undefined && typeof window === 'undefined') return defaultSettings;
 
     try {
-        const value: unknown = JSON.parse(window.localStorage.getItem(DEMO_SETTINGS_STORAGE_KEY) ?? 'null');
+        const value: unknown = source === undefined ? JSON.parse(window.localStorage.getItem(DEMO_SETTINGS_STORAGE_KEY) ?? 'null') : source;
         if (!value || typeof value !== 'object') return defaultSettings;
 
         const settings = value as Partial<SettingsData>;
         return {
             appearance: settings.appearance === 'dark' ? 'dark' : 'light',
             language: isLocale(settings.language) ? settings.language : defaultLanguage,
+            showFuPublicly: settings.showFuPublicly !== false,
+            teamModeEnabled: settings.teamModeEnabled === true,
             carryOverIncompletePlans: settings.carryOverIncompletePlans === true,
             carryOverPreferenceSet: settings.carryOverPreferenceSet === true,
         };
@@ -7620,11 +11429,219 @@ function cropProfileImage(source: string, dimensions: ImageDimensions, scale: nu
     });
 }
 
-function loadStoredArray<T>(key: string): T[] {
-    if (typeof window === 'undefined') return [];
+function getTeamFriendSuggestions(profile: ProfileData, posts: CommunityPost[]): TeamFriendSuggestion[] {
+    const acceptedFriends = new Set(
+        loadStoredFriendsData()
+            .relationships.filter((relationship) => relationship.status === 'friend')
+            .map((relationship) => relationship.username),
+    );
+    const profiles = new Map<string, CommunityProfile>();
+
+    posts.forEach((post) => {
+        profiles.set(post.authorProfile.username, post.authorProfile);
+        post.ideas.forEach((idea) => {
+            profiles.set(idea.authorProfile.username, idea.authorProfile);
+            (idea.replies ?? []).forEach((reply) => profiles.set(reply.authorProfile.username, reply.authorProfile));
+        });
+    });
+
+    const currentUsername = normalizeTeamUsername(profile.username);
+
+    return Array.from(acceptedFriends)
+        .filter((username) => username !== currentUsername)
+        .map((username) => {
+            const friendProfile = profiles.get(username);
+
+            return {
+                username,
+                name: friendProfile?.name ?? `@${username}`,
+                avatar: friendProfile?.avatar ?? '',
+            };
+        })
+        .sort((first, second) => first.name.localeCompare(second.name, 'tr-TR'));
+}
+
+function defaultFriendsData(): FriendsData {
+    const now = Date.now();
+
+    return {
+        relationships: [
+            { username: 'emretunc', status: 'friend', companion: true, accessScope: 'week', createdAt: now - 1000 * 60 * 60 * 24 * 24 },
+            { username: 'eceyalin', status: 'friend', companion: false, createdAt: now - 1000 * 60 * 60 * 24 * 11 },
+            { username: 'idilaksoy', status: 'incoming', companion: false, createdAt: now - 1000 * 60 * 38 },
+            { username: 'mertaras', status: 'outgoing', companion: false, createdAt: now - 1000 * 60 * 60 * 5 },
+        ],
+        messages: [
+            {
+                id: now - 4000,
+                username: 'emretunc',
+                sender: 'friend',
+                body: 'Bu haftaki planına baktım. Perşembe günündeki yoğunluğu biraz azaltmak iyi olabilir.',
+                createdAt: now - 1000 * 60 * 52,
+            },
+            {
+                id: now - 3000,
+                username: 'emretunc',
+                sender: 'self',
+                body: 'Haklısın, iki işi cuma gününe taşıyacağım. Teşekkürler.',
+                createdAt: now - 1000 * 60 * 47,
+            },
+            {
+                id: now - 2000,
+                username: 'eceyalin',
+                sender: 'friend',
+                body: 'Yeni hedefini gördüm, çok iyi düşünülmüş.',
+                createdAt: now - 1000 * 60 * 60 * 21,
+            },
+        ],
+    };
+}
+
+function loadStoredFriendsData(): FriendsData {
+    const fallback = defaultFriendsData();
+    if (typeof window === 'undefined') return fallback;
 
     try {
-        const value: unknown = JSON.parse(window.localStorage.getItem(key) ?? '[]');
+        const value: unknown = JSON.parse(window.localStorage.getItem(DEMO_FRIENDS_STORAGE_KEY) ?? 'null');
+        if (!value || typeof value !== 'object') return fallback;
+
+        const stored = value as { relationships?: unknown; messages?: unknown };
+        if (!Array.isArray(stored.relationships) || !Array.isArray(stored.messages)) return fallback;
+
+        const relationships = stored.relationships.flatMap((candidate): FriendRelationship[] => {
+            if (!candidate || typeof candidate !== 'object') return [];
+            const relationship = candidate as Partial<FriendRelationship>;
+            const username = typeof relationship.username === 'string' ? normalizeTeamUsername(relationship.username) : '';
+            const status = relationship.status;
+            if (!username || (status !== 'friend' && status !== 'incoming' && status !== 'outgoing')) return [];
+
+            const accessScope = relationship.accessScope;
+            const normalizedScope =
+                accessScope === 'day' || accessScope === 'week' || accessScope === 'year' || accessScope === 'goal' ? accessScope : undefined;
+
+            return [
+                {
+                    username,
+                    status,
+                    companion: status === 'friend' && relationship.companion === true,
+                    accessScope: status === 'friend' && relationship.companion === true ? (normalizedScope ?? 'week') : undefined,
+                    goalId: Number.isFinite(relationship.goalId) ? Number(relationship.goalId) : undefined,
+                    createdAt: Number.isFinite(relationship.createdAt) ? Number(relationship.createdAt) : Date.now(),
+                },
+            ];
+        });
+        const messages = stored.messages.flatMap((candidate): FriendMessage[] => {
+            if (!candidate || typeof candidate !== 'object') return [];
+            const item = candidate as Partial<FriendMessage>;
+            const username = typeof item.username === 'string' ? normalizeTeamUsername(item.username) : '';
+            const body = typeof item.body === 'string' ? item.body.trim().slice(0, 1000) : '';
+            const attachments = Array.isArray(item.attachments)
+                ? item.attachments.flatMap((candidateAttachment): FriendMessageAttachment[] => {
+                      if (!candidateAttachment || typeof candidateAttachment !== 'object') return [];
+                      const attachment = candidateAttachment as Partial<FriendMessageAttachment>;
+                      if (
+                          (attachment.kind !== 'photo' && attachment.kind !== 'document') ||
+                          typeof attachment.name !== 'string' ||
+                          !attachment.name.trim()
+                      )
+                          return [];
+
+                      return [
+                          {
+                              kind: attachment.kind,
+                              name: attachment.name.trim().slice(0, 180),
+                              mimeType: typeof attachment.mimeType === 'string' ? attachment.mimeType.slice(0, 120) : '',
+                              size: Number.isFinite(attachment.size) ? Math.max(0, Number(attachment.size)) : 0,
+                              dataUrl:
+                                  attachment.kind === 'photo' &&
+                                  typeof attachment.dataUrl === 'string' &&
+                                  attachment.dataUrl.startsWith('data:image/')
+                                      ? attachment.dataUrl
+                                      : undefined,
+                          },
+                      ];
+                  })
+                : undefined;
+            let sharedContent: FriendSharedContent | undefined;
+            if (item.sharedContent && typeof item.sharedContent === 'object') {
+                const shared = item.sharedContent as Partial<FriendSharedContent> & Record<string, unknown>;
+                if (
+                    shared.kind === 'plan' &&
+                    Number.isFinite(shared.itemId) &&
+                    typeof shared.title === 'string' &&
+                    typeof shared.scheduledFor === 'string'
+                ) {
+                    sharedContent = {
+                        kind: 'plan',
+                        itemId: Number(shared.itemId),
+                        title: shared.title.trim().slice(0, 240),
+                        scheduledFor: shared.scheduledFor,
+                        completed: shared.completed === true,
+                    };
+                } else if (shared.kind === 'goal' && Number.isFinite(shared.goalId) && typeof shared.title === 'string') {
+                    sharedContent = {
+                        kind: 'goal',
+                        goalId: Number(shared.goalId),
+                        title: shared.title.trim().slice(0, 240),
+                        progress: Number.isFinite(shared.progress) ? Math.min(100, Math.max(0, Number(shared.progress))) : 0,
+                        buildingBlockCount: Number.isFinite(shared.buildingBlockCount) ? Math.max(0, Number(shared.buildingBlockCount)) : 0,
+                    };
+                }
+            }
+            if (!username || (item.sender !== 'self' && item.sender !== 'friend') || (!body && !attachments?.length && !sharedContent)) return [];
+
+            return [
+                {
+                    id: Number.isFinite(item.id) ? Number(item.id) : Date.now(),
+                    username,
+                    sender: item.sender,
+                    body,
+                    attachments: attachments?.length ? attachments : undefined,
+                    sharedContent,
+                    createdAt: Number.isFinite(item.createdAt) ? Number(item.createdAt) : Date.now(),
+                },
+            ];
+        });
+
+        return { relationships, messages };
+    } catch {
+        return fallback;
+    }
+}
+
+function formatFriendMessageTime(timestamp: number, locale: Locale): string {
+    return new Intl.DateTimeFormat(getIntlLocale(locale), { hour: '2-digit', minute: '2-digit' }).format(new Date(timestamp));
+}
+
+function getFriendMessagePreview(message: FriendMessage, t: Translate): string {
+    if (message.body) return message.body;
+    if (message.sharedContent?.kind === 'plan') return t('Bir plan paylaşıldı', 'A plan was shared');
+    if (message.sharedContent?.kind === 'goal') return t('Bir hedef paylaşıldı', 'A goal was shared');
+    if (message.attachments?.[0]?.kind === 'photo') return t('Fotoğraf', 'Photo');
+    if (message.attachments?.[0]?.kind === 'document') return t('Belge', 'Document');
+    return t('Yeni mesaj', 'New message');
+}
+
+function formatFileSize(size: number, locale: Locale): string {
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${new Intl.NumberFormat(getIntlLocale(locale), { maximumFractionDigits: 1 }).format(size / 1024)} KB`;
+    return `${new Intl.NumberFormat(getIntlLocale(locale), { maximumFractionDigits: 1 }).format(size / (1024 * 1024))} MB`;
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('The attachment could not be read.'));
+        reader.onload = () => resolve(String(reader.result));
+        reader.readAsDataURL(file);
+    });
+}
+
+function loadStoredArray<T>(key: string, source?: unknown): T[] {
+    if (source === undefined && typeof window === 'undefined') return [];
+
+    try {
+        const value: unknown = source === undefined ? JSON.parse(window.localStorage.getItem(key) ?? '[]') : source;
         return Array.isArray(value) ? (value as T[]) : [];
     } catch {
         return [];

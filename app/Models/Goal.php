@@ -22,7 +22,7 @@ class Goal extends Model
     ];
 
     protected $fillable = [
-        'title', 'description', 'start_date', 'target_date', 'status', 'priority',
+        'beta_key', 'title', 'description', 'start_date', 'target_date', 'status', 'priority',
         'motivation', 'reward', 'progress', 'completed_at',
     ];
 
@@ -32,6 +32,7 @@ class Goal extends Model
             'start_date' => 'date',
             'target_date' => 'date',
             'completed_at' => 'datetime',
+            'fu_awarded_at' => 'datetime',
             'status' => GoalStatus::class,
             'priority' => Priority::class,
             'progress' => 'integer',

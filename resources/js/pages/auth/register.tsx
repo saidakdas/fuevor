@@ -8,22 +8,36 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLocale } from '@/hooks/use-locale';
+import { getIntlLocale } from '@/i18n';
 import AuthLayout from '@/layouts/auth-layout';
+import { getCountries } from 'libphonenumber-js';
 
 interface RegisterForm {
     name: string;
     email: string;
+    phone: string;
     password: string;
     password_confirmation: string;
+    profession: string;
+    country: string;
+    gender: string;
 }
 
 export default function Register() {
-    const { t } = useLocale();
+    const { locale, t } = useLocale();
+    const regionNames = new Intl.DisplayNames([getIntlLocale(locale)], { type: 'region' });
+    const countries = getCountries()
+        .map((code) => ({ code, name: regionNames.of(code) ?? code }))
+        .sort((first, second) => first.name.localeCompare(second.name, getIntlLocale(locale)));
     const { data, setData, post, processing, errors, reset } = useForm<RegisterForm>({
         name: '',
         email: '',
+        phone: '',
         password: '',
         password_confirmation: '',
+        profession: '',
+        country: '',
+        gender: '',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -35,8 +49,8 @@ export default function Register() {
 
     return (
         <AuthLayout
-            title={t('Hedeflerine alan aç', 'Make room for your goals')}
-            description={t('Ücretsiz hesabını oluştur ve ilk adımı at.', 'Create your free account and take the first step.')}
+            title={t('Canlı betaya katıl', 'Join the live beta')}
+            description={t('Beta verilerin ana sürümde de seninle kalacak.', 'Your beta data will remain with you in the main release.')}
         >
             <Head title={t('Kayıt Ol', 'Sign up')} />
             <form className="flex flex-col gap-6" onSubmit={submit}>
@@ -75,12 +89,28 @@ export default function Register() {
                     </div>
 
                     <div className="grid gap-2">
+                        <Label htmlFor="phone">{t('Telefon', 'Phone')}</Label>
+                        <Input
+                            id="phone"
+                            type="tel"
+                            required
+                            tabIndex={3}
+                            autoComplete="tel"
+                            value={data.phone}
+                            onChange={(e) => setData('phone', e.target.value)}
+                            disabled={processing}
+                            placeholder="+90 5xx xxx xx xx"
+                        />
+                        <InputError message={errors.phone} />
+                    </div>
+
+                    <div className="grid gap-2">
                         <Label htmlFor="password">{t('Şifre', 'Password')}</Label>
                         <Input
                             id="password"
                             type="password"
                             required
-                            tabIndex={3}
+                            tabIndex={4}
                             autoComplete="new-password"
                             value={data.password}
                             onChange={(e) => setData('password', e.target.value)}
@@ -96,7 +126,7 @@ export default function Register() {
                             id="password_confirmation"
                             type="password"
                             required
-                            tabIndex={4}
+                            tabIndex={5}
                             autoComplete="new-password"
                             value={data.password_confirmation}
                             onChange={(e) => setData('password_confirmation', e.target.value)}
@@ -106,7 +136,64 @@ export default function Register() {
                         <InputError message={errors.password_confirmation} />
                     </div>
 
-                    <Button type="submit" className="mt-2 w-full" tabIndex={5} disabled={processing}>
+                    <div className="grid gap-2">
+                        <Label htmlFor="profession">{t('Meslek', 'Profession')}</Label>
+                        <Input
+                            id="profession"
+                            required
+                            tabIndex={6}
+                            autoComplete="organization-title"
+                            value={data.profession}
+                            onChange={(e) => setData('profession', e.target.value)}
+                            disabled={processing}
+                            placeholder={t('Mesleğin', 'Your profession')}
+                        />
+                        <InputError message={errors.profession} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="country">{t('Ülke', 'Country')}</Label>
+                        <select
+                            id="country"
+                            required
+                            tabIndex={7}
+                            autoComplete="country-name"
+                            value={data.country}
+                            onChange={(e) => setData('country', e.target.value)}
+                            disabled={processing}
+                            className="border-input bg-background ring-offset-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <option value="">{t('Ülke seçiniz', 'Select country')}</option>
+                            {countries.map((country) => (
+                                <option key={country.code} value={country.code}>
+                                    {country.name}
+                                </option>
+                            ))}
+                        </select>
+                        <InputError message={errors.country} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="gender">{t('Cinsiyet', 'Gender')}</Label>
+                        <select
+                            id="gender"
+                            required
+                            tabIndex={8}
+                            value={data.gender}
+                            onChange={(e) => setData('gender', e.target.value)}
+                            disabled={processing}
+                            className="border-input bg-background ring-offset-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <option value="">{t('Seçiniz', 'Select')}</option>
+                            <option value="female">{t('Kadın', 'Female')}</option>
+                            <option value="male">{t('Erkek', 'Male')}</option>
+                            <option value="other">{t('Diğer', 'Other')}</option>
+                            <option value="prefer-not-to-say">{t('Belirtmek istemiyorum', 'Prefer not to say')}</option>
+                        </select>
+                        <InputError message={errors.gender} />
+                    </div>
+
+                    <Button type="submit" className="mt-2 w-full" tabIndex={9} disabled={processing}>
                         {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
                         {t('Hesabımı oluştur', 'Create my account')}
                     </Button>
@@ -114,7 +201,7 @@ export default function Register() {
 
                 <div className="text-muted-foreground text-center text-sm">
                     {t('Zaten hesabın var mı?', 'Already have an account?')}{' '}
-                    <TextLink href={route('login')} tabIndex={6}>
+                    <TextLink href={route('login')} tabIndex={10}>
                         {t('Giriş yap', 'Log in')}
                     </TextLink>
                 </div>

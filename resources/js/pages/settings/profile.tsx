@@ -1,9 +1,11 @@
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Transition } from '@headlessui/react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Eye, EyeOff } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
 import DeleteUser from '@/components/delete-user';
+import FuMark from '@/components/fu-mark';
 import HeadingSmall from '@/components/heading-small';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -22,6 +24,7 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
         name: auth.user.name,
         email: auth.user.email,
         phone: auth.user.phone ?? '',
+        show_fu_publicly: auth.user.show_fu_publicly,
     });
 
     const submit: FormEventHandler = (e) => {
@@ -43,7 +46,13 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
 
                     <form onSubmit={submit} className="space-y-6">
                         <div className="grid gap-2">
-                            <Label htmlFor="name">{t('Ad soyad', 'Full name')}</Label>
+                            <div className="flex items-center justify-between gap-3">
+                                <Label htmlFor="name">{t('Ad soyad', 'Full name')}</Label>
+                                <span className="inline-flex items-center gap-1.5 text-sm font-semibold tabular-nums">
+                                    {auth.user.fu_balance}
+                                    <FuMark className="size-3.5" />
+                                </span>
+                            </div>
 
                             <Input
                                 id="name"
@@ -90,6 +99,35 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
 
                             <InputError className="mt-2" message={errors.phone} />
                         </div>
+
+                        <section className="bg-card rounded-xl border p-4 shadow-xs">
+                            <p className="mb-3 text-sm font-semibold">{t('Gizlilik', 'Privacy')}</p>
+                            <button
+                                type="button"
+                                onClick={() => setData('show_fu_publicly', !data.show_fu_publicly)}
+                                className="flex w-full items-center gap-3 text-left"
+                                aria-pressed={data.show_fu_publicly}
+                            >
+                                <span className="bg-muted text-muted-foreground grid size-10 shrink-0 place-items-center rounded-lg">
+                                    {data.show_fu_publicly ? <Eye className="size-5" /> : <EyeOff className="size-5" />}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block text-sm font-medium">{t('fu puanını herkese göster', 'Show fu points publicly')}</span>
+                                    <span className="text-muted-foreground mt-0.5 block text-xs">
+                                        {data.show_fu_publicly
+                                            ? t('fu puanın profilinde herkese görünür.', 'Your fu points are visible to everyone on your profile.')
+                                            : t('fu puanın yalnızca sana görünür.', 'Your fu points are visible only to you.')}
+                                    </span>
+                                </span>
+                                <span
+                                    className={`relative h-6 w-10 shrink-0 rounded-full transition ${data.show_fu_publicly ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                                >
+                                    <span
+                                        className={`absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform ${data.show_fu_publicly ? 'translate-x-[18px]' : 'translate-x-0.5'}`}
+                                    />
+                                </span>
+                            </button>
+                        </section>
 
                         {mustVerifyEmail && auth.user.email_verified_at === null && (
                             <div>

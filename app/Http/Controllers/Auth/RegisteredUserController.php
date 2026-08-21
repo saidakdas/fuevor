@@ -16,13 +16,6 @@ use Inertia\Response;
 
 class RegisteredUserController extends Controller
 {
-    public static function successMessage(): string
-    {
-        return app()->getLocale() === 'tr'
-            ? 'Aramıza Hoşgeldin! Her Gün %1 İleri Gitmeye Başladın Bile. Sabırla Sizinle Buluşmayı Bekliyoruz.'
-            : 'Welcome to the family! You have already started moving 1% forward every day. We look forward to meeting you.';
-    }
-
     /**
      * Show the registration page.
      */
@@ -38,37 +31,36 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        if ($request->user()?->isAdmin()) {
-            return to_route('admin.index');
-        }
-
-        if ($request->user()) {
-            Auth::guard('web')->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            return $this->registeredRedirect();
-        }
+        $request->merge([
+            'email' => mb_strtolower(trim((string) $request->email)),
+            'country' => strtoupper(trim((string) $request->country)),
+        ]);
 
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
+            'phone' => ['required', 'string', 'max:30'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'profession' => ['required', 'string', 'max:120'],
+            'country' => ['required', 'string', 'size:2', 'regex:/^[A-Z]{2}$/'],
+            'gender' => ['required', 'in:female,male,other,prefer-not-to-say'],
         ]);
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
+            'phone' => $request->phone,
             'password' => Hash::make($request->password),
+            'profession' => $request->profession,
+            'country' => $request->country,
+            'gender' => $request->gender,
+            'early_access_at' => now(),
         ]);
 
         event(new Registered($user));
+        Auth::login($user);
+        $request->session()->regenerate();
 
-        return $this->registeredRedirect();
-    }
-
-    private function registeredRedirect(): RedirectResponse
-    {
-        return to_route('home')->with('registration_success', self::successMessage());
+        return to_route('beta.show');
     }
 }

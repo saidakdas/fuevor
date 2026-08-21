@@ -47,7 +47,9 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
                             <SheetContent side="left" className="bg-sidebar flex h-full w-64 flex-col items-stretch justify-between">
                                 <SheetTitle className="sr-only">{t('Gezinme menüsü', 'Navigation menu')}</SheetTitle>
                                 <SheetHeader className="flex justify-start text-left">
-                                    <BrandLogo className="h-12 w-36" />
+                                    <Link href="/">
+                                        <BrandLogo className="h-12 w-36" />
+                                    </Link>
                                 </SheetHeader>
                                 <div className="mt-6 flex h-full flex-1 flex-col space-y-4">
                                     <div className="flex h-full flex-col justify-between text-sm">
@@ -80,7 +82,7 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
                         </Sheet>
                     </div>
 
-                    <Link href="/dashboard" prefetch className="flex items-center space-x-2">
+                    <Link href="/" prefetch className="flex items-center space-x-2">
                         <AppLogo />
                     </Link>
 

@@ -16,7 +16,15 @@ export default function AuthSimpleLayout({ children, title, description }: AuthL
                 <div className="flex flex-col gap-8">
                     <div className="flex flex-col items-center gap-4">
                         <Link href={route('home')} className="flex flex-col items-center gap-2 font-medium">
-                            <BrandLogo className="h-16 w-44" />
+                            <span className="relative h-16 w-44">
+                                <BrandLogo className="absolute inset-0 size-full" />
+                                <img
+                                    src="/fuevor-beta-text.svg"
+                                    alt="Beta"
+                                    className="pointer-events-none absolute top-0 right-3 h-3 w-auto select-none"
+                                    draggable={false}
+                                />
+                            </span>
                             <span className="sr-only">{title}</span>
                         </Link>
 

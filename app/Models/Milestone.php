@@ -21,7 +21,7 @@ class Milestone extends Model
     ];
 
     protected $fillable = [
-        'title', 'description', 'target_date', 'position', 'status', 'progress', 'completed_at',
+        'beta_key', 'title', 'description', 'target_date', 'position', 'status', 'progress', 'completed_at',
     ];
 
     protected function casts(): array

@@ -21,6 +21,8 @@ class ProfileUpdateRequest extends FormRequest
 
             'phone' => ['nullable', 'string', 'max:30'],
 
+            'show_fu_publicly' => ['required', 'boolean'],
+
             'email' => [
                 'required',
                 'string',

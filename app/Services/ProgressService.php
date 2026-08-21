@@ -6,6 +6,7 @@ use App\Enums\GoalStatus;
 use App\Enums\MilestoneStatus;
 use App\Models\Goal;
 use App\Models\Milestone;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class ProgressService
@@ -44,6 +45,11 @@ class ProgressService
         if ($progress === 100) {
             $attributes['status'] = GoalStatus::Completed;
             $attributes['completed_at'] = $lockedGoal->completed_at ?? now();
+
+            if ($lockedGoal->fu_awarded_at === null) {
+                User::query()->lockForUpdate()->findOrFail($lockedGoal->user_id)->increment('fu_balance');
+                $attributes['fu_awarded_at'] = now();
+            }
         } elseif ($lockedGoal->status === GoalStatus::Completed) {
             $attributes['status'] = GoalStatus::Active;
             $attributes['completed_at'] = null;

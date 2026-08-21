@@ -88,14 +88,36 @@
     animation: opening-intro-exit 2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.opening-intro__stage {
+.opening-intro__orb {
+    display: none;
+}
+
+.opening-intro__orb--one {
+    top: -24%;
+    left: -12%;
+    background: rgb(0 122 145 / 22%);
+}
+
+.opening-intro__orb--two {
+    right: -16%;
+    bottom: -30%;
+    background: rgb(99 199 209 / 28%);
+    animation-delay: 80ms;
+}
+
+.opening-intro__glass {
+    position: relative;
     display: grid;
     width: 100%;
     place-items: center;
     align-content: center;
     padding: 2rem;
     transform-origin: 50% 54%;
-    animation: opening-intro-stage 2s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: opening-intro-glass 2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.opening-intro__glass::before {
+    display: none;
 }
 
 .opening-intro__logo-reveal {
@@ -113,8 +135,20 @@
     height: 100%;
 }
 
+.opening-intro__beta {
+    position: absolute;
+    z-index: 1;
+    top: 0.25rem;
+    right: 6.5%;
+    width: 19%;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
+}
+
 .opening-intro__shine {
     position: absolute;
+    z-index: 2;
     inset: -25% auto -25% -30%;
     width: 18%;
     background: linear-gradient(90deg, transparent, rgb(255 255 255 / 92%), transparent);
@@ -172,21 +206,38 @@
     }
 }
 
-@keyframes opening-intro-stage {
+@keyframes opening-intro-glass {
     0% {
         opacity: 0;
-        transform: scale(0.96);
+        transform: perspective(900px) rotateX(8deg) scale(0.92);
     }
 
     18%,
     76% {
         opacity: 1;
-        transform: scale(1);
+        transform: perspective(900px) rotateX(0) scale(1);
     }
 
     100% {
         opacity: 0;
-        transform: scale(1.025);
+        transform: perspective(900px) rotateX(-3deg) scale(1.035);
+    }
+}
+
+@keyframes opening-intro-orb {
+    0% {
+        opacity: 0;
+        transform: scale(0.72) translate3d(0, 8%, 0);
+    }
+
+    28%,
+    76% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: scale(1.15) translate3d(4%, -3%, 0);
     }
 }
 
@@ -204,7 +255,7 @@
 }
 
 @media (max-width: 639px) {
-    .opening-intro__stage {
+    .opening-intro__glass {
         padding: 1.5rem;
     }
 
@@ -215,7 +266,8 @@
 
 @media (prefers-reduced-motion: reduce) {
     .opening-intro,
-    .opening-intro__stage,
+    .opening-intro__glass,
+    .opening-intro__orb,
     .opening-intro__logo-reveal,
     .opening-intro__shine,
     .opening-intro__slogan {
@@ -237,9 +289,13 @@
 
 html:has(.apple-interface),
 body:has(.apple-interface) {
+    min-height: 100%;
     max-width: 100%;
+    background-color: #f5f5f7;
     overflow-x: hidden;
     overflow-x: clip;
+    overscroll-behavior-x: none;
+    overscroll-behavior-y: none;
 }
 
 html[dir='rtl'] .apple-interface {
@@ -327,12 +383,35 @@ html[data-demo-theme='dark'] .demo-logo-dark {
 
 html[data-demo-theme='dark'] .apple-interface {
     color: #f5f5f7 !important;
+    color-scheme: dark;
+}
+
+html[data-demo-theme='dark'] .apple-interface[class~='bg-[#f5f5f7]'] {
     background-color: #000 !important;
+}
+
+html[data-demo-theme='dark'] .apple-interface[class~='bg-[#f2f2f7]'] {
+    background-color: #2c2c2e !important;
+}
+
+html[data-demo-theme='dark'],
+html[data-demo-theme='dark'] body {
+    background-color: #000;
     color-scheme: dark;
 }
 
 html[data-demo-theme='dark'] .apple-interface [class~='bg-white'] {
     background-color: #1c1c1e !important;
+}
+
+html[data-demo-theme='dark'] .apple-interface [class~='bg-white/55'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-white/60'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-white/65'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-white/70'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-white/75'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-white/80'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-white/85'] {
+    background-color: rgb(28 28 30 / 92%) !important;
 }
 
 html[data-demo-theme='dark'] .apple-interface [class~='bg-[#f5f5f7]'] {
@@ -343,14 +422,28 @@ html[data-demo-theme='dark'] .apple-interface [class~='bg-[#f5f5f7]/80'] {
     background-color: rgb(0 0 0 / 80%) !important;
 }
 
+html[data-demo-theme='dark'] .apple-interface [class~='bg-[#f5f5f7]/90'] {
+    background-color: rgb(0 0 0 / 90%) !important;
+}
+
 html[data-demo-theme='dark'] .apple-interface [class~='bg-[#f9f9fb]'],
-html[data-demo-theme='dark'] .apple-interface [class~='bg-[#fbfbfd]'] {
+html[data-demo-theme='dark'] .apple-interface [class~='bg-[#f9f9fb]/90'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-[#fbfbfd]'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-[#f8f8fa]'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-[#fafafa]'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-[#fafafd]'] {
     background-color: #1c1c1e !important;
 }
 
 html[data-demo-theme='dark'] .apple-interface [class~='bg-[#f2f2f7]'],
 html[data-demo-theme='dark'] .apple-interface [class~='bg-[#f2f2f7]/82'] {
     background-color: #2c2c2e !important;
+}
+
+html[data-demo-theme='dark'] .apple-interface [class~='bg-[#e5e5ea]'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-[#e9e9ee]'],
+html[data-demo-theme='dark'] .apple-interface [class~='bg-[#d1d1d6]'] {
+    background-color: #3a3a3c !important;
 }
 
 html[data-demo-theme='dark'] .demo-mobile-navigation,
@@ -385,6 +478,10 @@ html[data-demo-theme='dark'] .apple-interface [class~='text-[#6e6e73]'] {
     color: #aeaeb2 !important;
 }
 
+html[data-demo-theme='dark'] .apple-interface [class~='text-[#4b4b50]'] {
+    color: #d1d1d6 !important;
+}
+
 html[data-demo-theme='dark'] .apple-interface [class~='text-[#8e8e93]'] {
     color: #98989d !important;
 }
@@ -404,6 +501,12 @@ html[data-demo-theme='dark'] .apple-interface .before\:bg-white::before {
 html[data-demo-theme='dark'] .apple-interface input::placeholder,
 html[data-demo-theme='dark'] .apple-interface textarea::placeholder {
     color: #636366 !important;
+}
+
+html[data-demo-theme='dark'] .apple-interface input,
+html[data-demo-theme='dark'] .apple-interface textarea,
+html[data-demo-theme='dark'] .apple-interface select {
+    color: #f5f5f7;
 }
 
 @keyframes demo-step-enter {
@@ -429,6 +532,17 @@ html[data-demo-theme='dark'] .apple-interface textarea::placeholder {
 }
 
 @media (max-width: 639px) {
+    .apple-interface:has(> .demo-mobile-dock) > main {
+        padding-bottom: calc(9rem + env(safe-area-inset-bottom)) !important;
+        scroll-padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+    }
+
+    .apple-interface input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+    .apple-interface textarea,
+    .apple-interface select {
+        font-size: 16px !important;
+    }
+
     html:has(.apple-interface input:focus, .apple-interface textarea:focus) .demo-mobile-dock {
         pointer-events: none;
         opacity: 0;
@@ -437,6 +551,24 @@ html[data-demo-theme='dark'] .apple-interface textarea::placeholder {
 
     .apple-interface:has(.demo-keyboard-aware-content input:focus, .demo-keyboard-aware-content textarea:focus) .demo-keyboard-aware-content {
         padding-bottom: 46vh;
+    }
+
+    .apple-interface[data-demo-goal-flow]:has(input:focus, textarea:focus, select:focus) .demo-goal-flow-main {
+        padding-bottom: calc(50vh + 10rem) !important;
+        scroll-padding-top: 6rem;
+        scroll-padding-bottom: 11rem;
+    }
+
+    .apple-interface[data-demo-goal-flow]:has(input:focus, textarea:focus, select:focus) .demo-goal-flow-actions {
+        bottom: max(4rem, env(safe-area-inset-bottom));
+        box-shadow: 0 -12px 36px rgb(0 0 0 / 8%);
+    }
+
+    .apple-interface[data-demo-goal-flow] input,
+    .apple-interface[data-demo-goal-flow] textarea,
+    .apple-interface[data-demo-goal-flow] select {
+        scroll-margin-top: 6rem;
+        scroll-margin-bottom: 11rem;
     }
 }
 

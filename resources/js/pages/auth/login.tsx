@@ -96,6 +96,11 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                 </div>
             </form>
 
+            <div className="text-muted-foreground text-center text-sm">
+                {t('Canlı betaya katılmak ister misin?', 'Want to join the live beta?')}{' '}
+                <TextLink href={route('register')}>{t('Erken erişim kaydı', 'Early access sign-up')}</TextLink>
+            </div>
+
             {status && <div className="mb-4 text-center text-sm font-medium text-green-600">{status}</div>}
         </AuthLayout>
     );

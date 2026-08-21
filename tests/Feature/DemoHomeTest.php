@@ -23,7 +23,10 @@ class DemoHomeTest extends TestCase
     {
         $this->get('/demo')
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('demo/home'));
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('demo/home')
+                ->has('communityPosts')
+                ->has('communityBooks'));
     }
 
     public function test_demo_can_search_the_worldwide_university_directory(): void

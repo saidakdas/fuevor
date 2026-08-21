@@ -22,6 +22,7 @@ import {
     Clock3,
     Edit3,
     Gift,
+    Globe2,
     MoreHorizontal,
     Plus,
     Sparkles,
@@ -60,7 +61,8 @@ export default function GoalShow({ goal }: { goal: Goal }) {
                             {goal.description || t('Bu hedef için henüz bir açıklama eklenmedi.', 'No description has been added for this goal yet.')}
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                        <ShareGoalModal goal={goal} />
                         <Button variant="outline" asChild>
                             <Link href={route('goals.edit', goal.id)}>
                                 <Edit3 />
@@ -149,6 +151,57 @@ export default function GoalShow({ goal }: { goal: Goal }) {
                 </section>
             </main>
         </AppLayout>
+    );
+}
+
+function ShareGoalModal({ goal }: { goal: Goal }) {
+    const { t } = useLocale();
+    const [open, setOpen] = useState(false);
+    const form = useForm({ goalId: goal.id, shortComment: '' });
+    const submit = (event: FormEvent) => {
+        event.preventDefault();
+        form.post(route('community.goals.store'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setOpen(false);
+                form.reset('shortComment');
+            },
+        });
+    };
+
+    return (
+        <Modal
+            open={open}
+            onOpenChange={setOpen}
+            title={t("Fuevor'da yayınla", 'Publish on Fuevor')}
+            description={t(
+                "Bu hedef Fuevor'da yayınlanacak. Yapı taşların kişisel kalır.",
+                'This goal will be published on Fuevor. Your building blocks remain private.',
+            )}
+            trigger={
+                <Button variant="outline">
+                    <Globe2 />
+                    {t("Fuevor'da yayınla", 'Publish on Fuevor')}
+                </Button>
+            }
+        >
+            <form onSubmit={submit} className="space-y-4">
+                <div className="rounded-xl bg-slate-50 p-4 text-sm font-semibold dark:bg-slate-900">{goal.title}</div>
+                <Field label={t('Kısa yorum', 'Short note')} error={form.errors.shortComment}>
+                    <Textarea
+                        value={form.data.shortComment}
+                        onChange={(event) => form.setData('shortComment', event.target.value)}
+                        maxLength={500}
+                        rows={4}
+                        placeholder={t('Bu hedef senin için neden önemli?', 'Why does this goal matter to you?')}
+                    />
+                </Field>
+                <Button className="w-full" disabled={form.processing}>
+                    <Globe2 />
+                    {form.processing ? t('Yayınlanıyor…', 'Publishing…') : t("Fuevor'da yayınla", 'Publish on Fuevor')}
+                </Button>
+            </form>
+        </Modal>
     );
 }
 

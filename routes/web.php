@@ -1,21 +1,51 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\BetaWorkspaceController;
+use App\Http\Controllers\CommunityController;
+use App\Http\Controllers\CommunityGameController;
+use App\Http\Controllers\CommunityInteractionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DemoTeamNotificationController;
+use App\Http\Controllers\DemoTeamWorkspaceController;
 use App\Http\Controllers\GameScoreController;
 use App\Http\Controllers\GoalController;
 use App\Http\Controllers\MilestoneController;
 use App\Http\Controllers\TaskController;
-use App\Models\GameScore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-$demoHome = fn () => Inertia::render('demo/home');
+$demoHome = fn (Request $request) => Inertia::render('demo/home', app(CommunityController::class)->feedData($request));
 
 if (app()->environment('local', 'testing')) {
     Route::get('demo', $demoHome)->name('demo.preview');
+
+    Route::prefix('demo/team-workspaces')->name('demo.team-workspaces.')->group(function () {
+        Route::get('/', [DemoTeamWorkspaceController::class, 'index'])->name('index');
+        Route::post('/', [DemoTeamWorkspaceController::class, 'store'])->name('store');
+        Route::post('{workspaceKey}/invitations', [DemoTeamWorkspaceController::class, 'invite'])->name('invite');
+        Route::delete('{workspaceKey}/members/{memberUsername}', [DemoTeamWorkspaceController::class, 'removeMember'])->name('members.destroy');
+        Route::delete('{workspaceKey}', [DemoTeamWorkspaceController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('demo/notifications')->name('demo.notifications.')->group(function () {
+        Route::get('/', [DemoTeamNotificationController::class, 'index'])->name('index');
+        Route::post('{notification}/accept', [DemoTeamNotificationController::class, 'accept'])->name('accept');
+        Route::post('{notification}/reject', [DemoTeamNotificationController::class, 'reject'])->name('reject');
+        Route::post('{notification}/read', [DemoTeamNotificationController::class, 'read'])->name('read');
+    });
+
+    Route::prefix('demo/community')->name('demo.community.')->group(function () {
+        Route::post('goals', [CommunityInteractionController::class, 'storeGoal'])->name('goals.store');
+        Route::post('goals/{post}/support', [CommunityInteractionController::class, 'toggleSupport'])->name('goals.support');
+        Route::post('goals/{post}/ideas', [CommunityInteractionController::class, 'storeIdea'])->name('goals.ideas.store');
+        Route::post('goals/{post}/ideas/{idea}/support', [CommunityInteractionController::class, 'toggleIdeaSupport'])->name('goals.ideas.support');
+        Route::post('books/reviews', [CommunityInteractionController::class, 'storeBookReview'])->name('books.reviews.store');
+        Route::post('books/reviews/{review}/replies', [CommunityInteractionController::class, 'storeBookReviewReply'])->name('books.reviews.replies.store');
+        Route::post('books/sync', [CommunityInteractionController::class, 'syncDemoBooks'])->name('books.sync');
+    });
 
     Route::get('demo/universities', function (Request $request) {
         $query = trim((string) $request->query('q', ''));
@@ -58,16 +88,32 @@ if (app()->environment('local', 'testing')) {
     })->middleware('throttle:30,1')->name('demo.universities');
 }
 
-Route::get('/', function (Request $request) {
-    return Inertia::render('welcome', [
-        'bestScoreMs' => GameScore::query()->max('duration_ms') ?? 0,
-        'registrationSuccess' => $request->session()->get('registration_success'),
-    ]);
-})->name('home');
+Route::get('/', CommunityController::class)->name('home');
+
+Route::middleware('auth')->prefix('community')->name('community.')->group(function () {
+    Route::post('goals', [CommunityInteractionController::class, 'storeGoal'])->name('goals.store');
+    Route::post('goals/{post}/support', [CommunityInteractionController::class, 'toggleSupport'])->name('goals.support');
+    Route::post('goals/{post}/ideas', [CommunityInteractionController::class, 'storeIdea'])->name('goals.ideas.store');
+    Route::post('goals/{post}/ideas/{idea}/support', [CommunityInteractionController::class, 'toggleIdeaSupport'])->name('goals.ideas.support');
+    Route::post('books/reviews', [CommunityInteractionController::class, 'storeBookReview'])->name('books.reviews.store');
+    Route::post('books/reviews/{review}/replies', [CommunityInteractionController::class, 'storeBookReviewReply'])->name('books.reviews.replies.store');
+    Route::post('books/sync', [CommunityInteractionController::class, 'syncDemoBooks'])->name('books.sync');
+});
+
+Route::middleware('auth')->prefix('beta')->name('beta.')->group(function () {
+    Route::get('/', [BetaWorkspaceController::class, 'show'])->name('show');
+    Route::patch('state', [BetaWorkspaceController::class, 'update'])->name('state.update');
+    Route::post('state', [BetaWorkspaceController::class, 'update'])->name('state.store');
+});
 
 Route::post('game-scores', [GameScoreController::class, 'store'])
     ->middleware('throttle:20,1')
     ->name('game-scores.store');
+
+Route::prefix('community/game')->name('community.game.')->middleware('throttle:10,1')->group(function () {
+    Route::post('plays', [CommunityGameController::class, 'start'])->name('plays.start');
+    Route::patch('plays/{play}', [CommunityGameController::class, 'finish'])->name('plays.finish');
+});
 
 Route::middleware(['auth', 'user-panel'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');

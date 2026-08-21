@@ -37,9 +37,16 @@ class ProgressCalculationTest extends TestCase
         $service->toggle($secondTasks[1]);
         $this->assertSame(100, $goal->refresh()->progress);
         $this->assertSame(GoalStatus::Completed, $goal->status);
+        $this->assertNotNull($goal->fu_awarded_at);
+        $this->assertSame(1, $goal->user->refresh()->fu_balance);
 
         $service->toggle($secondTasks[0]->refresh());
         $this->assertSame(75, $goal->refresh()->progress);
         $this->assertSame(GoalStatus::Active, $goal->status);
+        $this->assertSame(1, $goal->user->refresh()->fu_balance);
+
+        $service->toggle($secondTasks[0]->refresh());
+        $this->assertSame(GoalStatus::Completed, $goal->refresh()->status);
+        $this->assertSame(1, $goal->user->refresh()->fu_balance);
     }
 }

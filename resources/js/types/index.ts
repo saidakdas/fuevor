@@ -35,7 +35,13 @@ export interface User {
     name: string;
     email: string;
     phone: string | null;
+    profession: string | null;
+    country: string | null;
+    gender: 'female' | 'male' | 'other' | 'prefer-not-to-say' | null;
+    early_access_at: string | null;
     role: 'admin' | 'user';
+    fu_balance: number;
+    show_fu_publicly: boolean;
     avatar?: string;
     email_verified_at: string | null;
     created_at: string;

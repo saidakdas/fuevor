@@ -6,6 +6,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -24,8 +25,13 @@ class User extends Authenticatable
         'name',
         'email',
         'phone',
+        'profession',
+        'country',
+        'gender',
+        'early_access_at',
         'password',
         'role',
+        'show_fu_publicly',
     ];
 
     /**
@@ -47,6 +53,9 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'early_access_at' => 'datetime',
+            'fu_balance' => 'integer',
+            'show_fu_publicly' => 'boolean',
             'password' => 'hashed',
         ];
     }
@@ -54,6 +63,26 @@ class User extends Authenticatable
     public function goals(): HasMany
     {
         return $this->hasMany(Goal::class);
+    }
+
+    public function betaWorkspace(): HasOne
+    {
+        return $this->hasOne(BetaWorkspace::class);
+    }
+
+    public function communityGoalPosts(): HasMany
+    {
+        return $this->hasMany(CommunityGoalPost::class);
+    }
+
+    public function communityGoalIdeas(): HasMany
+    {
+        return $this->hasMany(CommunityGoalIdea::class);
+    }
+
+    public function communityBookReviews(): HasMany
+    {
+        return $this->hasMany(CommunityBookReview::class);
     }
 
     public function isAdmin(): bool
