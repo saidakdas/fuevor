@@ -6453,6 +6453,8 @@ function ProfilePreferences({
     section: ProfileSettingsSection;
     onChange: (settings: SettingsData) => void;
 }) {
+    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
+
     if (section === 'legal') {
         return (
             <section className="mt-6">
@@ -6517,32 +6519,34 @@ function ProfilePreferences({
         return (
             <section className="mt-6">
                 <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Kullanım Ayarları', 'Usage Settings')}</h2>
-                <button
-                    type="button"
-                    onClick={() => onChange({ ...settings, teamModeEnabled: !settings.teamModeEnabled })}
-                    className="flex w-full items-center gap-4 rounded-[24px] border border-black/[0.07] bg-white px-5 py-4 text-left shadow-[0_12px_45px_rgba(0,0,0,0.04)] transition active:bg-black/[0.025] sm:px-6"
-                    aria-pressed={settings.teamModeEnabled}
-                >
-                    <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#5856d6]/10 text-[#5856d6]">
-                        <Users className="size-5" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                        <span className="block text-[16px] font-semibold tracking-[-0.01em]">{t('Ekip Modu', 'Team Mode')}</span>
-                        <span className="mt-0.5 block text-[13px] leading-5 text-[#8e8e93]">
-                            {t(
-                                'Ortak hedefler oluştur, görevleri ve payları ekip üyelerine dağıt.',
-                                'Create shared goals and assign tasks and shares.',
-                            )}
-                        </span>
-                    </span>
-                    <span
-                        className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition ${settings.teamModeEnabled ? 'bg-[#34c759]' : 'bg-[#d1d1d6]'}`}
+                {!betaMode && (
+                    <button
+                        type="button"
+                        onClick={() => onChange({ ...settings, teamModeEnabled: !settings.teamModeEnabled })}
+                        className="flex w-full items-center gap-4 rounded-[24px] border border-black/[0.07] bg-white px-5 py-4 text-left shadow-[0_12px_45px_rgba(0,0,0,0.04)] transition active:bg-black/[0.025] sm:px-6"
+                        aria-pressed={settings.teamModeEnabled}
                     >
+                        <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#5856d6]/10 text-[#5856d6]">
+                            <Users className="size-5" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-[16px] font-semibold tracking-[-0.01em]">{t('Ekip Modu', 'Team Mode')}</span>
+                            <span className="mt-0.5 block text-[13px] leading-5 text-[#8e8e93]">
+                                {t(
+                                    'Ortak hedefler oluştur, görevleri ve payları ekip üyelerine dağıt.',
+                                    'Create shared goals and assign tasks and shares.',
+                                )}
+                            </span>
+                        </span>
                         <span
-                            className={`absolute top-0.5 size-[27px] rounded-full bg-white shadow-[0_2px_5px_rgba(0,0,0,0.22)] transition-transform ${settings.teamModeEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
-                        />
-                    </span>
-                </button>
+                            className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition ${settings.teamModeEnabled ? 'bg-[#34c759]' : 'bg-[#d1d1d6]'}`}
+                        >
+                            <span
+                                className={`absolute top-0.5 size-[27px] rounded-full bg-white shadow-[0_2px_5px_rgba(0,0,0,0.22)] transition-transform ${settings.teamModeEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
+                            />
+                        </span>
+                    </button>
+                )}
                 <button
                     type="button"
                     onClick={() =>
@@ -6552,7 +6556,7 @@ function ProfilePreferences({
                             carryOverPreferenceSet: true,
                         })
                     }
-                    className="mt-3 flex w-full items-center gap-4 rounded-[24px] border border-black/[0.07] bg-white px-5 py-4 text-left shadow-[0_12px_45px_rgba(0,0,0,0.04)] transition active:bg-black/[0.025] sm:px-6"
+                    className={`${betaMode ? '' : 'mt-3'} flex w-full items-center gap-4 rounded-[24px] border border-black/[0.07] bg-white px-5 py-4 text-left shadow-[0_12px_45px_rgba(0,0,0,0.04)] transition active:bg-black/[0.025] sm:px-6`}
                     aria-pressed={settings.carryOverIncompletePlans}
                 >
                     <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#ff9500]/10 text-[#ff9500]">
@@ -7223,6 +7227,7 @@ function PublicProfileView({
     onOpenSection: (section: 'notes' | 'library' | 'friends') => void;
     onSettings: () => void;
 }) {
+    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
     const initial = profile.name.trim().charAt(0).toLocaleUpperCase(getIntlLocale(locale)) || 'K';
     const country = isCountryCode(profile.country) ? getCountryOption(profile.country, locale) : null;
     const profession = professionOptions(t).find((option) => option.value === profile.profession)?.label;
@@ -7358,22 +7363,24 @@ function PublicProfileView({
                     </span>
                     <span className="min-w-0 truncate text-[13px] font-semibold">{t('Kitaplık', 'Library')}</span>
                 </button>
-                <button
-                    type="button"
-                    onClick={() => onOpenSection('friends')}
-                    className="col-span-2 flex min-w-0 items-center gap-3 rounded-[20px] border border-black/[0.055] bg-white p-4 text-left shadow-[0_8px_26px_rgba(0,0,0,0.045)] transition active:scale-[0.98]"
-                >
-                    <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#007aff]/10 text-[#007aff]">
-                        <Users className="size-[18px]" />
-                    </span>
-                    <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-semibold">{t('Yol Arkadaşları', 'Companions')}</span>
-                        <span className="mt-0.5 block truncate text-[10px] text-[#8e8e93]">
-                            {t('Arkadaşlık, erişim ve sohbet', 'Friends, access, and chat')}
+                {!betaMode && (
+                    <button
+                        type="button"
+                        onClick={() => onOpenSection('friends')}
+                        className="col-span-2 flex min-w-0 items-center gap-3 rounded-[20px] border border-black/[0.055] bg-white p-4 text-left shadow-[0_8px_26px_rgba(0,0,0,0.045)] transition active:scale-[0.98]"
+                    >
+                        <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#007aff]/10 text-[#007aff]">
+                            <Users className="size-[18px]" />
                         </span>
-                    </span>
-                    <ChevronRight className="ml-auto size-4 shrink-0 text-[#c7c7cc]" />
-                </button>
+                        <span className="min-w-0">
+                            <span className="block truncate text-[13px] font-semibold">{t('Yol Arkadaşları', 'Companions')}</span>
+                            <span className="mt-0.5 block truncate text-[10px] text-[#8e8e93]">
+                                {t('Arkadaşlık, erişim ve sohbet', 'Friends, access, and chat')}
+                            </span>
+                        </span>
+                        <ChevronRight className="ml-auto size-4 shrink-0 text-[#c7c7cc]" />
+                    </button>
+                )}
             </div>
 
             <div className="mt-5 grid gap-5">
