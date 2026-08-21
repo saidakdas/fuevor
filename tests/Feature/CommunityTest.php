@@ -24,7 +24,7 @@ class CommunityTest extends TestCase
 
     public function test_homepage_displays_public_goals_and_groups_book_reviews_by_title(): void
     {
-        $firstUser = User::factory()->create(['name' => 'Birinci Okur']);
+        $firstUser = User::factory()->create(['name' => 'Birinci Okur', 'first_builder_number' => 3]);
         $secondUser = User::factory()->create(['name' => 'İkinci Okur']);
         Goal::factory()->for($firstUser)->create(['status' => GoalStatus::Active]);
         Goal::factory()->for($secondUser)->create(['status' => GoalStatus::Completed, 'progress' => 100]);
@@ -47,6 +47,7 @@ class CommunityTest extends TestCase
                 ->where('communityPosts.0.title', 'Yeni bir dil öğrenmek')
                 ->where('communityPosts.0.supportCount', 1)
                 ->where('communityPosts.0.ideaCount', 1)
+                ->where('communityPosts.0.authorProfile.firstBuilderNumber', 3)
                 ->where('communityGoalStats.active', 1)
                 ->where('communityGoalStats.completed', 1)
                 ->has('communityBooks', 1)

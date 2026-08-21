@@ -21,6 +21,7 @@ class BetaWorkspaceController extends Controller
         return Inertia::render('demo/home', [
             ...$community->feedData($request),
             'betaMode' => true,
+            'firstBuilderNumber' => $request->user()->first_builder_number,
             'betaState' => $this->state($workspace, $request->user()),
             'betaGoalIds' => $this->goalIds($request->user()),
             'supportTickets' => $request->user()->supportTickets()

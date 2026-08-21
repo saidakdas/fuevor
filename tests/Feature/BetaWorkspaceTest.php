@@ -23,11 +23,13 @@ class BetaWorkspaceTest extends TestCase
             'phone' => '5551112233',
             'profession' => 'Designer',
             'country' => 'TR',
+            'first_builder_number' => 7,
         ]);
 
         $this->actingAs($user)->get('/beta')->assertInertia(fn (Assert $page) => $page
             ->component('demo/home')
             ->where('betaMode', true)
+            ->where('firstBuilderNumber', 7)
             ->where('betaState.profile.name', $user->name)
             ->where('betaState.profile.profession', 'Designer')
             ->where('betaState.profile.country', 'TR')

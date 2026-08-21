@@ -157,6 +157,7 @@ class DemoCommunitySeeder
             'location' => $profile['location'] ?? $user->country,
             'bio' => $profile['bio'] ?? 'Hedeflerini küçük ve sürdürülebilir adımlarla gerçekleştiriyor.',
             'fu' => $user->show_fu_publicly ? (int) $user->fu_balance : null,
+            'firstBuilderNumber' => $user->first_builder_number,
             'accentFrom' => $accent[0],
             'accentTo' => $accent[1],
         ];

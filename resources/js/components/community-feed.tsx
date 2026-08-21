@@ -1,3 +1,4 @@
+import FirstBuilderBadge from '@/components/first-builder-badge';
 import FuMark from '@/components/fu-mark';
 import { useSwipeDownDismiss } from '@/hooks/use-swipe-down-dismiss';
 import { getIntlLocale, type Locale } from '@/i18n';
@@ -35,6 +36,7 @@ export type CommunityProfile = {
     location?: string | null;
     bio: string;
     fu?: number | null;
+    firstBuilderNumber: number | null;
     accentFrom: string;
     accentTo: string;
 };
@@ -642,11 +644,21 @@ function CommunityProfilePreview({
                 </div>
 
                 <div className="relative px-5 pb-7 sm:px-7 sm:pb-8">
-                    <div
-                        className="absolute -top-14 left-5 grid size-28 place-items-center overflow-hidden rounded-full border-[5px] border-[#f5f5f7] text-[25px] font-semibold text-white shadow-[0_8px_28px_rgba(0,0,0,0.18)] sm:left-7"
-                        style={{ background: `linear-gradient(145deg, ${profile.accentFrom}, ${profile.accentTo})` }}
-                    >
-                        {profile.avatar ? <img src={profile.avatar} alt="" className="size-full object-cover" /> : initials || 'FU'}
+                    <div className="absolute -top-14 left-5 size-28 sm:left-7">
+                        <div
+                            className="grid size-full place-items-center overflow-hidden rounded-full border-[5px] border-[#f5f5f7] text-[25px] font-semibold text-white shadow-[0_8px_28px_rgba(0,0,0,0.18)]"
+                            style={{ background: `linear-gradient(145deg, ${profile.accentFrom}, ${profile.accentTo})` }}
+                        >
+                            {profile.avatar ? <img src={profile.avatar} alt="" className="size-full object-cover" /> : initials || 'FU'}
+                        </div>
+                        {profile.firstBuilderNumber !== null && (
+                            <FirstBuilderBadge
+                                number={profile.firstBuilderNumber}
+                                t={t}
+                                sizeClassName="size-[37px]"
+                                className="absolute right-[-7px] bottom-0 z-10 drop-shadow-[0_7px_12px_rgba(0,0,0,0.2)]"
+                            />
+                        )}
                     </div>
 
                     <div className="pt-[70px]">

@@ -58,6 +58,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'early_access_at' => 'datetime',
+            'first_builder_number' => 'integer',
             'terms_accepted_at' => 'datetime',
             'privacy_acknowledged_at' => 'datetime',
             'fu_balance' => 'integer',

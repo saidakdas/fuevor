@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\FirstBuilderService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,7 +32,7 @@ class RegisteredUserController extends Controller
      *
      * @throws ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, FirstBuilderService $firstBuilders): RedirectResponse
     {
         $request->merge([
             'email' => mb_strtolower(trim((string) $request->email)),
@@ -55,7 +56,7 @@ class RegisteredUserController extends Controller
 
         $acceptedAt = now();
 
-        $user = User::create([
+        $user = $firstBuilders->register([
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,

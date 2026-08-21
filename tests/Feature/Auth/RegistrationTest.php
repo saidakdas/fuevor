@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -44,8 +47,43 @@ class RegistrationTest extends TestCase
         ]);
 
         $user = $this->app['auth']->user();
+        $this->assertSame(1, $user->first_builder_number);
         $this->assertNotNull($user->terms_accepted_at);
         $this->assertNotNull($user->privacy_acknowledged_at);
+        $this->assertSame(2, DB::table('first_builder_counters')->where('id', 1)->value('next_number'));
+    }
+
+    public function test_first_builder_badges_stop_after_number_one_hundred(): void
+    {
+        User::factory()->create();
+        DB::table('first_builder_counters')->where('id', 1)->update(['next_number' => 100]);
+
+        $payload = [
+            'name' => 'Yüzüncü Üye',
+            'email' => 'builder100@example.com',
+            'phone' => '+90 555 111 22 33',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'profession' => 'Product Designer',
+            'country' => 'TR',
+            'gender' => 'prefer-not-to-say',
+            'terms_accepted' => true,
+            'privacy_acknowledged' => true,
+        ];
+
+        $this->post('/register', $payload)->assertRedirect(route('beta.show', absolute: false));
+        $this->assertSame(100, User::query()->where('email', 'builder100@example.com')->value('first_builder_number'));
+
+        Auth::logout();
+
+        $this->post('/register', [
+            ...$payload,
+            'name' => 'Yüz Birinci Üye',
+            'email' => 'builder101@example.com',
+        ])->assertRedirect(route('beta.show', absolute: false));
+
+        $this->assertNull(User::query()->where('email', 'builder101@example.com')->value('first_builder_number'));
+        $this->assertSame(101, DB::table('first_builder_counters')->where('id', 1)->value('next_number'));
     }
 
     public function test_all_early_access_fields_are_required(): void

@@ -47,15 +47,15 @@ class CommunityController extends Controller
             ?? $this->demoUsers->resolve((string) $request->session()->get('demo_community_username'))?->id;
         $posts = CommunityGoalPost::query()
             ->with([
-                'user:id,name,email,profession,country,fu_balance,show_fu_publicly',
+                'user:id,name,email,profession,country,fu_balance,show_fu_publicly,first_builder_number',
                 'rootIdeas' => fn ($ideas) => $ideas
-                    ->with('user:id,name,email,profession,country,fu_balance,show_fu_publicly')
+                    ->with('user:id,name,email,profession,country,fu_balance,show_fu_publicly,first_builder_number')
                     ->withCount('supporters')
                     ->when($viewerId, fn ($query) => $query->withExists([
                         'supporters as supported_by_viewer' => fn ($supporters) => $supporters->where('users.id', $viewerId),
                     ]))
                     ->with(['replies' => fn ($replies) => $replies
-                        ->with('user:id,name,email,profession,country,fu_balance,show_fu_publicly')
+                        ->with('user:id,name,email,profession,country,fu_balance,show_fu_publicly,first_builder_number')
                         ->withCount('supporters')
                         ->when($viewerId, fn ($query) => $query->withExists([
                             'supporters as supported_by_viewer' => fn ($supporters) => $supporters->where('users.id', $viewerId),

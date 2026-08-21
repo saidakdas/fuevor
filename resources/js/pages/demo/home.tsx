@@ -10,6 +10,7 @@ import {
     type Viewer,
 } from '@/components/community-feed';
 import CommunityGame, { FuevorRunnerIcon, type GameScorePlayer } from '@/components/community-game';
+import FirstBuilderBadge from '@/components/first-builder-badge';
 import FuMark from '@/components/fu-mark';
 import LegalDocumentContent from '@/components/legal-document-content';
 import { playOpeningIntro } from '@/components/opening-intro';
@@ -471,6 +472,7 @@ export default function DemoHome({
     bestScorePlayer = null,
     gamePlaysRemaining = 3,
     betaMode = false,
+    firstBuilderNumber = null,
     betaState,
     betaGoalIds = {},
     supportTickets = [],
@@ -483,6 +485,7 @@ export default function DemoHome({
     bestScorePlayer?: GameScorePlayer | null;
     gamePlaysRemaining?: number;
     betaMode?: boolean;
+    firstBuilderNumber?: number | null;
     betaState?: BetaState;
     betaGoalIds?: Record<string, number>;
     supportTickets?: SupportTicketRecord[];
@@ -1117,6 +1120,7 @@ export default function DemoHome({
             overallProgress={overallProgress}
             fuBalance={fuBalance}
             finishedBookCount={books.filter((book) => book.status === 'finished').length}
+            firstBuilderNumber={firstBuilderNumber}
             supportTickets={supportTickets}
             feedbackEntries={feedbackEntries}
             onClose={() => setProfileOpen(false)}
@@ -6991,6 +6995,7 @@ function ProfilePanel({
     overallProgress,
     fuBalance,
     finishedBookCount,
+    firstBuilderNumber,
     supportTickets,
     feedbackEntries,
     onClose,
@@ -7007,6 +7012,7 @@ function ProfilePanel({
     overallProgress: number;
     fuBalance: number;
     finishedBookCount: number;
+    firstBuilderNumber: number | null;
     supportTickets: SupportTicketRecord[];
     feedbackEntries: FeedbackRecord[];
     onClose: () => void;
@@ -7155,6 +7161,7 @@ function ProfilePanel({
                                 overallProgress={overallProgress}
                                 fuBalance={fuBalance}
                                 finishedBookCount={finishedBookCount}
+                                firstBuilderNumber={firstBuilderNumber}
                                 showFuPublicly={settings.showFuPublicly}
                                 onEdit={() => setTab('personal')}
                                 onExportReport={onExportReport}
@@ -7541,6 +7548,7 @@ function PublicProfileView({
     overallProgress,
     fuBalance,
     finishedBookCount,
+    firstBuilderNumber,
     showFuPublicly,
     onEdit,
     onExportReport,
@@ -7553,6 +7561,7 @@ function PublicProfileView({
     overallProgress: number;
     fuBalance: number;
     finishedBookCount: number;
+    firstBuilderNumber: number | null;
     showFuPublicly: boolean;
     onEdit: () => void;
     onExportReport: () => void;
@@ -7621,6 +7630,14 @@ function PublicProfileView({
                                 </span>
                             )}
                         </span>
+                        {firstBuilderNumber !== null && (
+                            <FirstBuilderBadge
+                                number={firstBuilderNumber}
+                                t={t}
+                                sizeClassName="size-[43px]"
+                                className="absolute right-[-10px] bottom-1 z-30 drop-shadow-[0_8px_14px_rgba(0,0,0,0.18)]"
+                            />
+                        )}
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">

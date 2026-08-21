@@ -39,6 +39,7 @@ export interface User {
     country: string | null;
     gender: 'female' | 'male' | 'other' | 'prefer-not-to-say' | null;
     early_access_at: string | null;
+    first_builder_number: number | null;
     role: 'admin' | 'user';
     fu_balance: number;
     show_fu_publicly: boolean;
