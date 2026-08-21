@@ -14,6 +14,7 @@ use App\Services\DemoCommunitySeeder;
 use App\Services\DemoCommunityUserResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -99,6 +100,12 @@ class CommunityController extends Controller
         return [
             'communityPosts' => $posts,
             'communityBooks' => $books,
+            'betaAnnouncement' => [
+                'supportCount' => DB::table('beta_announcement_supports')->count(),
+                'supportedByViewer' => $request->user()
+                    ? DB::table('beta_announcement_supports')->where('user_id', $request->user()->id)->exists()
+                    : false,
+            ],
             'firstBuilderNumber' => $demoPreview ? 1 : null,
             'communityGoalStats' => [
                 'active' => Goal::query()->where('status', GoalStatus::Active->value)->count(),

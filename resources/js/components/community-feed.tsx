@@ -23,12 +23,13 @@ import {
     UserPlus,
     X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 export type Viewer = { id: number; name: string; username?: string; avatar?: string };
 export type CommunityFriendStatus = 'friend' | 'incoming' | 'outgoing';
 export type ShareableGoal = { id: number | string; title: string };
 export type CommunityGoalStats = { active: number; completed: number };
+export type BetaAnnouncement = { supportCount: number; supportedByViewer: boolean };
 export type CommunityProfile = {
     id: number;
     name: string;
@@ -91,6 +92,7 @@ export function GoalsCommunity({
     locale,
     t,
     goalStats,
+    betaAnnouncement = { supportCount: 0, supportedByViewer: false },
     demoUsername,
     availableGoals = [],
     initialGoalId,
@@ -102,6 +104,7 @@ export function GoalsCommunity({
     locale: Locale;
     t: Translate;
     goalStats: CommunityGoalStats;
+    betaAnnouncement?: BetaAnnouncement;
     demoUsername?: string;
     availableGoals?: ShareableGoal[];
     initialGoalId?: number | string | null;
@@ -150,7 +153,7 @@ export function GoalsCommunity({
                 </p>
             </div>
 
-            <PinnedBetaPost t={t} />
+            <PinnedBetaPost t={t} viewer={viewer} announcement={betaAnnouncement} demoUsername={demoUsername} />
 
             <div className="mb-5 grid grid-cols-2 gap-3">
                 <section className="rounded-[18px] border border-black/[0.055] bg-white px-4 py-3.5 shadow-[0_8px_24px_rgba(0,0,0,0.035)]">
@@ -286,7 +289,125 @@ export function GoalsCommunity({
     );
 }
 
-function PinnedBetaPost({ t }: { t: Translate }) {
+function PinnedBetaPost({
+    t,
+    viewer,
+    announcement,
+    demoUsername,
+}: {
+    t: Translate;
+    viewer: Viewer | null;
+    announcement: BetaAnnouncement;
+    demoUsername?: string;
+}) {
+    const [supported, setSupported] = useState(announcement.supportedByViewer);
+    const [supportCount, setSupportCount] = useState(announcement.supportCount);
+    const [supportBusy, setSupportBusy] = useState(false);
+    const [ideaOpen, setIdeaOpen] = useState(false);
+    const [rating, setRating] = useState(0);
+    const [hoveredRating, setHoveredRating] = useState(0);
+    const [comment, setComment] = useState('');
+    const [feedbackStatus, setFeedbackStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+    const [feedbackMessage, setFeedbackMessage] = useState('');
+    const ideaInput = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        setSupported(announcement.supportedByViewer);
+        setSupportCount(announcement.supportCount);
+    }, [announcement.supportCount, announcement.supportedByViewer]);
+
+    const csrfToken = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+    const openIdea = () => {
+        if (!viewer) return router.visit('/login');
+        setIdeaOpen(true);
+        window.requestAnimationFrame(() => ideaInput.current?.focus());
+    };
+    const selectRating = (value: number) => {
+        if (!viewer) return router.visit('/login');
+        setRating(value);
+        setFeedbackStatus('idle');
+        setIdeaOpen(true);
+        window.requestAnimationFrame(() => ideaInput.current?.focus());
+    };
+    const toggleSupport = async () => {
+        if (!viewer) return router.visit('/login');
+        if (supportBusy) return;
+
+        if (demoUsername) {
+            setSupported((current) => !current);
+            setSupportCount((current) => Math.max(0, current + (supported ? -1 : 1)));
+            return;
+        }
+
+        setSupportBusy(true);
+        try {
+            const response = await fetch(route('beta.announcement.support'), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+            });
+            const payload = (await response.json()) as { supported?: boolean; supportCount?: number };
+            if (!response.ok || typeof payload.supported !== 'boolean' || typeof payload.supportCount !== 'number') return;
+
+            setSupported(payload.supported);
+            setSupportCount(payload.supportCount);
+        } finally {
+            setSupportBusy(false);
+        }
+    };
+    const submitFeedback = async (event: FormEvent) => {
+        event.preventDefault();
+        if (!viewer) return router.visit('/login');
+        if (rating === 0 || comment.trim().length < 3 || feedbackStatus === 'sending') return;
+
+        setFeedbackStatus('sending');
+        setFeedbackMessage('');
+
+        if (demoUsername) {
+            setRating(0);
+            setComment('');
+            setIdeaOpen(false);
+            setFeedbackStatus('sent');
+            window.setTimeout(() => setFeedbackStatus('idle'), 2200);
+            return;
+        }
+
+        try {
+            const response = await fetch(route('beta.feedback.store'), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+                body: JSON.stringify({ rating, comment: comment.trim() }),
+            });
+            const payload = (await response.json()) as { feedback?: unknown; message?: string; errors?: Record<string, string[]> };
+            if (!response.ok || !payload.feedback) {
+                throw new Error(
+                    payload.errors?.rating?.[0] ??
+                        payload.errors?.comment?.[0] ??
+                        payload.message ??
+                        t('Fikrin gönderilemedi.', 'Your idea could not be sent.'),
+                );
+            }
+
+            setRating(0);
+            setComment('');
+            setIdeaOpen(false);
+            setFeedbackStatus('sent');
+            window.setTimeout(() => setFeedbackStatus('idle'), 2200);
+        } catch (exception) {
+            setFeedbackMessage(exception instanceof Error ? exception.message : t('Fikrin gönderilemedi.', 'Your idea could not be sent.'));
+            setFeedbackStatus('error');
+        }
+    };
+
     return (
         <article
             className="mb-5 overflow-hidden rounded-[20px] border border-[#7ed957]/35 bg-white shadow-[0_12px_34px_rgba(0,0,0,0.045)]"
@@ -339,9 +460,90 @@ function PinnedBetaPost({ t }: { t: Translate }) {
                     <p className="font-semibold text-[#1d1d1f]">Build Your Future Self.</p>
                 </div>
 
-                <div className="mt-5 flex items-center border-t border-black/[0.055] pt-4">
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-black/[0.055] pt-4">
                     <BrandLogo variant="black" className="h-6 w-20" />
+                    <div className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={toggleSupport}
+                            disabled={supportBusy}
+                            aria-pressed={supported}
+                            className={`flex h-9 items-center gap-1.5 rounded-full px-3 text-[10px] font-semibold transition disabled:opacity-60 ${
+                                supported ? 'bg-[#ff375f]/10 text-[#d91f4d]' : 'text-[#6e6e73] hover:bg-black/[0.04]'
+                            }`}
+                        >
+                            {supportBusy ? (
+                                <LoaderCircle className="size-3.5 animate-spin" />
+                            ) : (
+                                <HandHeart className={`size-3.5 ${supported ? 'fill-current' : ''}`} />
+                            )}
+                            {t('Destekle', 'Support')}
+                            <span className="tabular-nums">{supportCount}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={openIdea}
+                            aria-expanded={ideaOpen}
+                            className="flex h-9 items-center gap-1.5 rounded-full px-3 text-[10px] font-semibold text-[#6e6e73] transition hover:bg-black/[0.04]"
+                        >
+                            <Lightbulb className="size-3.5" />
+                            {t('Fikir Ver', 'Share an Idea')}
+                        </button>
+                    </div>
                 </div>
+            </div>
+
+            <div className="border-t border-black/[0.055] bg-[#fafafd] px-4 py-3.5 sm:px-5">
+                <div className="flex min-w-0 flex-wrap items-center gap-2.5 sm:flex-nowrap" onMouseLeave={() => setHoveredRating(0)}>
+                    <span className="shrink-0 text-[11px] font-semibold text-[#6e6e73]">{t('Puanla', 'Rate')}</span>
+                    <div className="flex shrink-0 items-center gap-0.5" role="group" aria-label={t('Beta sürümünü puanla', 'Rate the beta version')}>
+                        {[1, 2, 3, 4, 5].map((value) => {
+                            const active = value <= (hoveredRating || rating);
+
+                            return (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => selectRating(value)}
+                                    onMouseEnter={() => setHoveredRating(value)}
+                                    className={`grid size-8 place-items-center rounded-full transition active:scale-90 ${
+                                        active ? 'text-[#ff9500]' : 'text-[#c7c7cc] hover:bg-black/[0.035]'
+                                    }`}
+                                    aria-label={t(`${value} puan`, `${value} stars`)}
+                                    aria-pressed={rating === value}
+                                >
+                                    <Star className={`size-[18px] ${active ? 'fill-current' : ''}`} />
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {feedbackStatus === 'sent' && <span className="text-[10px] font-medium text-[#248a3d]">{t('Teşekkürler!', 'Thank you!')}</span>}
+                </div>
+
+                {ideaOpen && (
+                    <form onSubmit={submitFeedback} className="mt-3 flex items-center gap-2">
+                        <input
+                            ref={ideaInput}
+                            value={comment}
+                            onChange={(event) => {
+                                setComment(event.target.value);
+                                if (feedbackStatus === 'error') setFeedbackStatus('idle');
+                            }}
+                            maxLength={3000}
+                            placeholder={t('Fikrini yaz…', 'Write your idea…')}
+                            className="h-10 min-w-0 flex-1 rounded-full border border-black/[0.08] bg-white px-4 text-[11px] outline-none focus:border-[#007aff]"
+                        />
+                        <button
+                            type="submit"
+                            disabled={rating === 0 || comment.trim().length < 3 || feedbackStatus === 'sending'}
+                            className="grid size-10 shrink-0 place-items-center rounded-full bg-[#007aff] text-white disabled:bg-[#c7c7cc]"
+                            aria-label={t('Puan ve fikri gönder', 'Send rating and idea')}
+                        >
+                            {feedbackStatus === 'sending' ? <LoaderCircle className="size-4 animate-spin" /> : <Send className="size-4" />}
+                        </button>
+                    </form>
+                )}
+                {feedbackStatus === 'error' && <p className="mt-2 text-[10px] text-[#ff3b30]">{feedbackMessage}</p>}
             </div>
         </article>
     );

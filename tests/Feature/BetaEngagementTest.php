@@ -14,8 +14,32 @@ class BetaEngagementTest extends TestCase
 
     public function test_support_and_feedback_require_authentication(): void
     {
+        $this->postJson('/beta/announcement/support')->assertUnauthorized();
         $this->postJson('/beta/support', ['body' => 'Yardım'])->assertUnauthorized();
         $this->postJson('/beta/feedback', ['rating' => 5, 'comment' => 'Harika'])->assertUnauthorized();
+    }
+
+    public function test_user_can_toggle_support_for_the_pinned_beta_announcement(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->postJson('/beta/announcement/support')
+            ->assertOk()
+            ->assertJsonPath('supported', true)
+            ->assertJsonPath('supportCount', 1);
+
+        $this->assertDatabaseHas('beta_announcement_supports', ['user_id' => $user->id]);
+        $this->get('/beta')->assertInertia(fn (Assert $page) => $page
+            ->where('betaAnnouncement.supportCount', 1)
+            ->where('betaAnnouncement.supportedByViewer', true));
+
+        $this->postJson('/beta/announcement/support')
+            ->assertOk()
+            ->assertJsonPath('supported', false)
+            ->assertJsonPath('supportCount', 0);
+
+        $this->assertDatabaseMissing('beta_announcement_supports', ['user_id' => $user->id]);
     }
 
     public function test_user_can_send_a_support_message(): void

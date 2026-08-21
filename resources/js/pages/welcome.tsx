@@ -2,6 +2,7 @@ import BrandLogo from '@/components/brand-logo';
 import {
     GoalsCommunity,
     PublicLibrary,
+    type BetaAnnouncement,
     type CommunityBook,
     type CommunityGoalStats,
     type CommunityPost,
@@ -23,6 +24,7 @@ type WelcomeProps = {
     communityBooks: CommunityBook[];
     communityGoals: ShareableGoal[];
     communityGoalStats: CommunityGoalStats;
+    betaAnnouncement: BetaAnnouncement;
 };
 
 type SharedProps = { auth: { user: Viewer | null }; [key: string]: unknown };
@@ -37,6 +39,7 @@ export default function Welcome({
     communityBooks,
     communityGoals,
     communityGoalStats,
+    betaAnnouncement,
 }: WelcomeProps) {
     const { locale, t } = useLocale();
     const viewer = usePage<SharedProps>().props.auth.user;
@@ -107,6 +110,7 @@ export default function Welcome({
                         locale={locale}
                         t={t}
                         goalStats={communityGoalStats}
+                        betaAnnouncement={betaAnnouncement}
                         availableGoals={communityGoals}
                     />
                 ) : section === 'library' ? (

@@ -9,6 +9,29 @@ use Illuminate\Support\Facades\DB;
 
 class BetaEngagementController extends Controller
 {
+    public function toggleAnnouncementSupport(Request $request): JsonResponse
+    {
+        return DB::transaction(function () use ($request) {
+            $support = DB::table('beta_announcement_supports')->where('user_id', $request->user()->id);
+            $supported = ! $support->exists();
+
+            if ($supported) {
+                DB::table('beta_announcement_supports')->insert([
+                    'user_id' => $request->user()->id,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } else {
+                $support->delete();
+            }
+
+            return response()->json([
+                'supported' => $supported,
+                'supportCount' => DB::table('beta_announcement_supports')->count(),
+            ]);
+        });
+    }
+
     public function storeSupport(Request $request): JsonResponse
     {
         $validated = $request->validate([

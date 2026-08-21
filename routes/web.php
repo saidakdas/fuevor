@@ -111,6 +111,9 @@ Route::middleware('auth')->prefix('beta')->name('beta.')->group(function () {
     Route::get('/', [BetaWorkspaceController::class, 'show'])->name('show');
     Route::patch('state', [BetaWorkspaceController::class, 'update'])->name('state.update');
     Route::post('state', [BetaWorkspaceController::class, 'update'])->name('state.store');
+    Route::post('announcement/support', [BetaEngagementController::class, 'toggleAnnouncementSupport'])
+        ->middleware('throttle:30,1')
+        ->name('announcement.support');
     Route::post('support', [BetaEngagementController::class, 'storeSupport'])->middleware('throttle:10,1')->name('support.store');
     Route::post('feedback', [BetaEngagementController::class, 'storeFeedback'])->middleware('throttle:10,1')->name('feedback.store');
 });

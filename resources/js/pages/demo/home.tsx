@@ -2,6 +2,7 @@ import BrandLogo from '@/components/brand-logo';
 import {
     GoalsCommunity,
     PublicLibrary,
+    type BetaAnnouncement,
     type CommunityBook,
     type CommunityFriendStatus,
     type CommunityGoalStats,
@@ -468,6 +469,7 @@ export default function DemoHome({
     communityPosts = [],
     communityBooks = [],
     communityGoalStats = { active: 0, completed: 0 },
+    betaAnnouncement = { supportCount: 0, supportedByViewer: false },
     bestScoreMs = 0,
     bestScorePlayer = null,
     gamePlaysRemaining = 3,
@@ -481,6 +483,7 @@ export default function DemoHome({
     communityPosts?: CommunityPost[];
     communityBooks?: CommunityBook[];
     communityGoalStats?: CommunityGoalStats;
+    betaAnnouncement?: BetaAnnouncement;
     bestScoreMs?: number;
     bestScorePlayer?: GameScorePlayer | null;
     gamePlaysRemaining?: number;
@@ -1274,6 +1277,7 @@ export default function DemoHome({
                         posts={communityPosts}
                         books={communityBooks}
                         goalStats={communityGoalStats}
+                        betaAnnouncement={betaAnnouncement}
                         personalBooks={books}
                         bestScoreMs={bestScoreMs}
                         bestScorePlayer={bestScorePlayer}
@@ -4390,6 +4394,7 @@ function CommunityPanel({
     posts,
     books,
     goalStats,
+    betaAnnouncement,
     personalBooks,
     bestScoreMs,
     bestScorePlayer,
@@ -4407,6 +4412,7 @@ function CommunityPanel({
     posts: CommunityPost[];
     books: CommunityBook[];
     goalStats: CommunityGoalStats;
+    betaAnnouncement: BetaAnnouncement;
     personalBooks: BookRecord[];
     bestScoreMs: number;
     bestScorePlayer: GameScorePlayer | null;
@@ -4503,6 +4509,7 @@ function CommunityPanel({
                         locale={locale}
                         t={t}
                         goalStats={goalStats}
+                        betaAnnouncement={betaAnnouncement}
                         demoUsername={betaMode ? undefined : demoUsername}
                         availableGoals={goals.flatMap((goal) => {
                             const id = betaMode ? liveGoalIds[String(goal.id)] : goal.id;
