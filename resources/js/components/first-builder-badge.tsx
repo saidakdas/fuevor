@@ -85,8 +85,11 @@ export default function FirstBuilderBadge({
                                 </h2>
                             </div>
 
-                            <p className="mt-5 text-[14px] leading-6 font-light text-[#7ed957]">
-                                {t('Fuevor’un kurucu üyelerine teşekkür ederiz.', 'Thank you to Fuevor’s founding members.')}
+                            <p className="mt-5 text-[14px] leading-6 font-light text-black">
+                                {t(
+                                    "Fuevor'un ilk 100 Kullanıcısından biri olduğunuz için teşekkür ederiz.",
+                                    'Thank you for being one of the first 100 Fuevor users.',
+                                )}
                             </p>
                         </section>
                     </div>,

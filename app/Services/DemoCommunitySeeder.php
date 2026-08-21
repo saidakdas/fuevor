@@ -142,7 +142,7 @@ class DemoCommunitySeeder
     /**
      * @return array<string, mixed>
      */
-    public function profileFor(User $user): array
+    public function profileFor(User $user, bool $demoPreview = false): array
     {
         $profile = collect($this->profiles())->firstWhere('email', $user->email);
         $username = $profile['username'] ?? Str::of($user->email)->before('@')->replaceMatches('/[^\pL\pN._]+/u', '')->lower()->toString();
@@ -157,10 +157,21 @@ class DemoCommunitySeeder
             'location' => $profile['location'] ?? $user->country,
             'bio' => $profile['bio'] ?? 'Hedeflerini küçük ve sürdürülebilir adımlarla gerçekleştiriyor.',
             'fu' => $user->show_fu_publicly ? (int) $user->fu_balance : null,
-            'firstBuilderNumber' => $user->first_builder_number,
+            'firstBuilderNumber' => $demoPreview ? $this->previewBadgeNumber($user) : $user->first_builder_number,
             'accentFrom' => $accent[0],
             'accentTo' => $accent[1],
         ];
+    }
+
+    private function previewBadgeNumber(User $user): ?int
+    {
+        foreach (array_values($this->profiles()) as $index => $profile) {
+            if ($profile['email'] === $user->email) {
+                return $index + 2;
+            }
+        }
+
+        return null;
     }
 
     public function seed(): void

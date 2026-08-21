@@ -38,7 +38,9 @@ class CommunityController extends Controller
      */
     public function feedData(Request $request): array
     {
-        if ($request->routeIs('demo.preview')) {
+        $demoPreview = $request->routeIs('demo.preview');
+
+        if ($demoPreview) {
             $this->demoCommunity->seed();
         }
 
@@ -73,12 +75,15 @@ class CommunityController extends Controller
                 'title' => $post->title,
                 'description' => $post->description,
                 'author' => $post->user->name,
-                'authorProfile' => $this->serializeProfile($post->user),
+                'authorProfile' => $this->serializeProfile($post->user, $demoPreview),
                 'supportCount' => $post->supporters_count,
                 'ideaCount' => $post->ideas_count,
                 'supportedByViewer' => (bool) ($post->supported_by_viewer ?? false),
                 'createdAt' => $post->created_at->toISOString(),
-                'ideas' => $post->rootIdeas->take(8)->map(fn (CommunityGoalIdea $idea) => $this->serializeIdea($idea))->values(),
+                'ideas' => $post->rootIdeas
+                    ->take(8)
+                    ->map(fn (CommunityGoalIdea $idea) => $this->serializeIdea($idea, true, $demoPreview))
+                    ->values(),
             ]);
 
         $books = CommunityBookReview::query()
@@ -94,6 +99,7 @@ class CommunityController extends Controller
         return [
             'communityPosts' => $posts,
             'communityBooks' => $books,
+            'firstBuilderNumber' => $demoPreview ? 1 : null,
             'communityGoalStats' => [
                 'active' => Goal::query()->where('status', GoalStatus::Active->value)->count(),
                 'completed' => Goal::query()->where('status', GoalStatus::Completed->value)->count(),
@@ -116,26 +122,26 @@ class CommunityController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function serializeProfile(User $user): array
+    private function serializeProfile(User $user, bool $demoPreview = false): array
     {
-        return $this->demoCommunity->profileFor($user);
+        return $this->demoCommunity->profileFor($user, $demoPreview);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function serializeIdea(CommunityGoalIdea $idea, bool $includeReplies = true): array
+    private function serializeIdea(CommunityGoalIdea $idea, bool $includeReplies = true, bool $demoPreview = false): array
     {
         return [
             'id' => $idea->id,
             'body' => $idea->body,
             'author' => $idea->user->name,
-            'authorProfile' => $this->serializeProfile($idea->user),
+            'authorProfile' => $this->serializeProfile($idea->user, $demoPreview),
             'supportCount' => (int) $idea->supporters_count,
             'supportedByViewer' => (bool) ($idea->supported_by_viewer ?? false),
             'createdAt' => $idea->created_at->toISOString(),
             'replies' => $includeReplies
-                ? $idea->replies->map(fn (CommunityGoalIdea $reply) => $this->serializeIdea($reply, false))->values()
+                ? $idea->replies->map(fn (CommunityGoalIdea $reply) => $this->serializeIdea($reply, false, $demoPreview))->values()
                 : [],
         ];
     }

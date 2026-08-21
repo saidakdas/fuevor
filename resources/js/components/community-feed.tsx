@@ -651,20 +651,20 @@ function CommunityProfilePreview({
                         >
                             {profile.avatar ? <img src={profile.avatar} alt="" className="size-full object-cover" /> : initials || 'FU'}
                         </div>
-                        {profile.firstBuilderNumber !== null && (
-                            <FirstBuilderBadge
-                                number={profile.firstBuilderNumber}
-                                t={t}
-                                sizeClassName="size-[37px]"
-                                className="absolute right-[-7px] bottom-0 z-10 drop-shadow-[0_7px_12px_rgba(0,0,0,0.2)]"
-                            />
-                        )}
                     </div>
 
                     <div className="pt-[70px]">
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                                 <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                    {profile.firstBuilderNumber !== null && (
+                                        <FirstBuilderBadge
+                                            number={profile.firstBuilderNumber}
+                                            t={t}
+                                            sizeClassName="size-[37px]"
+                                            className="drop-shadow-[0_7px_12px_rgba(0,0,0,0.2)]"
+                                        />
+                                    )}
                                     <h2 className="min-w-0 text-[25px] leading-8 font-semibold tracking-[-0.035em]">{profile.name}</h2>
                                     {profile.fu !== null && profile.fu !== undefined && (
                                         <span className="h-6 w-px bg-black/[0.12]" aria-hidden="true" />

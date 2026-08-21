@@ -7630,39 +7630,46 @@ function PublicProfileView({
                                 </span>
                             )}
                         </span>
-                        {firstBuilderNumber !== null && (
-                            <FirstBuilderBadge
-                                number={firstBuilderNumber}
-                                t={t}
-                                sizeClassName="size-[43px]"
-                                className="absolute right-[-10px] bottom-1 z-30 drop-shadow-[0_8px_14px_rgba(0,0,0,0.18)]"
-                            />
-                        )}
                     </div>
 
-                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
-                        <h2 className="text-[28px] font-semibold tracking-[-0.04em] sm:text-[32px]">{profile.name || t('Ad Soyad', 'Full Name')}</h2>
-                        {showFuPublicly && (
-                            <>
-                                <span className="text-[24px] font-light text-[#c7c7cc]" aria-hidden="true">
-                                    |
-                                </span>
-                                <span className="inline-flex items-center gap-1.5 text-[20px] font-semibold tracking-[-0.025em] tabular-nums sm:text-[22px]">
-                                    {fuBalance}
-                                    <FuMark className="size-4" />
-                                </span>
-                            </>
-                        )}
-                        <span className="text-[24px] font-light text-[#c7c7cc]" aria-hidden="true">
-                            |
-                        </span>
-                        <span
-                            className="inline-flex items-center gap-1.5 text-[20px] font-semibold tracking-[-0.025em] tabular-nums sm:text-[22px]"
-                            aria-label={t(`${finishedBookCount} kitap bitirdi`, `${finishedBookCount} books finished`)}
-                        >
-                            {finishedBookCount}
-                            <BookOpen className="size-[17px] text-[#007aff]" strokeWidth={2.3} />
-                        </span>
+                    <div className="mt-4 flex flex-col items-center justify-center gap-2.5 sm:flex-row sm:flex-wrap">
+                        <div className="flex min-w-0 items-center justify-center gap-2.5">
+                            {firstBuilderNumber !== null && (
+                                <FirstBuilderBadge
+                                    number={firstBuilderNumber}
+                                    t={t}
+                                    sizeClassName="size-[43px]"
+                                    className="drop-shadow-[0_8px_14px_rgba(0,0,0,0.18)]"
+                                />
+                            )}
+                            <h2 className="min-w-0 text-[28px] leading-tight font-semibold tracking-[-0.04em] sm:text-[32px]">
+                                {profile.name || t('Ad Soyad', 'Full Name')}
+                            </h2>
+                        </div>
+
+                        <div className="flex items-center justify-center gap-2.5">
+                            <span className="hidden text-[24px] font-light text-[#c7c7cc] sm:inline" aria-hidden="true">
+                                |
+                            </span>
+                            {showFuPublicly && (
+                                <>
+                                    <span className="inline-flex items-center gap-1.5 text-[20px] font-semibold tracking-[-0.025em] tabular-nums sm:text-[22px]">
+                                        {fuBalance}
+                                        <FuMark className="size-4" />
+                                    </span>
+                                    <span className="text-[24px] font-light text-[#c7c7cc]" aria-hidden="true">
+                                        |
+                                    </span>
+                                </>
+                            )}
+                            <span
+                                className="inline-flex items-center gap-1.5 text-[20px] font-semibold tracking-[-0.025em] tabular-nums sm:text-[22px]"
+                                aria-label={t(`${finishedBookCount} kitap bitirdi`, `${finishedBookCount} books finished`)}
+                            >
+                                {finishedBookCount}
+                                <BookOpen className="size-[17px] text-[#007aff]" strokeWidth={2.3} />
+                            </span>
+                        </div>
                     </div>
                     <p className="mt-1 text-[14px] font-medium text-[#8e8e93]">
                         {profile.username ? `@${profile.username}` : t('Kullanıcı adı eklenmedi', 'No username yet')}
