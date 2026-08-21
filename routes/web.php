@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminSupportReplyController;
+use App\Http\Controllers\BetaEngagementController;
 use App\Http\Controllers\BetaWorkspaceController;
 use App\Http\Controllers\CommunityController;
 use App\Http\Controllers\CommunityGameController;
@@ -109,6 +111,8 @@ Route::middleware('auth')->prefix('beta')->name('beta.')->group(function () {
     Route::get('/', [BetaWorkspaceController::class, 'show'])->name('show');
     Route::patch('state', [BetaWorkspaceController::class, 'update'])->name('state.update');
     Route::post('state', [BetaWorkspaceController::class, 'update'])->name('state.store');
+    Route::post('support', [BetaEngagementController::class, 'storeSupport'])->middleware('throttle:10,1')->name('support.store');
+    Route::post('feedback', [BetaEngagementController::class, 'storeFeedback'])->middleware('throttle:10,1')->name('feedback.store');
 });
 
 Route::post('game-scores', [GameScoreController::class, 'store'])
@@ -136,6 +140,7 @@ Route::middleware(['auth', 'user-panel'])->group(function () {
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', AdminDashboardController::class)->name('index');
+    Route::post('support/{ticket}/reply', AdminSupportReplyController::class)->name('support.reply');
 });
 
 require __DIR__.'/settings.php';

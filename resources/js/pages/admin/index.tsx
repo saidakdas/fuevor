@@ -6,8 +6,8 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { useLocale } from '@/hooks/use-locale';
 import { getIntlLocale, type Locale, type Translate } from '@/i18n';
 import AppLayout from '@/layouts/app-layout';
-import { Head, Link } from '@inertiajs/react';
-import { Activity, CalendarDays, CheckCircle2, Mail, Phone, Search, ShieldCheck, Target, Users } from 'lucide-react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { CalendarDays, Mail, MessageCircle, Phone, Search, Send, ShieldCheck, Star, UserRound, Users } from 'lucide-react';
 
 type AdminGoal = {
     id: number;
@@ -36,21 +36,47 @@ type PaginationLink = {
     active: boolean;
 };
 
+type Paginated<T> = {
+    data: T[];
+    links: PaginationLink[];
+    from: number | null;
+    to: number | null;
+    total: number;
+};
+
+type AdminSupportTicket = {
+    id: number;
+    status: 'open' | 'answered' | 'closed';
+    created_at: string;
+    updated_at: string;
+    user: { id: number; name: string; email: string; phone: string | null };
+    messages: Array<{ id: number; body: string; is_admin: boolean; created_at: string }>;
+};
+
+type AdminFeedback = {
+    id: number;
+    rating: number;
+    comment: string;
+    created_at: string;
+    user: { id: number; name: string; email: string };
+};
+
 type AdminPageProps = {
+    section: 'users' | 'support' | 'feedback';
     filters: { q: string };
     stats: {
         total_users: number;
         total_goals: number;
         active_goals: number;
         completed_goals: number;
+        support_messages: number;
+        open_support: number;
+        feedback_count: number;
+        average_rating: number;
     };
-    users: {
-        data: AdminUser[];
-        links: PaginationLink[];
-        from: number | null;
-        to: number | null;
-        total: number;
-    };
+    users: Paginated<AdminUser>;
+    supportTickets: Paginated<AdminSupportTicket>;
+    feedbackEntries: Paginated<AdminFeedback>;
 };
 
 const statusStyles: Record<AdminGoal['status'], string> = {
@@ -60,7 +86,7 @@ const statusStyles: Record<AdminGoal['status'], string> = {
     archived: 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300',
 };
 
-export default function AdminIndex({ filters, stats, users }: AdminPageProps) {
+export default function AdminIndex({ section, filters, stats, users, supportTickets, feedbackEntries }: AdminPageProps) {
     const { t } = useLocale();
 
     return (
@@ -74,11 +100,11 @@ export default function AdminIndex({ filters, stats, users }: AdminPageProps) {
                             <ShieldCheck className="size-4" />
                             {t('Yetkili görünüm', 'Authorized view')}
                         </div>
-                        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('Kullanıcılar ve hedefler', 'Users and goals')}</h1>
+                        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('Fuevor Yönetim Merkezi', 'Fuevor Admin Center')}</h1>
                         <p className="text-muted-foreground mt-2 text-sm">
                             {t(
-                                'Kullanıcı iletişim bilgilerini ve hedef ilerlemelerini tek ekrandan izleyin.',
-                                'Review user contact details and goal progress in one place.',
+                                'Kullanıcıları, destek görüşmelerini ve beta değerlendirmelerini tek yerden yönetin.',
+                                'Manage users, support conversations, and beta feedback in one place.',
                             )}
                         </p>
                     </div>
@@ -86,64 +112,102 @@ export default function AdminIndex({ filters, stats, users }: AdminPageProps) {
 
                 <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <StatCard icon={Users} label={t('Kullanıcı', 'Users')} value={stats.total_users} tone="cyan" />
-                    <StatCard icon={Target} label={t('Toplam hedef', 'Total goals')} value={stats.total_goals} tone="violet" />
-                    <StatCard icon={Activity} label={t('Aktif hedef', 'Active goals')} value={stats.active_goals} tone="amber" />
-                    <StatCard icon={CheckCircle2} label={t('Tamamlanan', 'Completed')} value={stats.completed_goals} tone="emerald" />
+                    <StatCard icon={MessageCircle} label={t('Destek kaydı', 'Support tickets')} value={stats.support_messages} tone="violet" />
+                    <StatCard icon={Send} label={t('Yanıt bekleyen', 'Awaiting reply')} value={stats.open_support} tone="amber" />
+                    <StatCard icon={Star} label={t('Değerlendirme', 'Feedback')} value={stats.feedback_count} tone="emerald" />
                 </section>
 
-                <Card className="border-0 shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-800">
-                    <CardContent className="p-4 sm:p-5">
-                        <form method="get" action="/admin" className="flex flex-col gap-3 sm:flex-row">
-                            <div className="relative flex-1">
-                                <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-                                <Input
-                                    name="q"
-                                    defaultValue={filters.q}
-                                    className="pl-9"
-                                    placeholder={t('Ad, e-posta veya telefon ara', 'Search name, email, or phone')}
-                                />
+                <nav
+                    className="grid gap-2 rounded-2xl bg-slate-100 p-2 sm:grid-cols-3 dark:bg-slate-900"
+                    aria-label={t('Admin bölümleri', 'Admin sections')}
+                >
+                    {[
+                        { id: 'users', label: t('Kullanıcılar', 'Users'), icon: UserRound, count: users.total },
+                        { id: 'support', label: t('Destek Mesajları', 'Support Messages'), icon: MessageCircle, count: supportTickets.total },
+                        { id: 'feedback', label: t('Değerlendirme ve Yorumlar', 'Ratings & Feedback'), icon: Star, count: feedbackEntries.total },
+                    ].map((item) => (
+                        <Link
+                            key={item.id}
+                            href={`/admin?section=${item.id}`}
+                            className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${section === item.id ? 'bg-white text-cyan-700 shadow-sm dark:bg-slate-800 dark:text-cyan-300' : 'text-slate-600 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-800/60'}`}
+                        >
+                            <item.icon className="size-4" />
+                            {item.label}
+                            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] tabular-nums dark:bg-slate-700">{item.count}</span>
+                        </Link>
+                    ))}
+                </nav>
+
+                {section === 'users' && (
+                    <>
+                        <Card className="border-0 shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-800">
+                            <CardContent className="p-4 sm:p-5">
+                                <form method="get" action="/admin" className="flex flex-col gap-3 sm:flex-row">
+                                    <input type="hidden" name="section" value="users" />
+                                    <div className="relative flex-1">
+                                        <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                                        <Input
+                                            name="q"
+                                            defaultValue={filters.q}
+                                            className="pl-9"
+                                            placeholder={t('Ad, e-posta veya telefon ara', 'Search name, email, or phone')}
+                                        />
+                                    </div>
+                                    <Button type="submit">{t('Ara', 'Search')}</Button>
+                                    {filters.q && (
+                                        <Button variant="outline" asChild>
+                                            <Link href="/admin?section=users">{t('Temizle', 'Clear')}</Link>
+                                        </Button>
+                                    )}
+                                </form>
+                            </CardContent>
+                        </Card>
+                        <section className="space-y-4">
+                            {users.data.length === 0 ? (
+                                <EmptyState text={t('Aramanızla eşleşen kullanıcı bulunamadı.', 'No users matched your search.')} />
+                            ) : (
+                                users.data.map((user) => <UserCard key={user.id} user={user} />)
+                            )}
+                        </section>
+                        <Pagination page={users} t={t} />
+                    </>
+                )}
+
+                {section === 'support' && (
+                    <>
+                        <section className="space-y-4">
+                            {supportTickets.data.length === 0 ? (
+                                <EmptyState text={t('Henüz destek mesajı bulunmuyor.', 'There are no support messages yet.')} />
+                            ) : (
+                                supportTickets.data.map((ticket) => <SupportTicketCard key={ticket.id} ticket={ticket} />)
+                            )}
+                        </section>
+                        <Pagination page={supportTickets} t={t} />
+                    </>
+                )}
+
+                {section === 'feedback' && (
+                    <>
+                        <div className="flex items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm dark:bg-slate-950">
+                            <span className="grid size-11 place-items-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                                <Star className="size-5 fill-current" />
+                            </span>
+                            <div>
+                                <p className="text-2xl font-bold tabular-nums">{stats.average_rating || '—'}</p>
+                                <p className="text-muted-foreground text-xs">{t('Ortalama beta puanı / 5', 'Average beta rating / 5')}</p>
                             </div>
-                            <Button type="submit">{t('Ara', 'Search')}</Button>
-                            {filters.q && (
-                                <Button variant="outline" asChild>
-                                    <Link href="/admin">{t('Temizle', 'Clear')}</Link>
-                                </Button>
-                            )}
-                        </form>
-                    </CardContent>
-                </Card>
-
-                <section className="space-y-4">
-                    {users.data.length === 0 ? (
-                        <div className="text-muted-foreground rounded-2xl border border-dashed p-12 text-center text-sm">
-                            {t('Aramanızla eşleşen kullanıcı bulunamadı.', 'No users matched your search.')}
                         </div>
-                    ) : (
-                        users.data.map((user) => <UserCard key={user.id} user={user} />)
-                    )}
-                </section>
-
-                {users.links.length > 3 && (
-                    <nav className="flex flex-col items-center justify-between gap-3 sm:flex-row" aria-label={t('Sayfalama', 'Pagination')}>
-                        <p className="text-muted-foreground text-sm">
-                            {t(`${users.total} kayıttan ${users.from}–${users.to} arası`, `Showing ${users.from}–${users.to} of ${users.total}`)}
-                        </p>
-                        <div className="flex flex-wrap justify-center gap-1">
-                            {users.links.map((link, index) =>
-                                link.url ? (
-                                    <Button key={`${link.label}-${index}`} variant={link.active ? 'default' : 'outline'} size="sm" asChild>
-                                        <Link href={link.url} preserveScroll>
-                                            {formatPaginationLabel(link.label, t)}
-                                        </Link>
-                                    </Button>
-                                ) : (
-                                    <Button key={`${link.label}-${index}`} variant="outline" size="sm" disabled>
-                                        {formatPaginationLabel(link.label, t)}
-                                    </Button>
-                                ),
+                        <section className="grid gap-4 lg:grid-cols-2">
+                            {feedbackEntries.data.length === 0 ? (
+                                <div className="lg:col-span-2">
+                                    <EmptyState text={t('Henüz değerlendirme bulunmuyor.', 'There is no feedback yet.')} />
+                                </div>
+                            ) : (
+                                feedbackEntries.data.map((feedback) => <FeedbackCard key={feedback.id} feedback={feedback} />)
                             )}
-                        </div>
-                    </nav>
+                        </section>
+                        <Pagination page={feedbackEntries} t={t} />
+                    </>
                 )}
             </main>
         </AppLayout>
@@ -228,6 +292,152 @@ function UserCard({ user }: { user: AdminUser }) {
     );
 }
 
+function SupportTicketCard({ ticket }: { ticket: AdminSupportTicket }) {
+    const { locale, t } = useLocale();
+    const { data, setData, post, processing, errors, reset } = useForm({ body: '' });
+
+    return (
+        <Card className="overflow-hidden border-0 shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-800">
+            <CardContent className="p-0">
+                <div className="flex flex-col gap-3 border-b bg-white p-5 sm:flex-row sm:items-center sm:justify-between dark:bg-slate-950">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-cyan-100 font-bold text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
+                            {getInitials(ticket.user.name)}
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h2 className="truncate font-bold">{ticket.user.name}</h2>
+                                <Badge
+                                    variant="outline"
+                                    className={
+                                        ticket.status === 'answered'
+                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                            : 'border-amber-200 bg-amber-50 text-amber-700'
+                                    }
+                                >
+                                    {ticket.status === 'answered' ? t('Yanıtlandı', 'Answered') : t('Yanıt bekliyor', 'Awaiting reply')}
+                                </Badge>
+                            </div>
+                            <div className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                                <a href={`mailto:${ticket.user.email}`} className="hover:text-cyan-700">
+                                    {ticket.user.email}
+                                </a>
+                                {ticket.user.phone && <span>{ticket.user.phone}</span>}
+                                <span>
+                                    #{ticket.id} · {formatDateTime(ticket.created_at, locale)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-3 bg-slate-50/70 p-5 dark:bg-slate-900/40">
+                    {ticket.messages.map((message) => (
+                        <div key={message.id} className={`flex ${message.is_admin ? 'justify-end' : 'justify-start'}`}>
+                            <div
+                                className={`max-w-[88%] rounded-2xl px-4 py-3 ${message.is_admin ? 'bg-cyan-700 text-white' : 'border bg-white dark:bg-slate-950'}`}
+                            >
+                                <p className="text-[11px] font-bold opacity-70">
+                                    {message.is_admin ? t('Admin yanıtı', 'Admin reply') : ticket.user.name}
+                                </p>
+                                <p className="mt-1 text-sm leading-6 whitespace-pre-wrap">{message.body}</p>
+                                <p className="mt-2 text-[10px] opacity-60">{formatDateTime(message.created_at, locale)}</p>
+                            </div>
+                        </div>
+                    ))}
+
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            post(route('admin.support.reply', ticket.id), {
+                                preserveScroll: true,
+                                onSuccess: () => reset(),
+                            });
+                        }}
+                        className="border-t pt-4"
+                    >
+                        <textarea
+                            value={data.body}
+                            onChange={(event) => setData('body', event.target.value)}
+                            rows={3}
+                            maxLength={3000}
+                            placeholder={t('Kullanıcıya yanıt yaz…', 'Write a reply to the user…')}
+                            className="border-input bg-background focus-visible:ring-ring w-full resize-y rounded-xl border px-3 py-2 text-sm outline-none focus-visible:ring-2"
+                        />
+                        {errors.body && <p className="mt-1 text-xs text-red-600">{errors.body}</p>}
+                        <div className="mt-3 flex justify-end">
+                            <Button type="submit" disabled={processing || data.body.trim().length < 2}>
+                                <Send className="size-4" />
+                                {processing ? t('Gönderiliyor…', 'Sending…') : t('Yanıtla', 'Reply')}
+                            </Button>
+                        </div>
+                    </form>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function FeedbackCard({ feedback }: { feedback: AdminFeedback }) {
+    const { locale, t } = useLocale();
+
+    return (
+        <Card className="border-0 shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-800">
+            <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <h2 className="truncate font-bold">{feedback.user.name}</h2>
+                        <a href={`mailto:${feedback.user.email}`} className="text-muted-foreground mt-1 block truncate text-xs hover:text-cyan-700">
+                            {feedback.user.email}
+                        </a>
+                    </div>
+                    <div className="flex shrink-0 gap-0.5 text-amber-500" aria-label={t(`${feedback.rating} puan`, `${feedback.rating} stars`)}>
+                        {[1, 2, 3, 4, 5].map((value) => (
+                            <Star
+                                key={value}
+                                className={`size-4 ${value <= feedback.rating ? 'fill-current' : 'text-slate-300 dark:text-slate-700'}`}
+                            />
+                        ))}
+                    </div>
+                </div>
+                <p className="mt-4 text-sm leading-6 whitespace-pre-wrap text-slate-700 dark:text-slate-300">{feedback.comment}</p>
+                <p className="text-muted-foreground mt-4 text-[11px]">{formatDateTime(feedback.created_at, locale)}</p>
+            </CardContent>
+        </Card>
+    );
+}
+
+function EmptyState({ text }: { text: string }) {
+    return <div className="text-muted-foreground rounded-2xl border border-dashed p-12 text-center text-sm">{text}</div>;
+}
+
+function Pagination<T>({ page, t }: { page: Paginated<T>; t: Translate }) {
+    if (page.links.length <= 3) return null;
+
+    return (
+        <nav className="flex flex-col items-center justify-between gap-3 sm:flex-row" aria-label={t('Sayfalama', 'Pagination')}>
+            <p className="text-muted-foreground text-sm">
+                {t(`${page.total} kayıttan ${page.from}–${page.to} arası`, `Showing ${page.from}–${page.to} of ${page.total}`)}
+            </p>
+            <div className="flex flex-wrap justify-center gap-1">
+                {page.links.map((link, index) =>
+                    link.url ? (
+                        <Button key={`${link.label}-${index}`} variant={link.active ? 'default' : 'outline'} size="sm" asChild>
+                            <Link href={link.url} preserveScroll>
+                                {formatPaginationLabel(link.label, t)}
+                            </Link>
+                        </Button>
+                    ) : (
+                        <Button key={`${link.label}-${index}`} variant="outline" size="sm" disabled>
+                            {formatPaginationLabel(link.label, t)}
+                        </Button>
+                    ),
+                )}
+            </div>
+        </nav>
+    );
+}
+
 function StatCard({
     icon: Icon,
     label,
@@ -272,6 +482,15 @@ const getInitials = (name: string) =>
 
 const formatDate = (date: string, locale: Locale) =>
     new Intl.DateTimeFormat(getIntlLocale(locale), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(date));
+
+const formatDateTime = (date: string, locale: Locale) =>
+    new Intl.DateTimeFormat(getIntlLocale(locale), {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(new Date(date));
 
 const formatGoalDate = (date: string | null, locale: Locale, t: Translate) =>
     date

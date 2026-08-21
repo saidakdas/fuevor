@@ -109,11 +109,32 @@ type GoalRecord = {
 };
 
 type PanelSection = 'overview' | 'community' | 'goals' | 'plan' | 'notes' | 'library' | 'team' | 'friends' | 'profile';
-type ProfileSettingsSection = 'privacy-security' | 'language' | 'appearance' | 'usage' | 'legal';
+type ProfileSettingsSection = 'privacy-security' | 'language' | 'appearance' | 'usage' | 'support' | 'feedback' | 'legal';
 type PlanRange = 'today' | 'tomorrow' | 'week' | 'month' | 'year';
 type BookStatus = 'reading' | 'not-started' | 'finished';
 type ReportPlanPeriod = 'day' | 'range' | 'week' | 'month' | 'year';
 type ReportSection = 'goals' | 'plans' | 'library' | 'saved-notes';
+
+type SupportMessageRecord = {
+    id: number;
+    body: string;
+    is_admin: boolean;
+    created_at: string;
+};
+
+type SupportTicketRecord = {
+    id: number;
+    status: 'open' | 'answered' | 'closed';
+    created_at: string;
+    messages: SupportMessageRecord[];
+};
+
+type FeedbackRecord = {
+    id: number;
+    rating: number;
+    comment: string;
+    created_at: string;
+};
 
 type PlanItem = {
     id: number;
@@ -450,6 +471,8 @@ export default function DemoHome({
     betaMode = false,
     betaState,
     betaGoalIds = {},
+    supportTickets = [],
+    feedbackEntries = [],
 }: {
     communityPosts?: CommunityPost[];
     communityBooks?: CommunityBook[];
@@ -459,6 +482,8 @@ export default function DemoHome({
     betaMode?: boolean;
     betaState?: BetaState;
     betaGoalIds?: Record<string, number>;
+    supportTickets?: SupportTicketRecord[];
+    feedbackEntries?: FeedbackRecord[];
 }) {
     useDialogScrollLock();
     useGoalFlowKeyboardAvoidance();
@@ -1089,6 +1114,8 @@ export default function DemoHome({
             overallProgress={overallProgress}
             fuBalance={fuBalance}
             finishedBookCount={books.filter((book) => book.status === 'finished').length}
+            supportTickets={supportTickets}
+            feedbackEntries={feedbackEntries}
             onClose={() => setProfileOpen(false)}
             onOpenCommunity={() => {
                 navigatePanel('community');
@@ -6409,17 +6436,20 @@ function ProfileSettingsTabs({
     active: ProfileSettingsSection;
     onChange: (section: ProfileSettingsSection) => void;
 }) {
+    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
     const tabs = [
         { value: 'privacy-security' as const, icon: LockKeyhole, label: t('Gizlilik ve Güvenlik', 'Privacy & Security') },
         { value: 'language' as const, icon: Languages, label: t('Dil Ayarları', 'Language Settings') },
         { value: 'appearance' as const, icon: Sun, label: t('Görünüm Ayarları', 'Appearance Settings') },
         { value: 'usage' as const, icon: Settings2, label: t('Kullanım Ayarları', 'Usage Settings') },
+        { value: 'support' as const, icon: MessageCircle, label: t('Destek', 'Support') },
+        { value: 'feedback' as const, icon: Star, label: t('Değerlendir', 'Feedback') },
         { value: 'legal' as const, icon: FileText, label: t('Yasal Metinler', 'Legal Documents') },
-    ];
+    ].filter((tab) => betaMode || (tab.value !== 'support' && tab.value !== 'feedback'));
 
     return (
         <nav
-            className="grid grid-cols-2 gap-2 rounded-[24px] border border-black/[0.06] bg-white/70 p-2 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sm:grid-cols-5"
+            className="grid grid-cols-2 gap-2 rounded-[24px] border border-black/[0.06] bg-white/70 p-2 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sm:grid-cols-4 lg:grid-cols-7"
             aria-label={t('Ayar bölümleri', 'Settings sections')}
         >
             {tabs.map(({ value, icon: Icon, label }) => {
@@ -6454,6 +6484,8 @@ function ProfilePreferences({
     onChange: (settings: SettingsData) => void;
 }) {
     const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
+
+    if (section === 'support' || section === 'feedback') return null;
 
     if (section === 'legal') {
         return (
@@ -6619,6 +6651,293 @@ function ProfilePreferences({
     );
 }
 
+function ProfileSupportSection({ t, initialTickets }: { t: Translate; initialTickets: SupportTicketRecord[] }) {
+    const { locale } = useLocale();
+    const [tickets, setTickets] = useState(initialTickets);
+    const [body, setBody] = useState('');
+    const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+    const [error, setError] = useState('');
+
+    useEffect(() => setTickets(initialTickets), [initialTickets]);
+
+    const submit = async (event: FormEvent) => {
+        event.preventDefault();
+        if (body.trim().length < 3 || status === 'sending') return;
+
+        setStatus('sending');
+        setError('');
+
+        try {
+            const response = await fetch(route('beta.support.store'), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                },
+                body: JSON.stringify({ body: body.trim() }),
+            });
+            const payload = (await response.json()) as { ticket?: SupportTicketRecord; message?: string; errors?: Record<string, string[]> };
+
+            if (!response.ok || !payload.ticket) {
+                throw new Error(payload.errors?.body?.[0] ?? payload.message ?? t('Mesaj gönderilemedi.', 'The message could not be sent.'));
+            }
+
+            setTickets((current) => [payload.ticket as SupportTicketRecord, ...current]);
+            setBody('');
+            setStatus('sent');
+            window.setTimeout(() => setStatus('idle'), 2200);
+        } catch (exception) {
+            setError(exception instanceof Error ? exception.message : t('Mesaj gönderilemedi.', 'The message could not be sent.'));
+            setStatus('error');
+        }
+    };
+
+    return (
+        <section className="mt-6 space-y-5">
+            <div className="rounded-[26px] border border-black/[0.07] bg-white p-5 shadow-[0_12px_45px_rgba(0,0,0,0.04)] sm:p-7">
+                <div className="flex items-start gap-4">
+                    <span className="grid size-12 shrink-0 place-items-center rounded-[15px] bg-[#007aff]/10 text-[#007aff]">
+                        <MessageCircle className="size-[21px]" />
+                    </span>
+                    <div>
+                        <h2 className="text-[19px] font-semibold tracking-[-0.02em]">{t('Destek Ekibine Yaz', 'Contact Support')}</h2>
+                        <p className="mt-1 text-[13px] leading-5 text-[#8e8e93]">
+                            {t(
+                                'Sorunu veya talebini doğrudan yaz. Yanıtımız bu sayfadaki destek geçmişinde görünecek.',
+                                'Write your question or request directly. Our reply will appear in your support history here.',
+                            )}
+                        </p>
+                    </div>
+                </div>
+                <form onSubmit={submit} className="mt-5">
+                    <textarea
+                        value={body}
+                        onChange={(event) => {
+                            setBody(event.target.value);
+                            if (status === 'error') setStatus('idle');
+                        }}
+                        maxLength={3000}
+                        rows={5}
+                        placeholder={t('Size nasıl yardımcı olabiliriz?', 'How can we help you?')}
+                        className="w-full resize-y rounded-[18px] border border-black/[0.09] bg-[#f9f9fb] px-4 py-3 text-[14px] leading-6 transition outline-none focus:border-[#007aff] focus:ring-4 focus:ring-[#007aff]/10"
+                    />
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                        <span className={`text-[12px] ${status === 'error' ? 'text-[#ff3b30]' : 'text-[#8e8e93]'}`}>
+                            {status === 'sent'
+                                ? t('Mesajın destek ekibine iletildi.', 'Your message was sent to support.')
+                                : error || `${body.length}/3000`}
+                        </span>
+                        <button
+                            type="submit"
+                            disabled={body.trim().length < 3 || status === 'sending'}
+                            className="inline-flex h-11 items-center gap-2 rounded-full bg-[#007aff] px-5 text-[13px] font-semibold text-white transition active:scale-[0.98] disabled:bg-[#c7c7cc]"
+                        >
+                            <Send className="size-4" />
+                            {status === 'sending' ? t('Gönderiliyor…', 'Sending…') : t('Gönder', 'Send')}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div>
+                <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Destek Geçmişi', 'Support History')}</h2>
+                {tickets.length === 0 ? (
+                    <div className="rounded-[24px] border border-dashed border-black/[0.1] bg-white/60 px-5 py-10 text-center text-[13px] text-[#8e8e93]">
+                        {t('Henüz gönderilmiş bir destek mesajın yok.', 'You have not sent any support messages yet.')}
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {tickets.map((ticket) => (
+                            <article
+                                key={ticket.id}
+                                className="rounded-[24px] border border-black/[0.07] bg-white p-5 shadow-[0_9px_30px_rgba(0,0,0,0.035)]"
+                            >
+                                <div className="mb-4 flex items-center justify-between gap-3">
+                                    <span className="text-[12px] font-semibold text-[#6e6e73]">#{ticket.id}</span>
+                                    <span
+                                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${ticket.status === 'answered' ? 'bg-[#34c759]/10 text-[#248a3d]' : 'bg-[#ff9500]/10 text-[#c66b00]'}`}
+                                    >
+                                        {ticket.status === 'answered' ? t('Yanıtlandı', 'Answered') : t('Yanıt bekliyor', 'Awaiting reply')}
+                                    </span>
+                                </div>
+                                <div className="space-y-3">
+                                    {ticket.messages.map((message) => (
+                                        <div key={message.id} className={`flex ${message.is_admin ? 'justify-start' : 'justify-end'}`}>
+                                            <div
+                                                className={`max-w-[88%] rounded-[18px] px-4 py-3 ${message.is_admin ? 'bg-[#f2f2f7] text-[#3a3a3c]' : 'bg-[#007aff] text-white'}`}
+                                            >
+                                                <p className="text-[11px] font-semibold opacity-70">
+                                                    {message.is_admin ? t('Fuevor Destek', 'Fuevor Support') : t('Sen', 'You')}
+                                                </p>
+                                                <p className="mt-1 text-[13px] leading-5 whitespace-pre-wrap">{message.body}</p>
+                                                <p className="mt-1.5 text-[9px] opacity-60">{formatEngagementDate(message.created_at, locale)}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </section>
+    );
+}
+
+function ProfileFeedbackSection({ t, initialEntries }: { t: Translate; initialEntries: FeedbackRecord[] }) {
+    const { locale } = useLocale();
+    const [entries, setEntries] = useState(initialEntries);
+    const [rating, setRating] = useState(0);
+    const [hoveredRating, setHoveredRating] = useState(0);
+    const [comment, setComment] = useState('');
+    const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+    const [error, setError] = useState('');
+
+    useEffect(() => setEntries(initialEntries), [initialEntries]);
+
+    const submit = async (event: FormEvent) => {
+        event.preventDefault();
+        if (rating === 0 || comment.trim().length < 3 || status === 'sending') return;
+        setStatus('sending');
+        setError('');
+
+        try {
+            const response = await fetch(route('beta.feedback.store'), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                },
+                body: JSON.stringify({ rating, comment: comment.trim() }),
+            });
+            const payload = (await response.json()) as { feedback?: FeedbackRecord; message?: string; errors?: Record<string, string[]> };
+
+            if (!response.ok || !payload.feedback) {
+                throw new Error(
+                    payload.errors?.rating?.[0] ??
+                        payload.errors?.comment?.[0] ??
+                        payload.message ??
+                        t('Değerlendirme gönderilemedi.', 'Feedback could not be sent.'),
+                );
+            }
+
+            setEntries((current) => [payload.feedback as FeedbackRecord, ...current]);
+            setRating(0);
+            setComment('');
+            setStatus('sent');
+            window.setTimeout(() => setStatus('idle'), 2200);
+        } catch (exception) {
+            setError(exception instanceof Error ? exception.message : t('Değerlendirme gönderilemedi.', 'Feedback could not be sent.'));
+            setStatus('error');
+        }
+    };
+
+    return (
+        <section className="mt-6 space-y-5">
+            <div className="overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.04)]">
+                <div className="bg-gradient-to-br from-[#007aff]/10 via-white to-[#5856d6]/10 px-5 py-7 text-center sm:px-8">
+                    <span className="mx-auto grid size-14 place-items-center rounded-[18px] bg-white text-[#ff9500] shadow-[0_8px_25px_rgba(0,0,0,0.08)]">
+                        <Star className="size-7 fill-current" />
+                    </span>
+                    <h2 className="mt-4 text-[21px] font-semibold tracking-[-0.025em]">
+                        {t('Fuevor beta sürümü sizinle birlikte gelişmeye devam ediyor.', 'Fuevor beta continues to grow with you.')}
+                    </h2>
+                    <p className="mx-auto mt-2 max-w-xl text-[13px] leading-5 text-[#6e6e73]">
+                        {t(
+                            'Deneyimini puanla, yorumunu ve geliştirmemizi istediğin fikri bizimle paylaş.',
+                            'Rate your experience and share your comments or ideas for improvement.',
+                        )}
+                    </p>
+                </div>
+                <form onSubmit={submit} className="px-5 py-6 sm:px-7">
+                    <div className="flex justify-center gap-2" onMouseLeave={() => setHoveredRating(0)}>
+                        {[1, 2, 3, 4, 5].map((value) => {
+                            const active = value <= (hoveredRating || rating);
+
+                            return (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => setRating(value)}
+                                    onMouseEnter={() => setHoveredRating(value)}
+                                    className={`grid size-11 place-items-center rounded-full transition active:scale-90 ${active ? 'bg-[#ff9500]/12 text-[#ff9500]' : 'text-[#c7c7cc] hover:bg-black/[0.035]'}`}
+                                    aria-label={t(`${value} puan`, `${value} stars`)}
+                                    aria-pressed={rating === value}
+                                >
+                                    <Star className={`size-6 ${active ? 'fill-current' : ''}`} />
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <textarea
+                        value={comment}
+                        onChange={(event) => {
+                            setComment(event.target.value);
+                            if (status === 'error') setStatus('idle');
+                        }}
+                        maxLength={3000}
+                        rows={5}
+                        placeholder={t('Yorumun, önerin veya geliştirme fikrin…', 'Your comment, suggestion, or improvement idea…')}
+                        className="mt-5 w-full resize-y rounded-[18px] border border-black/[0.09] bg-[#f9f9fb] px-4 py-3 text-[14px] leading-6 transition outline-none focus:border-[#007aff] focus:ring-4 focus:ring-[#007aff]/10"
+                    />
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                        <span className={`text-[12px] ${status === 'error' ? 'text-[#ff3b30]' : 'text-[#8e8e93]'}`}>
+                            {status === 'sent'
+                                ? t('Değerlendirmen için teşekkürler.', 'Thank you for your feedback.')
+                                : error || `${comment.length}/3000`}
+                        </span>
+                        <button
+                            type="submit"
+                            disabled={rating === 0 || comment.trim().length < 3 || status === 'sending'}
+                            className="h-11 rounded-full bg-[#007aff] px-5 text-[13px] font-semibold text-white transition active:scale-[0.98] disabled:bg-[#c7c7cc]"
+                        >
+                            {status === 'sending' ? t('Gönderiliyor…', 'Sending…') : t('Fikrimi Gönder', 'Send My Feedback')}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {entries.length > 0 && (
+                <div>
+                    <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Gönderdiğin Değerlendirmeler', 'Your Feedback')}</h2>
+                    <div className="space-y-3">
+                        {entries.map((entry) => (
+                            <article
+                                key={entry.id}
+                                className="rounded-[22px] border border-black/[0.07] bg-white p-5 shadow-[0_8px_28px_rgba(0,0,0,0.035)]"
+                            >
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex gap-0.5 text-[#ff9500]">
+                                        {[1, 2, 3, 4, 5].map((value) => (
+                                            <Star key={value} className={`size-4 ${value <= entry.rating ? 'fill-current' : 'text-[#d1d1d6]'}`} />
+                                        ))}
+                                    </div>
+                                    <span className="text-[10px] text-[#8e8e93]">{formatEngagementDate(entry.created_at, locale)}</span>
+                                </div>
+                                <p className="mt-3 text-[13px] leading-5 whitespace-pre-wrap text-[#3a3a3c]">{entry.comment}</p>
+                            </article>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </section>
+    );
+}
+
+function formatEngagementDate(value: string, locale: Locale): string {
+    return new Intl.DateTimeFormat(getIntlLocale(locale), {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(new Date(value));
+}
+
 function SettingOption({
     icon: Icon,
     label,
@@ -6666,6 +6985,8 @@ function ProfilePanel({
     overallProgress,
     fuBalance,
     finishedBookCount,
+    supportTickets,
+    feedbackEntries,
     onClose,
     onOpenCommunity,
     onExportReport,
@@ -6680,6 +7001,8 @@ function ProfilePanel({
     overallProgress: number;
     fuBalance: number;
     finishedBookCount: number;
+    supportTickets: SupportTicketRecord[];
+    feedbackEntries: FeedbackRecord[];
     onClose: () => void;
     onOpenCommunity: () => void;
     onExportReport: () => void;
@@ -7061,6 +7384,9 @@ function ProfilePanel({
                                     <div className="demo-step-enter mt-6">
                                         <ProfileSettingsTabs t={t} active={settingsSection} onChange={setSettingsSection} />
                                         <ProfilePreferences t={t} settings={settings} section={settingsSection} onChange={onSettingsChange} />
+
+                                        {settingsSection === 'support' && <ProfileSupportSection t={t} initialTickets={supportTickets} />}
+                                        {settingsSection === 'feedback' && <ProfileFeedbackSection t={t} initialEntries={feedbackEntries} />}
 
                                         {settingsSection === 'privacy-security' && (
                                             <section className="mt-8">

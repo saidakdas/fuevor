@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\BetaWorkspace;
-use App\Models\Goal;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +23,32 @@ class BetaWorkspaceController extends Controller
             'betaMode' => true,
             'betaState' => $this->state($workspace, $request->user()),
             'betaGoalIds' => $this->goalIds($request->user()),
+            'supportTickets' => $request->user()->supportTickets()
+                ->with('messages')
+                ->latest('updated_at')
+                ->limit(20)
+                ->get()
+                ->map(fn ($ticket) => [
+                    'id' => $ticket->id,
+                    'status' => $ticket->status,
+                    'created_at' => $ticket->created_at?->toISOString(),
+                    'messages' => $ticket->messages->map(fn ($message) => [
+                        'id' => $message->id,
+                        'body' => $message->body,
+                        'is_admin' => $message->is_admin,
+                        'created_at' => $message->created_at?->toISOString(),
+                    ])->values(),
+                ])->values(),
+            'feedbackEntries' => $request->user()->betaFeedback()
+                ->latest()
+                ->limit(20)
+                ->get()
+                ->map(fn ($feedback) => [
+                    'id' => $feedback->id,
+                    'rating' => $feedback->rating,
+                    'comment' => $feedback->comment,
+                    'created_at' => $feedback->created_at?->toISOString(),
+                ])->values(),
         ]);
     }
 
