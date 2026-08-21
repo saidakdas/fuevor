@@ -1,3 +1,4 @@
+import BrandLogo from '@/components/brand-logo';
 import FirstBuilderBadge from '@/components/first-builder-badge';
 import FuMark from '@/components/fu-mark';
 import { useSwipeDownDismiss } from '@/hooks/use-swipe-down-dismiss';
@@ -13,6 +14,7 @@ import {
     LoaderCircle,
     MapPin,
     MessageCircleMore,
+    Pin,
     Search,
     Send,
     Star,
@@ -148,6 +150,8 @@ export function GoalsCommunity({
                 </p>
             </div>
 
+            <PinnedBetaPost t={t} />
+
             <div className="mb-5 grid grid-cols-2 gap-3">
                 <section className="rounded-[18px] border border-black/[0.055] bg-white px-4 py-3.5 shadow-[0_8px_24px_rgba(0,0,0,0.035)]">
                     <p className="text-[11px] font-medium text-[#8e8e93]">{t('Aktif Hedefler', 'Active Goals')}</p>
@@ -279,6 +283,67 @@ export function GoalsCommunity({
                 />
             )}
         </div>
+    );
+}
+
+function PinnedBetaPost({ t }: { t: Translate }) {
+    return (
+        <article
+            className="mb-5 overflow-hidden rounded-[20px] border border-[#7ed957]/35 bg-white shadow-[0_12px_34px_rgba(0,0,0,0.045)]"
+            aria-label={t('Sabitlenmiş beta duyurusu', 'Pinned beta announcement')}
+        >
+            <div className="flex items-center justify-between gap-3 border-b border-black/[0.055] px-4 py-3.5 sm:px-5">
+                <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#f5f5f7] p-2">
+                        <BrandLogo variant="black" className="h-5 w-7" />
+                    </span>
+                    <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold">Fuevor</p>
+                        <p className="mt-0.5 text-[10px] text-[#8e8e93]">Beta</p>
+                    </div>
+                </div>
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#7ed957]/13 px-2.5 py-1 text-[10px] font-semibold text-[#438f29]">
+                    <Pin className="size-3" />
+                    {t('Sabitlendi', 'Pinned')}
+                </span>
+            </div>
+
+            <div className="px-4 py-5 sm:px-5 sm:py-6">
+                <h2 className="text-[20px] leading-7 font-semibold tracking-[-0.025em]">
+                    {t('Fuevor’a erken geldin.', 'You arrived early to Fuevor.')}
+                </h2>
+                <div className="mt-3 space-y-3 text-[13px] leading-6 text-[#4b4b50]">
+                    <p>
+                        {t(
+                            'Şu an gördüğün şey tamamlanmış bir ürün değil. Fuevor’un ilk gerçek sürümü.',
+                            'What you see right now is not a finished product. It is the first real version of Fuevor.',
+                        )}
+                    </p>
+                    <p>
+                        {t(
+                            'Burada oluşturulan ilk hedefler, verilen ilk fikirler ve alınan ilk kararlar; Fuevor’un bundan sonra neye dönüşeceğini belirleyecek.',
+                            'The first goals created, ideas shared, and decisions made here will determine what Fuevor becomes next.',
+                        )}
+                    </p>
+                    <p className="whitespace-pre-line">
+                        {t(
+                            'Bir şey eksikse söyle.\nBir şey gereksizse söyle.\nBir şeyi daha iyi yapabileceğimizi düşünüyorsan fikir ver.',
+                            'If something is missing, tell us.\nIf something is unnecessary, tell us.\nIf you think we can improve something, share your idea.',
+                        )}
+                    </p>
+                    <p>{t('Çünkü bu aşamada Fuevor’u yalnızca biz geliştirmiyoruz.', 'Because at this stage, we are not building Fuevor alone.')}</p>
+                    <p className="font-semibold text-[#1d1d1f]">
+                        {t('İlk kullanıcılarıyla birlikte geliştiriyoruz.', 'We are building it together with its first users.')}
+                    </p>
+                    <p>{t('Hoş geldin.', 'Welcome.')}</p>
+                    <p className="font-semibold text-[#1d1d1f]">Build Your Future Self.</p>
+                </div>
+
+                <div className="mt-5 flex items-center border-t border-black/[0.055] pt-4">
+                    <BrandLogo variant="black" className="h-6 w-20" />
+                </div>
+            </div>
+        </article>
     );
 }
 
