@@ -1307,6 +1307,12 @@ export function PublicLibrary({
                             />
                         ))}
                     </div>
+                    <p className="px-1 pt-3 text-[9px] leading-relaxed text-[#8e8e93] sm:text-[10px]">
+                        {t(
+                            'Önerilen kitaplar milyonlarca okuyucu tarafından onaylanmış, kişisel gelişim alanında sevilen kitaplardır. Yazarlar, yayınevleri ve kitaplar ile kesinlikle ticari bir anlaşmamız yoktur.',
+                            'Recommended books are popular personal development titles endorsed by millions of readers. We have no commercial agreement whatsoever with their authors, publishers, or books.',
+                        )}
+                    </p>
                 </section>
             )}
 
