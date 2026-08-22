@@ -38,7 +38,10 @@ class DemoHomeTest extends TestCase
                 ->has('exploreState.goals', 4)
                 ->has('exploreState.plans', 4)
                 ->has('communityPosts', 5)
-                ->has('communityBooks', 2));
+                ->has('communityBooks', 1)
+                ->has('recommendedBooks', 5)
+                ->where('recommendedBooks.2.key', 'recommended:atomic-habits')
+                ->where('recommendedBooks.2.reviewCount', 2));
 
         $this->assertSame($userCount, User::query()->count());
         $this->assertSame($goalCount, DB::table('goals')->count());
@@ -55,7 +58,8 @@ class DemoHomeTest extends TestCase
                 ->component('demo/home')
                 ->where('firstBuilderNumber', 1)
                 ->has('communityPosts')
-                ->has('communityBooks'));
+                ->has('communityBooks')
+                ->has('recommendedBooks', 5));
 
         $this->assertSame(2, app(DemoCommunitySeeder::class)->profileFor($demoMember, true)['firstBuilderNumber']);
         $this->assertNull(app(DemoCommunitySeeder::class)->profileFor($demoMember)['firstBuilderNumber']);

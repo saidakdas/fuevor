@@ -50,9 +50,55 @@ class CommunityTest extends TestCase
                 ->where('communityPosts.0.authorProfile.firstBuilderNumber', 3)
                 ->where('communityGoalStats.active', 1)
                 ->where('communityGoalStats.completed', 1)
-                ->has('communityBooks', 1)
-                ->where('communityBooks.0.reviewCount', 2)
-                ->where('communityBooks.0.averageRating', 4));
+                ->has('communityBooks', 0)
+                ->has('recommendedBooks', 5)
+                ->where('recommendedBooks.2.key', 'recommended:atomic-habits')
+                ->where('recommendedBooks.2.localized.tr.title', 'Atomik Alışkanlıklar')
+                ->where('recommendedBooks.2.localized.en.title', 'Atomic Habits')
+                ->where('recommendedBooks.2.reviewCount', 2)
+                ->where('recommendedBooks.2.averageRating', 4));
+    }
+
+    public function test_recommended_book_reviews_are_grouped_across_turkish_and_english_titles(): void
+    {
+        $turkishReader = User::factory()->create();
+        $englishReader = User::factory()->create();
+
+        $turkishReader->communityBookReviews()->create($this->reviewPayload('Atomik Alışkanlıklar', 5, 'Sistem yaklaşımı çok iyi.'));
+        $englishReader->communityBookReviews()->create($this->reviewPayload('Atomic Habits', 4, 'Practical and clear.'));
+
+        $this->get('/topluluk')
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('communityBooks', 0)
+                ->where('recommendedBooks.2.readerCount', 2)
+                ->where('recommendedBooks.2.reviewCount', 2)
+                ->has('recommendedBooks.2.reviews', 2));
+    }
+
+    public function test_one_reader_has_one_review_for_both_localized_titles_of_a_recommended_book(): void
+    {
+        $reader = User::factory()->create();
+
+        $this->actingAs($reader)->post('/community/books/reviews', [
+            'title' => 'Atomik Alışkanlıklar',
+            'author' => 'James Clear',
+            'rating' => 5,
+            'review' => 'İlk yorum.',
+        ])->assertRedirect();
+        $this->actingAs($reader)->post('/community/books/reviews', [
+            'title' => 'Atomic Habits',
+            'author' => 'James Clear',
+            'rating' => 4,
+            'review' => 'Updated review.',
+        ])->assertRedirect();
+
+        $this->assertDatabaseCount('community_book_reviews', 1);
+        $this->assertDatabaseHas('community_book_reviews', [
+            'user_id' => $reader->id,
+            'title' => 'Atomic Habits',
+            'rating' => 4,
+            'review' => 'Updated review.',
+        ]);
     }
 
     public function test_authenticated_users_can_share_support_idea_and_review(): void

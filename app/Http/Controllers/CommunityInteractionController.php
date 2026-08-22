@@ -7,6 +7,7 @@ use App\Models\CommunityGoalIdea;
 use App\Models\CommunityGoalPost;
 use App\Models\User;
 use App\Services\DemoCommunityUserResolver;
+use App\Services\RecommendedBookCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -89,21 +90,12 @@ class CommunityInteractionController extends Controller
             'rating' => ['nullable', 'integer', 'between:1,5'],
             'review' => ['nullable', 'string', 'max:1200'],
         ]);
-        $title = trim($validated['title']);
-        $author = trim((string) ($validated['author'] ?? ''));
-
-        $normalizedTitle = Str::lower(Str::squish($title));
-        $normalizedAuthor = Str::lower(Str::squish($author));
-        $this->actor($request)->communityBookReviews()->updateOrCreate(
-            ['normalized_title' => $normalizedTitle, 'normalized_author' => $normalizedAuthor],
-            [
-                ...$validated,
-                'title' => $title,
-                'author' => $author ?: null,
-                'normalized_title' => $normalizedTitle,
-                'normalized_author' => $normalizedAuthor,
-            ],
-        );
+        $this->upsertBookReview($this->actor($request), [
+            'title' => $validated['title'],
+            'author' => $validated['author'] ?? null,
+            'rating' => $validated['rating'] ?? null,
+            'review' => $validated['review'] ?? null,
+        ]);
 
         return back();
     }
@@ -138,20 +130,12 @@ class CommunityInteractionController extends Controller
             $keptIds = [];
 
             foreach ($validated['books'] as $book) {
-                $title = trim($book['title']);
-                $author = trim((string) ($book['author'] ?? ''));
-                $entry = $actor->communityBookReviews()->updateOrCreate(
-                    [
-                        'normalized_title' => Str::lower(Str::squish($title)),
-                        'normalized_author' => Str::lower(Str::squish($author)),
-                    ],
-                    [
-                        'title' => $title,
-                        'author' => $author ?: null,
-                        'rating' => $book['rating'] ?? null,
-                        'review' => trim((string) ($book['comment'] ?? '')) ?: null,
-                    ],
-                );
+                $entry = $this->upsertBookReview($actor, [
+                    'title' => $book['title'],
+                    'author' => $book['author'] ?? null,
+                    'rating' => $book['rating'] ?? null,
+                    'review' => $book['comment'] ?? null,
+                ]);
                 $keptIds[] = $entry->id;
             }
 
@@ -161,6 +145,44 @@ class CommunityInteractionController extends Controller
         });
 
         return back();
+    }
+
+    /**
+     * @param  array{title: string, author?: string|null, rating?: int|null, review?: string|null}  $book
+     */
+    private function upsertBookReview(User $actor, array $book): CommunityBookReview
+    {
+        $title = trim($book['title']);
+        $author = trim((string) ($book['author'] ?? ''));
+        $attributes = [
+            'title' => $title,
+            'author' => $author ?: null,
+            'normalized_title' => Str::lower(Str::squish($title)),
+            'normalized_author' => Str::lower(Str::squish($author)),
+            'rating' => $book['rating'] ?? null,
+            'review' => trim((string) ($book['review'] ?? '')) ?: null,
+        ];
+        $catalogKey = RecommendedBookCatalog::keyForTitle($title);
+
+        if ($catalogKey) {
+            $existing = $actor->communityBookReviews()
+                ->get()
+                ->first(fn (CommunityBookReview $review) => RecommendedBookCatalog::keyForTitle($review->title) === $catalogKey);
+
+            if ($existing) {
+                $existing->update($attributes);
+
+                return $existing;
+            }
+        }
+
+        return $actor->communityBookReviews()->updateOrCreate(
+            [
+                'normalized_title' => $attributes['normalized_title'],
+                'normalized_author' => $attributes['normalized_author'],
+            ],
+            $attributes,
+        );
     }
 
     private function actor(Request $request): User

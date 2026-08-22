@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\RecommendedBookCatalog;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -11,6 +12,7 @@ class ExploreController extends Controller
     {
         $today = now()->toDateString();
         $createdAt = now()->subDays(18)->getTimestampMs();
+        $communityBooks = $this->communityBooks();
 
         return Inertia::render('demo/home', [
             'exploreMode' => true,
@@ -122,7 +124,11 @@ class ExploreController extends Controller
             'communityGoalStats' => ['active' => 38, 'completed' => 14],
             'betaAnnouncement' => ['supportCount' => 47, 'supportedByViewer' => false],
             'communityPosts' => $this->communityPosts(),
-            'communityBooks' => $this->communityBooks(),
+            'communityBooks' => array_values(array_filter(
+                $communityBooks,
+                fn (array $book) => ! str_starts_with(RecommendedBookCatalog::groupKey($book['title'], (string) $book['author']), 'recommended:'),
+            )),
+            'recommendedBooks' => $this->recommendedBooks($communityBooks),
             'bestScoreMs' => 4860,
             'bestScorePlayer' => ['name' => 'Mert Kaya', 'avatar' => '/landing/profiles/2.jpg'],
             'gamePlaysRemaining' => 3,
@@ -239,5 +245,35 @@ class ExploreController extends Controller
                 ['id' => 803, 'body' => 'Takvime odak blokları koymak üretkenliğimi beklediğimden fazla artırdı.', 'rating' => 5, 'author' => 'Selin Aras', 'createdAt' => now()->subDays(2)->toISOString(), 'replies' => []],
             ],
         ]];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $communityBooks
+     * @return array<int, array<string, mixed>>
+     */
+    private function recommendedBooks(array $communityBooks): array
+    {
+        $activityByKey = collect($communityBooks)->keyBy(
+            fn (array $book) => RecommendedBookCatalog::groupKey($book['title'], (string) $book['author']),
+        );
+
+        return collect(RecommendedBookCatalog::all())->map(function (array $book) use ($activityByKey): array {
+            $activity = $activityByKey->get('recommended:'.$book['key']);
+
+            return [
+                'key' => 'recommended:'.$book['key'],
+                'title' => $book['en']['title'],
+                'author' => $book['author'],
+                'localized' => [
+                    'tr' => $book['tr'],
+                    'en' => $book['en'],
+                ],
+                'readerCount' => $activity['readerCount'] ?? 0,
+                'reviewCount' => $activity['reviewCount'] ?? 0,
+                'averageRating' => $activity['averageRating'] ?? null,
+                'latestReviewAt' => $activity['latestReviewAt'] ?? null,
+                'reviews' => $activity['reviews'] ?? [],
+            ];
+        })->values()->all();
     }
 }

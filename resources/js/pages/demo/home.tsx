@@ -469,6 +469,7 @@ function useGoalFlowKeyboardAvoidance() {
 export default function DemoHome({
     communityPosts = [],
     communityBooks = [],
+    recommendedBooks = [],
     communityGoalStats = { active: 0, completed: 0 },
     betaAnnouncement = { supportCount: 0, supportedByViewer: false },
     bestScoreMs = 0,
@@ -485,6 +486,7 @@ export default function DemoHome({
 }: {
     communityPosts?: CommunityPost[];
     communityBooks?: CommunityBook[];
+    recommendedBooks?: CommunityBook[];
     communityGoalStats?: CommunityGoalStats;
     betaAnnouncement?: BetaAnnouncement;
     bestScoreMs?: number;
@@ -1284,6 +1286,7 @@ export default function DemoHome({
                         viewer={authenticatedUser}
                         posts={communityPosts}
                         books={communityBooks}
+                        recommendedBooks={recommendedBooks}
                         goalStats={communityGoalStats}
                         betaAnnouncement={betaAnnouncement}
                         personalBooks={books}
@@ -4394,6 +4397,7 @@ function CommunityPanel({
     viewer,
     posts,
     books,
+    recommendedBooks,
     goalStats,
     betaAnnouncement,
     personalBooks,
@@ -4412,6 +4416,7 @@ function CommunityPanel({
     viewer: Viewer | null;
     posts: CommunityPost[];
     books: CommunityBook[];
+    recommendedBooks: CommunityBook[];
     goalStats: CommunityGoalStats;
     betaAnnouncement: BetaAnnouncement;
     personalBooks: BookRecord[];
@@ -4487,7 +4492,7 @@ function CommunityPanel({
         router.post(
             route(betaMode ? 'community.books.sync' : 'demo.community.books.sync'),
             betaMode ? { books: finishedBooks } : { demoUsername, books: finishedBooks },
-            { preserveScroll: true, preserveState: true, only: ['communityBooks'] },
+            { preserveScroll: true, preserveState: true, only: ['communityBooks', 'recommendedBooks'] },
         );
     }, [betaMode, bookSyncSignature, demoUsername, exploreMode, finishedBooks]);
 
@@ -4528,6 +4533,7 @@ function CommunityPanel({
                 ) : section === 'library' ? (
                     <PublicLibrary
                         books={books}
+                        recommendedBooks={recommendedBooks}
                         viewer={profileViewer}
                         locale={locale}
                         t={t}

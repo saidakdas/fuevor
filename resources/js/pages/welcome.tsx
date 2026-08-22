@@ -22,6 +22,7 @@ type WelcomeProps = {
     registrationSuccess: string | null;
     communityPosts: CommunityPost[];
     communityBooks: CommunityBook[];
+    recommendedBooks: CommunityBook[];
     communityGoals: ShareableGoal[];
     communityGoalStats: CommunityGoalStats;
     betaAnnouncement: BetaAnnouncement;
@@ -37,6 +38,7 @@ export default function Welcome({
     registrationSuccess,
     communityPosts,
     communityBooks,
+    recommendedBooks,
     communityGoals,
     communityGoalStats,
     betaAnnouncement,
@@ -114,7 +116,7 @@ export default function Welcome({
                         availableGoals={communityGoals}
                     />
                 ) : section === 'library' ? (
-                    <PublicLibrary books={communityBooks} viewer={viewer} locale={locale} t={t} />
+                    <PublicLibrary books={communityBooks} recommendedBooks={recommendedBooks} viewer={viewer} locale={locale} t={t} />
                 ) : (
                     <CommunityGame
                         locale={locale}

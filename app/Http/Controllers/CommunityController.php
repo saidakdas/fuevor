@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\CommunityGameService;
 use App\Services\DemoCommunitySeeder;
 use App\Services\DemoCommunityUserResolver;
+use App\Services\RecommendedBookCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -87,12 +88,22 @@ class CommunityController extends Controller
                     ->values(),
             ]);
 
-        $books = CommunityBookReview::query()
+        $bookReviews = CommunityBookReview::query()
             ->with(['user:id,name', 'replies.user:id,name'])
             ->latest()
             ->limit(300)
-            ->get()
-            ->groupBy(fn (CommunityBookReview $review) => $review->normalized_title.'|'.$review->normalized_author)
+            ->get();
+        $groupedBookReviews = $bookReviews->groupBy(
+            fn (CommunityBookReview $review) => RecommendedBookCatalog::groupKey($review->title, (string) $review->author),
+        );
+        $recommendedBooks = collect(RecommendedBookCatalog::all())
+            ->map(fn (array $book) => $this->serializeRecommendedBook(
+                $book,
+                $groupedBookReviews->get('recommended:'.$book['key'], collect()),
+            ))
+            ->values();
+        $books = $groupedBookReviews
+            ->reject(fn (Collection $reviews, string $key) => str_starts_with($key, 'recommended:'))
             ->map(fn (Collection $reviews) => $this->serializeBook($reviews))
             ->sortByDesc('latestReviewAt')
             ->values();
@@ -100,6 +111,7 @@ class CommunityController extends Controller
         return [
             'communityPosts' => $posts,
             'communityBooks' => $books,
+            'recommendedBooks' => $recommendedBooks,
             'betaAnnouncement' => [
                 'supportCount' => DB::table('beta_announcement_supports')->count(),
                 'supportedByViewer' => $request->user()
@@ -162,17 +174,47 @@ class CommunityController extends Controller
         /** @var CommunityBookReview $latest */
         $latest = $reviews->first();
 
+        return [
+            'key' => RecommendedBookCatalog::groupKey($latest->title, (string) $latest->author),
+            'title' => $latest->title,
+            'author' => $latest->author,
+            ...$this->serializeBookActivity($reviews),
+        ];
+    }
+
+    /**
+     * @param  array{key: string, author: string, tr: array{title: string, cover: string}, en: array{title: string, cover: string}}  $book
+     * @param  Collection<int, CommunityBookReview>  $reviews
+     * @return array<string, mixed>
+     */
+    private function serializeRecommendedBook(array $book, Collection $reviews): array
+    {
+        return [
+            'key' => 'recommended:'.$book['key'],
+            'title' => $book['en']['title'],
+            'author' => $book['author'],
+            'localized' => [
+                'tr' => $book['tr'],
+                'en' => $book['en'],
+            ],
+            ...$this->serializeBookActivity($reviews),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, CommunityBookReview>  $reviews
+     * @return array<string, mixed>
+     */
+    private function serializeBookActivity(Collection $reviews): array
+    {
         $rated = $reviews->whereNotNull('rating');
         $contributions = $reviews->filter(fn (CommunityBookReview $review) => $review->rating !== null || filled($review->review));
 
         return [
-            'key' => $latest->normalized_title.'|'.$latest->normalized_author,
-            'title' => $latest->title,
-            'author' => $latest->author,
             'readerCount' => $reviews->count(),
             'reviewCount' => $reviews->filter(fn (CommunityBookReview $review) => filled($review->review))->count(),
             'averageRating' => $rated->isEmpty() ? null : round((float) $rated->avg('rating'), 1),
-            'latestReviewAt' => $latest->created_at->toISOString(),
+            'latestReviewAt' => $reviews->first()?->created_at->toISOString(),
             'reviews' => $contributions->map(fn (CommunityBookReview $review) => [
                 'id' => $review->id,
                 'body' => $review->review,

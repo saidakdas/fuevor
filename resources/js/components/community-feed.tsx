@@ -81,8 +81,12 @@ export type CommunityBook = {
     readerCount: number;
     reviewCount: number;
     averageRating: number | null;
-    latestReviewAt: string;
+    latestReviewAt: string | null;
     reviews: CommunityReview[];
+    localized?: {
+        tr: { title: string; cover: string };
+        en: { title: string; cover: string };
+    };
 };
 type Translate = (turkish: string, english: string) => string;
 
@@ -1223,8 +1227,15 @@ function ProfileStat({ value, label }: { value: number; label: string }) {
     );
 }
 
+function bookMatchesSearch(book: CommunityBook, query: string) {
+    const localizedTitles = book.localized ? `${book.localized.tr.title} ${book.localized.en.title}` : '';
+
+    return `${book.title} ${localizedTitles} ${book.author ?? ''}`.toLocaleLowerCase().includes(query);
+}
+
 export function PublicLibrary({
     books,
+    recommendedBooks = [],
     locale,
     t,
     viewer,
@@ -1232,6 +1243,7 @@ export function PublicLibrary({
     localOnly = false,
 }: {
     books: CommunityBook[];
+    recommendedBooks?: CommunityBook[];
     locale: Locale;
     t: Translate;
     viewer?: Viewer | null;
@@ -1239,9 +1251,13 @@ export function PublicLibrary({
     localOnly?: boolean;
 }) {
     const [search, setSearch] = useState('');
+    const visibleRecommendedBooks = useMemo(() => {
+        const query = search.trim().toLocaleLowerCase();
+        return query ? recommendedBooks.filter((book) => bookMatchesSearch(book, query)) : recommendedBooks;
+    }, [recommendedBooks, search]);
     const visibleBooks = useMemo(() => {
         const query = search.trim().toLocaleLowerCase();
-        return query ? books.filter((book) => `${book.title} ${book.author ?? ''}`.toLocaleLowerCase().includes(query)) : books;
+        return query ? books.filter((book) => bookMatchesSearch(book, query)) : books;
     }, [books, search]);
 
     return (
@@ -1259,6 +1275,49 @@ export function PublicLibrary({
             <div className="mb-4">
                 <SearchField value={search} onChange={setSearch} placeholder={t('Kitap ara', 'Search books')} />
             </div>
+            {visibleRecommendedBooks.length > 0 && (
+                <section className="mb-7 rounded-[24px] border border-[#007aff]/15 bg-[linear-gradient(145deg,rgba(0,122,255,0.08),rgba(255,255,255,0.92))] p-3 sm:p-4">
+                    <div className="px-1 pb-3">
+                        <div className="flex items-center gap-2">
+                            <span className="grid size-8 place-items-center rounded-full bg-[#007aff] text-white">
+                                <BookOpen className="size-4" />
+                            </span>
+                            <div>
+                                <h2 className="text-[15px] font-semibold tracking-[-0.02em]">{t('Önerilen Kitaplar', 'Recommended Books')}</h2>
+                                <p className="mt-0.5 text-[10px] text-[#6e6e73]">
+                                    {t(
+                                        'Fuevor seçkisi · Farklı dildeki yorumlar aynı eserde birleşir.',
+                                        'Fuevor picks · Reviews in different languages are collected under the same work.',
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="space-y-2.5">
+                        {visibleRecommendedBooks.map((book) => (
+                            <BookReviewGroup
+                                key={book.key}
+                                book={book}
+                                locale={locale}
+                                t={t}
+                                viewer={viewer ?? null}
+                                demoUsername={demoUsername}
+                                localOnly={localOnly}
+                                recommended
+                            />
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            {visibleBooks.length > 0 && (
+                <div className="mb-3 px-1">
+                    <h2 className="text-[15px] font-semibold tracking-[-0.02em]">{t('Topluluk Kitaplığı', 'Community Library')}</h2>
+                    <p className="mt-0.5 text-[10px] text-[#8e8e93]">
+                        {t('Kullanıcıların tamamladığı diğer kitaplar.', 'Other books completed by the community.')}
+                    </p>
+                </div>
+            )}
             <div className="space-y-3">
                 {visibleBooks.map((book) => (
                     <BookReviewGroup
@@ -1271,7 +1330,7 @@ export function PublicLibrary({
                         localOnly={localOnly}
                     />
                 ))}
-                {visibleBooks.length === 0 && (
+                {visibleBooks.length === 0 && visibleRecommendedBooks.length === 0 && (
                     <EmptyState
                         icon={<BookOpen className="size-7" />}
                         title={t('Henüz bitirilmiş kitap yok', 'No finished books yet')}
@@ -1293,6 +1352,7 @@ function BookReviewGroup({
     viewer,
     demoUsername,
     localOnly = false,
+    recommended = false,
 }: {
     book: CommunityBook;
     locale: Locale;
@@ -1300,20 +1360,40 @@ function BookReviewGroup({
     viewer: Viewer | null;
     demoUsername?: string;
     localOnly?: boolean;
+    recommended?: boolean;
 }) {
     const [open, setOpen] = useState(false);
+    const localizedBook = book.localized?.[locale === 'tr' ? 'tr' : 'en'];
+    const displayTitle = localizedBook?.title ?? book.title;
     return (
-        <article className="overflow-hidden rounded-[20px] border border-black/[0.07] bg-white">
+        <article
+            className={`overflow-hidden rounded-[20px] bg-white ${recommended ? 'border border-[#007aff]/12 shadow-[0_8px_24px_rgba(0,92,185,0.07)]' : 'border border-black/[0.07]'}`}
+        >
             <button type="button" onClick={() => setOpen((value) => !value)} className="flex w-full items-center gap-4 p-4 text-left sm:p-5">
-                <span className="relative grid h-[82px] w-[58px] shrink-0 place-items-center overflow-hidden rounded-[8px_13px_13px_8px] bg-[linear-gradient(145deg,#052f3a,#007c91,#63c7d1)] px-2 text-center shadow-[0_8px_18px_rgba(0,91,103,0.2)]">
-                    <span className="absolute inset-y-0 left-1.5 w-px bg-white/25" />
-                    <BookOpen className="size-5 text-white/85" />
-                    <span className="absolute right-1.5 bottom-1.5 left-2.5 truncate text-[7px] font-bold tracking-wide text-white/85 uppercase">
-                        {book.title}
+                {localizedBook ? (
+                    <img
+                        src={localizedBook.cover}
+                        alt={`${displayTitle} — ${book.author ?? ''}`}
+                        className="h-[96px] w-[68px] shrink-0 rounded-[8px_13px_13px_8px] object-cover shadow-[0_8px_18px_rgba(0,0,0,0.16)]"
+                    />
+                ) : (
+                    <span className="relative grid h-[82px] w-[58px] shrink-0 place-items-center overflow-hidden rounded-[8px_13px_13px_8px] bg-[linear-gradient(145deg,#052f3a,#007c91,#63c7d1)] px-2 text-center shadow-[0_8px_18px_rgba(0,91,103,0.2)]">
+                        <span className="absolute inset-y-0 left-1.5 w-px bg-white/25" />
+                        <BookOpen className="size-5 text-white/85" />
+                        <span className="absolute right-1.5 bottom-1.5 left-2.5 truncate text-[7px] font-bold tracking-wide text-white/85 uppercase">
+                            {displayTitle}
+                        </span>
                     </span>
-                </span>
+                )}
                 <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-[17px] font-semibold tracking-[-0.02em]">{book.title}</h3>
+                    <div className="flex items-center gap-2">
+                        <h3 className="truncate text-[17px] font-semibold tracking-[-0.02em]">{displayTitle}</h3>
+                        {recommended && (
+                            <span className="hidden shrink-0 rounded-full bg-[#007aff]/10 px-2 py-1 text-[8px] font-bold tracking-wide text-[#007aff] uppercase sm:inline">
+                                {t('Önerilen', 'Recommended')}
+                            </span>
+                        )}
+                    </div>
                     <p className="mt-1 truncate text-[11px] text-[#8e8e93]">{book.author || t('Yazar belirtilmedi', 'Author not specified')}</p>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                         {book.averageRating !== null && (
