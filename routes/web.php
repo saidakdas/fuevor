@@ -21,9 +21,9 @@ use Inertia\Inertia;
 
 $demoHome = fn (Request $request) => Inertia::render('demo/home', app(CommunityController::class)->feedData($request));
 
-Route::get('demo', $demoHome)->name('demo.preview');
-
 if (app()->environment('local', 'testing')) {
+    Route::get('demo', $demoHome)->name('demo.preview');
+
     Route::prefix('demo/team-workspaces')->name('demo.team-workspaces.')->group(function () {
         Route::get('/', [DemoTeamWorkspaceController::class, 'index'])->name('index');
         Route::post('/', [DemoTeamWorkspaceController::class, 'store'])->name('store');
