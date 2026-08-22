@@ -10,6 +10,7 @@ use App\Http\Controllers\CommunityInteractionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DemoTeamNotificationController;
 use App\Http\Controllers\DemoTeamWorkspaceController;
+use App\Http\Controllers\ExploreController;
 use App\Http\Controllers\GameScoreController;
 use App\Http\Controllers\GoalController;
 use App\Http\Controllers\MilestoneController;
@@ -90,7 +91,9 @@ if (app()->environment('local', 'testing')) {
     })->middleware('throttle:30,1')->name('demo.universities');
 }
 
-Route::get('/', CommunityController::class)->name('home');
+Route::get('/', fn () => Inertia::render('landing'))->name('home');
+Route::get('kesfet', ExploreController::class)->name('explore');
+Route::get('topluluk', CommunityController::class)->name('community.public');
 
 Route::get('kullanici-sozlesmesi', fn () => Inertia::render('legal/show', ['document' => 'terms']))
     ->name('legal.terms');

@@ -54,7 +54,7 @@ echo "Production deployment başlatılıyor..."
 api_call "VersionControlDeployment/create" \
     --data-urlencode "repository_root=${CPANEL_REPOSITORY_ROOT}"
 
-expected_asset="$(jq -r '.["resources/js/pages/welcome.tsx"].file' "$ROOT_DIR/public/build/manifest.json")"
+expected_asset="$(jq -r '.["resources/js/pages/landing.tsx"].file' "$ROOT_DIR/public/build/manifest.json")"
 expected_asset="$(basename "$expected_asset")"
 
 for attempt in {1..30}; do

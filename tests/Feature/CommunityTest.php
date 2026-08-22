@@ -39,7 +39,7 @@ class CommunityTest extends TestCase
         $firstUser->communityBookReviews()->create($this->reviewPayload('Atomik Alışkanlıklar', 5, 'Uygulanabilir önerileri çok iyi.'));
         $secondUser->communityBookReviews()->create($this->reviewPayload('  atomik alışkanlıklar ', 3, 'Bazı bölümleri tekrar ediyor.'));
 
-        $this->get('/')
+        $this->get('/topluluk')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('welcome')
@@ -128,7 +128,7 @@ class CommunityTest extends TestCase
             'body' => 'Ben de özellikle son öyküyü çok sevdim.',
         ]);
 
-        $this->get('/')
+        $this->get('/topluluk')
             ->assertInertia(fn (Assert $page) => $page
                 ->has('communityBooks.0.reviews.0.replies', 1)
                 ->where('communityBooks.0.reviews.0.replies.0.author', 'Fikir Sahibi')
@@ -201,7 +201,7 @@ class CommunityTest extends TestCase
             ],
         ])->assertRedirect();
 
-        $this->get('/')
+        $this->get('/topluluk')
             ->assertInertia(fn (Assert $page) => $page
                 ->has('communityBooks', 2)
                 ->where('communityBooks.0.readerCount', 2)

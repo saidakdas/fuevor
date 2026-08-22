@@ -474,8 +474,10 @@ export default function DemoHome({
     bestScorePlayer = null,
     gamePlaysRemaining = 3,
     betaMode = false,
+    exploreMode = false,
     firstBuilderNumber = null,
     betaState,
+    exploreState,
     betaGoalIds = {},
     supportTickets = [],
     feedbackEntries = [],
@@ -488,8 +490,10 @@ export default function DemoHome({
     bestScorePlayer?: GameScorePlayer | null;
     gamePlaysRemaining?: number;
     betaMode?: boolean;
+    exploreMode?: boolean;
     firstBuilderNumber?: number | null;
     betaState?: BetaState;
+    exploreState?: BetaState;
     betaGoalIds?: Record<string, number>;
     supportTickets?: SupportTicketRecord[];
     feedbackEntries?: FeedbackRecord[];
@@ -497,7 +501,8 @@ export default function DemoHome({
     useDialogScrollLock();
     useGoalFlowKeyboardAvoidance();
     const { locale: detectedLocale } = useLocale();
-    const [settings, setSettings] = useState<SettingsData>(() => loadStoredSettings(detectedLocale, betaMode ? betaState?.settings : undefined));
+    const initialState = betaMode ? betaState : exploreMode ? exploreState : undefined;
+    const [settings, setSettings] = useState<SettingsData>(() => loadStoredSettings(detectedLocale, initialState?.settings));
     const locale = settings.language;
     const t: Translate = (turkish, english) => translate(locale, turkish, english);
     const [step, setStep] = useState(1);
@@ -510,17 +515,17 @@ export default function DemoHome({
     const [deadline, setDeadline] = useState('');
     const [priority, setPriority] = useState<Priority | null>(null);
     const [draggedId, setDraggedId] = useState<number | null>(null);
-    const [goals, setGoals] = useState<GoalRecord[]>(() => loadStoredGoals(betaMode ? betaState?.goals : undefined));
-    const [showPanel, setShowPanel] = useState(() => loadStoredGoals(betaMode ? betaState?.goals : undefined).length > 0);
+    const [goals, setGoals] = useState<GoalRecord[]>(() => loadStoredGoals(initialState?.goals));
+    const [showPanel, setShowPanel] = useState(() => loadStoredGoals(initialState?.goals).length > 0);
     const [panelSection, setPanelSection] = useState<PanelSection>('overview');
     const [profileOpen, setProfileOpen] = useState(false);
     const [reportOpen, setReportOpen] = useState(false);
-    const [planItems, setPlanItems] = useState<PlanItem[]>(() => loadStoredPlanItems(betaMode ? betaState?.plans : undefined));
-    const [notes, setNotes] = useState<NoteRecord[]>(() => loadStoredNotes(betaMode ? betaState?.notes : undefined));
-    const [books, setBooks] = useState<BookRecord[]>(() => loadStoredBooks(betaMode ? betaState?.books : undefined));
+    const [planItems, setPlanItems] = useState<PlanItem[]>(() => loadStoredPlanItems(initialState?.plans));
+    const [notes, setNotes] = useState<NoteRecord[]>(() => loadStoredNotes(initialState?.notes));
+    const [books, setBooks] = useState<BookRecord[]>(() => loadStoredBooks(initialState?.books));
     const [planRange, setPlanRange] = useState<PlanRange>('today');
     const [planDate, setPlanDate] = useState(() => formatDateKey(new Date()));
-    const [profile, setProfile] = useState<ProfileData>(() => loadStoredProfile(betaMode ? betaState?.profile : undefined));
+    const [profile, setProfile] = useState<ProfileData>(() => loadStoredProfile(initialState?.profile));
     const [liveGoalIds, setLiveGoalIds] = useState<Record<string, number>>(betaGoalIds);
     const authenticatedUser = usePage<{ auth: { user: Viewer | null }; [key: string]: unknown }>().props.auth.user;
     const [activeReminder, setActiveReminder] = useState<PlanItem | null>(null);
@@ -535,8 +540,8 @@ export default function DemoHome({
     const nextBookId = useRef(Math.max(0, ...books.map((book) => book.id)) + 1);
 
     useEffect(() => {
-        storeDemoData(DEMO_GOALS_STORAGE_KEY, goals);
-    }, [goals]);
+        if (!exploreMode) storeDemoData(DEMO_GOALS_STORAGE_KEY, goals);
+    }, [exploreMode, goals]);
 
     useEffect(
         () => () => {
@@ -546,8 +551,8 @@ export default function DemoHome({
     );
 
     useEffect(() => {
-        storeDemoData(DEMO_PLAN_STORAGE_KEY, planItems);
-    }, [planItems]);
+        if (!exploreMode) storeDemoData(DEMO_PLAN_STORAGE_KEY, planItems);
+    }, [exploreMode, planItems]);
 
     useEffect(() => {
         if (activeReminder) return;
@@ -623,22 +628,22 @@ export default function DemoHome({
     }, [goals]);
 
     useEffect(() => {
-        storeDemoData(DEMO_NOTES_STORAGE_KEY, notes);
-    }, [notes]);
+        if (!exploreMode) storeDemoData(DEMO_NOTES_STORAGE_KEY, notes);
+    }, [exploreMode, notes]);
 
     useEffect(() => {
-        storeDemoData(DEMO_BOOKS_STORAGE_KEY, books);
-    }, [books]);
+        if (!exploreMode) storeDemoData(DEMO_BOOKS_STORAGE_KEY, books);
+    }, [books, exploreMode]);
 
     useEffect(() => {
-        storeDemoData(DEMO_PROFILE_STORAGE_KEY, profile);
-    }, [profile]);
+        if (!exploreMode) storeDemoData(DEMO_PROFILE_STORAGE_KEY, profile);
+    }, [exploreMode, profile]);
 
     useEffect(() => {
-        storeDemoData(DEMO_SETTINGS_STORAGE_KEY, settings);
+        if (!exploreMode) storeDemoData(DEMO_SETTINGS_STORAGE_KEY, settings);
         document.documentElement.dataset.demoTheme = settings.appearance;
-        persistLocale(settings.language);
-    }, [settings]);
+        if (!exploreMode) persistLocale(settings.language);
+    }, [exploreMode, settings]);
 
     useEffect(() => {
         if (!betaMode) return;
@@ -1095,7 +1100,7 @@ export default function DemoHome({
     };
 
     const navigatePanel = (section: PanelSection) => {
-        if (betaMode && (section === 'team' || section === 'friends')) section = 'overview';
+        if ((betaMode || exploreMode) && (section === 'team' || section === 'friends')) section = 'overview';
 
         if (section === 'profile') {
             setProfileOpen(true);
@@ -1565,6 +1570,7 @@ function OverviewPanel({
     onAddGoalBlock: (goalId: number, title: string) => void;
     onShareGoal: (goalId: number) => void;
 }) {
+    const exploreMode = usePage<{ exploreMode?: boolean; [key: string]: unknown }>().props.exploreMode === true;
     const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
     const [quickCreateOpen, setQuickCreateOpen] = useState(false);
     const periodItems = useMemo(() => sortPlanItems(items.filter((item) => isPlanItemInPeriod(item, range, date))), [date, items, range]);
@@ -1626,7 +1632,7 @@ function OverviewPanel({
                         </div>
 
                         <div className="relative flex justify-end gap-2.5">
-                            <DemoNotifications t={t} username={profile.username} variant="icon" />
+                            {!exploreMode && <DemoNotifications t={t} username={profile.username} variant="icon" />}
 
                             {quickCreateOpen && (
                                 <button
@@ -4422,7 +4428,9 @@ function CommunityPanel({
     onNavigate: (section: PanelSection) => void;
     liveGoalIds: Record<string, number>;
 }) {
-    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
+    const pageMode = usePage<{ betaMode?: boolean; exploreMode?: boolean; [key: string]: unknown }>().props;
+    const betaMode = pageMode.betaMode === true;
+    const exploreMode = pageMode.exploreMode === true;
     const [section, setSection] = useState<'goals' | 'library' | 'game'>('goals');
     const demoUsername = profile.username.trim().replace(/^@+/, '').toLocaleLowerCase('tr-TR') || 'saidakdas';
     const profileViewer: Viewer = {
@@ -4475,6 +4483,8 @@ function CommunityPanel({
     const lastBookSync = useRef('');
 
     useEffect(() => {
+        if (exploreMode) return;
+
         const syncKey = `${demoUsername}:${bookSyncSignature}`;
         if (lastBookSync.current === syncKey) return;
         lastBookSync.current = syncKey;
@@ -4484,7 +4494,7 @@ function CommunityPanel({
             betaMode ? { books: finishedBooks } : { demoUsername, books: finishedBooks },
             { preserveScroll: true, preserveState: true, only: ['communityBooks'] },
         );
-    }, [betaMode, bookSyncSignature, demoUsername, finishedBooks]);
+    }, [betaMode, bookSyncSignature, demoUsername, exploreMode, finishedBooks]);
 
     useEffect(() => {
         if (initialGoalId !== null) onInitialGoalHandled();
@@ -4511,16 +4521,24 @@ function CommunityPanel({
                         goalStats={goalStats}
                         betaAnnouncement={betaAnnouncement}
                         demoUsername={betaMode ? undefined : demoUsername}
+                        localOnly={exploreMode}
                         availableGoals={goals.flatMap((goal) => {
                             const id = betaMode ? liveGoalIds[String(goal.id)] : goal.id;
                             return id === undefined ? [] : [{ id, title: goal.title }];
                         })}
                         initialGoalId={betaMode && initialGoalId !== null ? liveGoalIds[String(initialGoalId)] : initialGoalId}
-                        getFriendStatus={betaMode ? undefined : getFriendStatus}
-                        onFriendAction={betaMode ? undefined : handleFriendAction}
+                        getFriendStatus={betaMode || exploreMode ? undefined : getFriendStatus}
+                        onFriendAction={betaMode || exploreMode ? undefined : handleFriendAction}
                     />
                 ) : section === 'library' ? (
-                    <PublicLibrary books={books} viewer={profileViewer} locale={locale} t={t} demoUsername={betaMode ? undefined : demoUsername} />
+                    <PublicLibrary
+                        books={books}
+                        viewer={profileViewer}
+                        locale={locale}
+                        t={t}
+                        demoUsername={betaMode ? undefined : demoUsername}
+                        localOnly={exploreMode}
+                    />
                 ) : (
                     <CommunityGame
                         locale={locale}
@@ -4530,6 +4548,7 @@ function CommunityPanel({
                         initialPlaysRemaining={gamePlaysRemaining}
                         playerName={profileViewer.name}
                         playerAvatar={profileViewer.avatar}
+                        localOnly={exploreMode}
                     />
                 )}
             </main>
@@ -6315,7 +6334,8 @@ function PanelHeader({
     goals: GoalRecord[];
     onNavigate: (section: PanelSection) => void;
 }) {
-    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
+    const pageMode = usePage<{ betaMode?: boolean; exploreMode?: boolean; exploreState?: BetaState; [key: string]: unknown }>().props;
+    const limitedMode = pageMode.betaMode === true || pageMode.exploreMode === true;
     const navigationItems = [
         { section: 'overview' as const, label: t('Genel Bakış', 'Overview'), mobileLabel: t('Genel', 'Home'), icon: Layers3 },
         { section: 'goals' as const, label: t('Hedefler', 'Goals'), mobileLabel: t('Hedefler', 'Goals'), icon: Target },
@@ -6324,11 +6344,11 @@ function PanelHeader({
         { section: 'friends' as const, label: t('Arkadaşlar', 'Friends'), mobileLabel: t('Arkadaşlar', 'Friends'), icon: UserRound },
         { section: 'notes' as const, label: t('Notlar', 'Notes'), mobileLabel: t('Notlar', 'Notes'), icon: NotebookPen },
         { section: 'library' as const, label: t('Kitaplık', 'Library'), mobileLabel: t('Kitaplık', 'Library'), icon: BookOpen },
-    ].filter((item) => !betaMode || (item.section !== 'team' && item.section !== 'friends'));
+    ].filter((item) => !limitedMode || (item.section !== 'team' && item.section !== 'friends'));
     const mobileNavigationItems = navigationItems.filter(
         (item) => item.section !== 'notes' && item.section !== 'library' && item.section !== 'friends',
     );
-    const storedProfile = loadStoredProfile();
+    const storedProfile = loadStoredProfile(pageMode.exploreMode ? pageMode.exploreState?.profile : undefined);
     const profileInitial = storedProfile.name.trim().charAt(0).toLocaleUpperCase() || 'K';
     const overallProgress = calculateOverallProgress(goals);
 
@@ -6453,7 +6473,8 @@ function ProfileSettingsTabs({
     active: ProfileSettingsSection;
     onChange: (section: ProfileSettingsSection) => void;
 }) {
-    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
+    const pageMode = usePage<{ betaMode?: boolean; exploreMode?: boolean; [key: string]: unknown }>().props;
+    const betaMode = pageMode.betaMode === true;
     const tabs = [
         { value: 'privacy-security' as const, icon: LockKeyhole, label: t('Gizlilik ve Güvenlik', 'Privacy & Security') },
         { value: 'language' as const, icon: Languages, label: t('Dil Ayarları', 'Language Settings') },
@@ -6500,7 +6521,9 @@ function ProfilePreferences({
     section: ProfileSettingsSection;
     onChange: (settings: SettingsData) => void;
 }) {
-    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
+    const pageMode = usePage<{ betaMode?: boolean; exploreMode?: boolean; [key: string]: unknown }>().props;
+    const betaMode = pageMode.betaMode === true;
+    const limitedMode = betaMode || pageMode.exploreMode === true;
 
     if (section === 'support' || section === 'feedback') return null;
 
@@ -6568,7 +6591,7 @@ function ProfilePreferences({
         return (
             <section className="mt-6">
                 <h2 className="mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">{t('Kullanım Ayarları', 'Usage Settings')}</h2>
-                {!betaMode && (
+                {!limitedMode && (
                     <button
                         type="button"
                         onClick={() => onChange({ ...settings, teamModeEnabled: !settings.teamModeEnabled })}
@@ -6605,7 +6628,7 @@ function ProfilePreferences({
                             carryOverPreferenceSet: true,
                         })
                     }
-                    className={`${betaMode ? '' : 'mt-3'} flex w-full items-center gap-4 rounded-[24px] border border-black/[0.07] bg-white px-5 py-4 text-left shadow-[0_12px_45px_rgba(0,0,0,0.04)] transition active:bg-black/[0.025] sm:px-6`}
+                    className={`${limitedMode ? '' : 'mt-3'} flex w-full items-center gap-4 rounded-[24px] border border-black/[0.07] bg-white px-5 py-4 text-left shadow-[0_12px_45px_rgba(0,0,0,0.04)] transition active:bg-black/[0.025] sm:px-6`}
                     aria-pressed={settings.carryOverIncompletePlans}
                 >
                     <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#ff9500]/10 text-[#ff9500]">
@@ -7575,7 +7598,8 @@ function PublicProfileView({
     onOpenSection: (section: 'notes' | 'library' | 'friends') => void;
     onSettings: () => void;
 }) {
-    const betaMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props.betaMode === true;
+    const pageMode = usePage<{ betaMode?: boolean; exploreMode?: boolean; [key: string]: unknown }>().props;
+    const limitedMode = pageMode.betaMode === true || pageMode.exploreMode === true;
     const initial = profile.name.trim().charAt(0).toLocaleUpperCase(getIntlLocale(locale)) || 'K';
     const country = isCountryCode(profile.country) ? getCountryOption(profile.country, locale) : null;
     const profession = professionOptions(t).find((option) => option.value === profile.profession)?.label;
@@ -7726,7 +7750,7 @@ function PublicProfileView({
                     </span>
                     <span className="min-w-0 truncate text-[13px] font-semibold">{t('Kitaplık', 'Library')}</span>
                 </button>
-                {!betaMode && (
+                {!limitedMode && (
                     <button
                         type="button"
                         onClick={() => onOpenSection('friends')}

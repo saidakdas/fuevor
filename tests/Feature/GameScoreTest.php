@@ -16,7 +16,7 @@ class GameScoreTest extends TestCase
         GameScore::query()->create(['duration_ms' => 12840]);
         GameScore::query()->create(['duration_ms' => 21490]);
 
-        $this->get('/')
+        $this->get('/topluluk')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('welcome')

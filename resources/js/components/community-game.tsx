@@ -59,6 +59,7 @@ export default function CommunityGame({
     initialPlaysRemaining,
     playerName,
     playerAvatar,
+    localOnly = false,
 }: {
     locale: Locale;
     t: Translate;
@@ -67,6 +68,7 @@ export default function CommunityGame({
     initialPlaysRemaining: number;
     playerName: string;
     playerAvatar?: string | null;
+    localOnly?: boolean;
 }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const gameAreaRef = useRef<HTMLDivElement>(null);
@@ -127,6 +129,14 @@ export default function CommunityGame({
         changeStatus('starting');
         setError('');
 
+        if (localOnly) {
+            activePlayIdRef.current = -1;
+            setPlaysRemaining((current) => Math.max(0, current - 1));
+            beginRun();
+            startingRef.current = false;
+            return;
+        }
+
         try {
             const response = await fetch(route('community.game.plays.start'), {
                 method: 'POST',
@@ -152,7 +162,7 @@ export default function CommunityGame({
         } finally {
             startingRef.current = false;
         }
-    }, [beginRun, changeStatus, playerAvatar, playerName, playsRemaining, t]);
+    }, [beginRun, changeStatus, localOnly, playerAvatar, playerName, playsRemaining, t]);
 
     const finishGame = useCallback(
         (durationMs: number) => {
@@ -164,6 +174,8 @@ export default function CommunityGame({
                 if (durationMs > current) setBestScorePlayer({ name: playerName, avatar: playerAvatar });
                 return Math.max(current, durationMs);
             });
+
+            if (localOnly) return;
 
             void fetch(route('community.game.plays.finish', playId), {
                 method: 'PATCH',
@@ -188,7 +200,7 @@ export default function CommunityGame({
                     // The completed run remains visible if score syncing is temporarily unavailable.
                 });
         },
-        [playerAvatar, playerName],
+        [localOnly, playerAvatar, playerName],
     );
 
     const jump = useCallback(() => {

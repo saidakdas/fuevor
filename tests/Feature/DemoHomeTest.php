@@ -15,11 +15,34 @@ class DemoHomeTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_primary_domain_keeps_the_existing_welcome_page(): void
+    public function test_primary_domain_uses_the_new_landing_page(): void
     {
         $this->get('http://fuevor.com/')
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('welcome'));
+            ->assertInertia(fn (Assert $page) => $page->component('landing'));
+    }
+
+    public function test_explore_workspace_is_prefilled_and_does_not_touch_live_data(): void
+    {
+        User::factory()->create();
+        $userCount = User::query()->count();
+        $goalCount = DB::table('goals')->count();
+        $badgeCounter = DB::table('first_builder_counters')->where('id', 1)->value('next_number');
+
+        $this->get('/kesfet')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('demo/home')
+                ->where('exploreMode', true)
+                ->where('firstBuilderNumber', 7)
+                ->has('exploreState.goals', 4)
+                ->has('exploreState.plans', 4)
+                ->has('communityPosts', 5)
+                ->has('communityBooks', 2));
+
+        $this->assertSame($userCount, User::query()->count());
+        $this->assertSame($goalCount, DB::table('goals')->count());
+        $this->assertSame($badgeCounter, DB::table('first_builder_counters')->where('id', 1)->value('next_number'));
     }
 
     public function test_demo_preview_is_available_during_development_without_changing_live_badge_numbers(): void

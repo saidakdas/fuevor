@@ -98,6 +98,7 @@ export function GoalsCommunity({
     initialGoalId,
     getFriendStatus,
     onFriendAction,
+    localOnly = false,
 }: {
     posts: CommunityPost[];
     viewer: Viewer | null;
@@ -110,10 +111,12 @@ export function GoalsCommunity({
     initialGoalId?: number | string | null;
     getFriendStatus?: (username: string) => CommunityFriendStatus | null;
     onFriendAction?: (username: string) => void;
+    localOnly?: boolean;
 }) {
     const [goalPickerOpen, setGoalPickerOpen] = useState(false);
     const [selectedProfile, setSelectedProfile] = useState<CommunityProfile | null>(null);
     const [, setFriendRevision] = useState(0);
+    const [visiblePosts, setVisiblePosts] = useState(posts);
     const initialGoal = availableGoals.find((goal) => String(goal.id) === String(initialGoalId ?? ''));
     const shareForm = useForm({
         goalId: demoUsername ? '' : String(initialGoal?.id ?? ''),
@@ -124,6 +127,8 @@ export function GoalsCommunity({
     });
     const selectedGoalId = demoUsername ? shareForm.data.demoGoalId : shareForm.data.goalId;
     const selectedGoal = availableGoals.find((goal) => String(goal.id) === selectedGoalId);
+
+    useEffect(() => setVisiblePosts(posts), [posts]);
 
     const chooseGoal = (id: string) => {
         const selectedGoal = availableGoals.find((goal) => String(goal.id) === id);
@@ -138,6 +143,40 @@ export function GoalsCommunity({
 
     const submitGoal = (event: FormEvent) => {
         event.preventDefault();
+        if (localOnly) {
+            if (!viewer || !selectedGoal) return;
+
+            const profile: CommunityProfile = {
+                id: viewer.id,
+                name: viewer.name,
+                username: viewer.username ?? demoUsername ?? 'kesfet',
+                avatar: viewer.avatar ?? null,
+                profession: 'Fuevor kullanıcısı',
+                location: 'Türkiye',
+                bio: 'Gelecekteki kendini adım adım inşa ediyor.',
+                fu: null,
+                firstBuilderNumber: 7,
+                accentFrom: '#007aff',
+                accentTo: '#4cc9f0',
+            };
+            const nextPost: CommunityPost = {
+                id: Date.now(),
+                title: selectedGoal.title,
+                description: shareForm.data.shortComment.trim() || null,
+                author: viewer.name,
+                authorProfile: profile,
+                supportCount: 0,
+                ideaCount: 0,
+                supportedByViewer: false,
+                createdAt: new Date().toISOString(),
+                ideas: [],
+            };
+
+            setVisiblePosts((current) => [nextPost, ...current]);
+            shareForm.reset('goalId', 'demoGoalId', 'goalTitle', 'shortComment');
+            return;
+        }
+
         shareForm.post(route(demoUsername ? 'demo.community.goals.store' : 'community.goals.store'), {
             preserveScroll: true,
             onSuccess: () => shareForm.reset('goalId', 'demoGoalId', 'goalTitle', 'shortComment'),
@@ -248,7 +287,7 @@ export function GoalsCommunity({
             </div>
 
             <div className="mt-4 space-y-3">
-                {posts.map((post) => (
+                {visiblePosts.map((post) => (
                     <GoalPostCard
                         key={post.id}
                         post={post}
@@ -256,10 +295,14 @@ export function GoalsCommunity({
                         locale={locale}
                         t={t}
                         demoUsername={demoUsername}
+                        localOnly={localOnly}
+                        onLocalChange={(updatedPost) =>
+                            setVisiblePosts((current) => current.map((candidate) => (candidate.id === updatedPost.id ? updatedPost : candidate)))
+                        }
                         onOpenProfile={setSelectedProfile}
                     />
                 ))}
-                {posts.length === 0 && (
+                {visiblePosts.length === 0 && (
                     <EmptyState
                         icon={<Target className="size-7" />}
                         title={t('Henüz paylaşılan hedef yok', 'No shared goals yet')}
@@ -270,7 +313,7 @@ export function GoalsCommunity({
             {selectedProfile && (
                 <CommunityProfilePreview
                     profile={selectedProfile}
-                    posts={posts.filter((post) => post.authorProfile.id === selectedProfile.id)}
+                    posts={visiblePosts.filter((post) => post.authorProfile.id === selectedProfile.id)}
                     t={t}
                     currentUsername={demoUsername ?? viewer?.username}
                     friendStatus={getFriendStatus?.(selectedProfile.username) ?? null}
@@ -549,12 +592,26 @@ function PinnedBetaPost({
     );
 }
 
+function updateIdeaTree(ideas: CommunityIdea[], ideaId: number, update: (idea: CommunityIdea) => CommunityIdea): CommunityIdea[] {
+    return ideas.map((idea) => {
+        if (idea.id === ideaId) return update(idea);
+        if (!idea.replies?.length) return idea;
+        return { ...idea, replies: updateIdeaTree(idea.replies, ideaId, update) };
+    });
+}
+
+function appendIdeaReply(ideas: CommunityIdea[], parentIdeaId: number, reply: CommunityIdea): CommunityIdea[] {
+    return updateIdeaTree(ideas, parentIdeaId, (idea) => ({ ...idea, replies: [...(idea.replies ?? []), reply] }));
+}
+
 function GoalPostCard({
     post,
     viewer,
     locale,
     t,
     demoUsername,
+    localOnly = false,
+    onLocalChange,
     onOpenProfile,
 }: {
     post: CommunityPost;
@@ -562,15 +619,65 @@ function GoalPostCard({
     locale: Locale;
     t: Translate;
     demoUsername?: string;
+    localOnly?: boolean;
+    onLocalChange?: (post: CommunityPost) => void;
     onOpenProfile: (profile: CommunityProfile) => void;
 }) {
     const [ideasOpen, setIdeasOpen] = useState(false);
     const toggleSupport = () => {
         if (!viewer) return router.visit('/login');
 
+        if (localOnly) {
+            onLocalChange?.({
+                ...post,
+                supportedByViewer: !post.supportedByViewer,
+                supportCount: Math.max(0, post.supportCount + (post.supportedByViewer ? -1 : 1)),
+            });
+            return;
+        }
+
         router.post(route(demoUsername ? 'demo.community.goals.support' : 'community.goals.support', post.id), demoUsername ? { demoUsername } : {}, {
             preserveScroll: true,
         });
+    };
+    const toggleLocalIdeaSupport = (ideaId: number) => {
+        onLocalChange?.({
+            ...post,
+            ideas: updateIdeaTree(post.ideas, ideaId, (idea) => ({
+                ...idea,
+                supportedByViewer: !idea.supportedByViewer,
+                supportCount: Math.max(0, idea.supportCount + (idea.supportedByViewer ? -1 : 1)),
+            })),
+        });
+    };
+    const addLocalIdea = (body: string, parentIdeaId?: number) => {
+        if (!viewer) return;
+
+        const authorProfile: CommunityProfile = {
+            id: viewer.id,
+            name: viewer.name,
+            username: viewer.username ?? demoUsername ?? 'kesfet',
+            avatar: viewer.avatar ?? null,
+            profession: 'Fuevor kullanıcısı',
+            location: 'Türkiye',
+            bio: 'Gelecekteki kendini adım adım inşa ediyor.',
+            fu: null,
+            firstBuilderNumber: 7,
+            accentFrom: '#007aff',
+            accentTo: '#4cc9f0',
+        };
+        const idea: CommunityIdea = {
+            id: Date.now(),
+            body,
+            author: viewer.name,
+            authorProfile,
+            supportCount: 0,
+            supportedByViewer: false,
+            createdAt: new Date().toISOString(),
+            replies: [],
+        };
+        const ideas = parentIdeaId ? appendIdeaReply(post.ideas, parentIdeaId, idea) : [idea, ...post.ideas];
+        onLocalChange?.({ ...post, ideas, ideaCount: post.ideaCount + 1 });
     };
 
     return (
@@ -620,6 +727,8 @@ function GoalPostCard({
                             t={t}
                             demoUsername={demoUsername}
                             recipientUsername={post.authorProfile.username}
+                            localOnly={localOnly}
+                            onLocalSubmit={addLocalIdea}
                         />
                     </div>
                     <div className="space-y-3">
@@ -632,6 +741,9 @@ function GoalPostCard({
                                 locale={locale}
                                 t={t}
                                 demoUsername={demoUsername}
+                                localOnly={localOnly}
+                                onLocalSupport={toggleLocalIdeaSupport}
+                                onLocalIdea={addLocalIdea}
                                 onOpenProfile={onOpenProfile}
                             />
                         ))}
@@ -649,6 +761,9 @@ function IdeaThread({
     locale,
     t,
     demoUsername,
+    localOnly = false,
+    onLocalSupport,
+    onLocalIdea,
     onOpenProfile,
 }: {
     idea: CommunityIdea;
@@ -657,11 +772,19 @@ function IdeaThread({
     locale: Locale;
     t: Translate;
     demoUsername?: string;
+    localOnly?: boolean;
+    onLocalSupport?: (ideaId: number) => void;
+    onLocalIdea?: (body: string, parentIdeaId?: number) => void;
     onOpenProfile: (profile: CommunityProfile) => void;
 }) {
     const [replying, setReplying] = useState(false);
     const toggleIdeaSupport = (ideaId: number) => {
         if (!viewer) return router.visit('/login');
+
+        if (localOnly) {
+            onLocalSupport?.(ideaId);
+            return;
+        }
 
         router.post(
             route(demoUsername ? 'demo.community.goals.ideas.support' : 'community.goals.ideas.support', [postId, ideaId]),
@@ -756,6 +879,8 @@ function IdeaThread({
                         t={t}
                         demoUsername={demoUsername}
                         recipientUsername={idea.authorProfile.username}
+                        localOnly={localOnly}
+                        onLocalSubmit={onLocalIdea}
                         onSubmitted={() => setReplying(false)}
                     />
                 )}
@@ -771,6 +896,8 @@ function IdeaForm({
     demoUsername,
     parentIdeaId,
     recipientUsername,
+    localOnly = false,
+    onLocalSubmit,
     onSubmitted,
 }: {
     postId: number;
@@ -779,12 +906,22 @@ function IdeaForm({
     demoUsername?: string;
     parentIdeaId?: number;
     recipientUsername?: string;
+    localOnly?: boolean;
+    onLocalSubmit?: (body: string, parentIdeaId?: number) => void;
     onSubmitted?: () => void;
 }) {
     const form = useForm({ body: '', parentIdeaId: parentIdeaId ?? null, demoUsername: demoUsername ?? '' });
     const submit = (event: FormEvent) => {
         event.preventDefault();
         if (!viewer) return router.visit('/login');
+        if (localOnly) {
+            const body = form.data.body.trim();
+            if (!body) return;
+            onLocalSubmit?.(body, parentIdeaId);
+            form.reset('body');
+            onSubmitted?.();
+            return;
+        }
         form.post(route(demoUsername ? 'demo.community.goals.ideas.store' : 'community.goals.ideas.store', postId), {
             preserveScroll: true,
             onSuccess: () => {
@@ -1092,12 +1229,14 @@ export function PublicLibrary({
     t,
     viewer,
     demoUsername,
+    localOnly = false,
 }: {
     books: CommunityBook[];
     locale: Locale;
     t: Translate;
     viewer?: Viewer | null;
     demoUsername?: string;
+    localOnly?: boolean;
 }) {
     const [search, setSearch] = useState('');
     const visibleBooks = useMemo(() => {
@@ -1122,7 +1261,15 @@ export function PublicLibrary({
             </div>
             <div className="space-y-3">
                 {visibleBooks.map((book) => (
-                    <BookReviewGroup key={book.key} book={book} locale={locale} t={t} viewer={viewer ?? null} demoUsername={demoUsername} />
+                    <BookReviewGroup
+                        key={book.key}
+                        book={book}
+                        locale={locale}
+                        t={t}
+                        viewer={viewer ?? null}
+                        demoUsername={demoUsername}
+                        localOnly={localOnly}
+                    />
                 ))}
                 {visibleBooks.length === 0 && (
                     <EmptyState
@@ -1145,12 +1292,14 @@ function BookReviewGroup({
     t,
     viewer,
     demoUsername,
+    localOnly = false,
 }: {
     book: CommunityBook;
     locale: Locale;
     t: Translate;
     viewer: Viewer | null;
     demoUsername?: string;
+    localOnly?: boolean;
 }) {
     const [open, setOpen] = useState(false);
     return (
@@ -1191,7 +1340,15 @@ function BookReviewGroup({
                         </p>
                     )}
                     {book.reviews.map((review) => (
-                        <BookReviewThread key={review.id} review={review} locale={locale} t={t} viewer={viewer} demoUsername={demoUsername} />
+                        <BookReviewThread
+                            key={review.id}
+                            review={review}
+                            locale={locale}
+                            t={t}
+                            viewer={viewer}
+                            demoUsername={demoUsername}
+                            localOnly={localOnly}
+                        />
                     ))}
                 </div>
             )}
@@ -1205,12 +1362,14 @@ function BookReviewThread({
     t,
     viewer,
     demoUsername,
+    localOnly = false,
 }: {
     review: CommunityReview;
     locale: Locale;
     t: Translate;
     viewer: Viewer | null;
     demoUsername?: string;
+    localOnly?: boolean;
 }) {
     const [replying, setReplying] = useState(false);
 
@@ -1264,6 +1423,7 @@ function BookReviewThread({
                             viewer={viewer}
                             t={t}
                             demoUsername={demoUsername}
+                            localOnly={localOnly}
                             recipient={review.author}
                             onSubmitted={() => setReplying(false)}
                         />
@@ -1279,6 +1439,7 @@ function BookReviewReplyForm({
     viewer,
     t,
     demoUsername,
+    localOnly = false,
     recipient,
     onSubmitted,
 }: {
@@ -1286,6 +1447,7 @@ function BookReviewReplyForm({
     viewer: Viewer | null;
     t: Translate;
     demoUsername?: string;
+    localOnly?: boolean;
     recipient: string;
     onSubmitted: () => void;
 }) {
@@ -1293,6 +1455,12 @@ function BookReviewReplyForm({
     const submit = (event: FormEvent) => {
         event.preventDefault();
         if (!viewer) return router.visit('/login');
+
+        if (localOnly) {
+            form.reset('body');
+            onSubmitted();
+            return;
+        }
 
         form.post(route(demoUsername ? 'demo.community.books.reviews.replies.store' : 'community.books.reviews.replies.store', reviewId), {
             preserveScroll: true,

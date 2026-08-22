@@ -75,7 +75,7 @@ class CommunityGameTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get('/')
+            ->get('/topluluk')
             ->assertInertia(fn ($page) => $page
                 ->component('welcome')
                 ->where('gamePlaysRemaining', 2));
