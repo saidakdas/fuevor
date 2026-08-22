@@ -38,7 +38,7 @@ export default function Landing() {
                 <div className="relative mx-auto grid min-h-svh max-w-[1600px] grid-cols-[minmax(0,1fr)] items-center gap-8 px-5 py-7 sm:px-8 lg:grid-cols-[1.12fr_0.88fr] lg:gap-12 lg:px-12 lg:py-10 xl:px-16">
                     <section className="order-2 min-w-0 lg:order-1" aria-label="Fuevor uygulama önizlemeleri">
                         <div className="relative mx-auto hidden aspect-[1.2/1] w-full max-w-[920px] lg:block">
-                            <div className="absolute inset-x-[3%] top-[14%] transition-all duration-700 ease-out">
+                            <div className="absolute inset-x-[11%] top-[2%] transition-all duration-700 ease-out">
                                 <img
                                     key={slide.desktop}
                                     src={slide.desktop}
@@ -50,13 +50,13 @@ export default function Landing() {
                                 key={slide.phones[0]}
                                 src={slide.phones[0]}
                                 alt="Fuevor mobil görünümü"
-                                className="landing-phone-enter absolute bottom-[1%] left-[1%] z-10 h-[70%] w-auto -rotate-[5deg] drop-shadow-[0_28px_35px_rgba(0,0,0,0.22)]"
+                                className="landing-phone-enter absolute bottom-[1%] left-[10%] z-10 h-[48%] w-auto -rotate-[3deg] drop-shadow-[0_28px_35px_rgba(0,0,0,0.22)]"
                             />
                             <img
                                 key={slide.phones[1]}
                                 src={slide.phones[1]}
                                 alt="Fuevor mobil görünümü"
-                                className="landing-phone-enter absolute right-[1%] bottom-[1%] z-10 h-[66%] w-auto rotate-[5deg] drop-shadow-[0_28px_35px_rgba(0,0,0,0.22)]"
+                                className="landing-phone-enter absolute right-[10%] bottom-[1%] z-10 h-[48%] w-auto rotate-[3deg] drop-shadow-[0_28px_35px_rgba(0,0,0,0.22)]"
                             />
                         </div>
 
@@ -66,7 +66,7 @@ export default function Landing() {
                                     key={slide.phones[0]}
                                     src={slide.phones[0]}
                                     alt="Fuevor mobil uygulama görünümü"
-                                    className="landing-phone-enter absolute inset-0 mx-auto h-full w-auto drop-shadow-[0_24px_32px_rgba(0,0,0,0.2)]"
+                                    className="landing-phone-enter absolute inset-0 mx-auto h-full w-auto"
                                 />
                             </div>
                         </div>
