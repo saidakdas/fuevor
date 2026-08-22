@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Services\EmailVerificationCodeService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,15 +29,29 @@ class ProfileController extends Controller
     /**
      * Update the user's profile settings.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(ProfileUpdateRequest $request, EmailVerificationCodeService $verificationCodes): RedirectResponse
     {
         $request->user()->fill($request->validated());
+        $emailChanged = $request->user()->isDirty('email');
 
-        if ($request->user()->isDirty('email')) {
+        if ($emailChanged) {
             $request->user()->email_verified_at = null;
         }
 
         $request->user()->save();
+
+        if ($emailChanged) {
+            try {
+                $verificationCodes->send($request->user());
+            } catch (\Throwable $exception) {
+                report($exception);
+                $verificationCodes->clear($request->user());
+
+                return to_route('verification.notice')->with('status', 'verification-code-failed');
+            }
+
+            return to_route('verification.notice')->with('status', 'verification-code-sent');
+        }
 
         return to_route('profile.edit');
     }

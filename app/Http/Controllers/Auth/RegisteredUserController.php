@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\EmailVerificationCodeService;
 use App\Services\FirstBuilderService;
-use Illuminate\Auth\Events\Registered;
+use App\Support\PhoneNormalizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -32,17 +34,21 @@ class RegisteredUserController extends Controller
      *
      * @throws ValidationException
      */
-    public function store(Request $request, FirstBuilderService $firstBuilders): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        FirstBuilderService $firstBuilders,
+        EmailVerificationCodeService $verificationCodes,
+    ): RedirectResponse {
         $request->merge([
             'email' => mb_strtolower(trim((string) $request->email)),
+            'phone' => PhoneNormalizer::normalize($request->phone),
             'country' => strtoupper(trim((string) $request->country)),
         ]);
 
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
-            'phone' => ['required', 'string', 'max:30'],
+            'phone' => ['required', 'string', 'regex:/^\+?[0-9]{7,20}$/', Rule::unique(User::class)],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'profession' => ['required', 'string', 'max:120'],
             'country' => ['required', 'string', 'size:2', 'regex:/^[A-Z]{2}$/'],
@@ -52,7 +58,16 @@ class RegisteredUserController extends Controller
         ], [
             'terms_accepted.accepted' => 'Kullanıcı Sözleşmesi ve Kullanım Koşulları kabul edilmelidir.',
             'privacy_acknowledged.accepted' => 'KVKK Aydınlatma Metni ve Gizlilik Politikası okunup onaylanmalıdır.',
+            'phone.regex' => 'Geçerli bir telefon numarası girilmelidir.',
+            'phone.unique' => 'Bu telefon numarasıyla daha önce kayıt olunmuş.',
+            'email.unique' => 'Bu e-posta adresiyle daha önce kayıt olunmuş.',
         ]);
+
+        if (PhoneNormalizer::isInUse($request->phone)) {
+            throw ValidationException::withMessages([
+                'phone' => 'Bu telefon numarasıyla daha önce kayıt olunmuş.',
+            ]);
+        }
 
         $acceptedAt = now();
 
@@ -71,10 +86,18 @@ class RegisteredUserController extends Controller
             'privacy_version' => self::LEGAL_DOCUMENT_VERSION,
         ]);
 
-        event(new Registered($user));
         Auth::login($user);
         $request->session()->regenerate();
 
-        return to_route('beta.show');
+        try {
+            $verificationCodes->send($user);
+        } catch (\Throwable $exception) {
+            report($exception);
+            $verificationCodes->clear($user);
+
+            return to_route('verification.notice')->with('status', 'verification-code-failed');
+        }
+
+        return to_route('verification.notice')->with('status', 'verification-code-sent');
     }
 }

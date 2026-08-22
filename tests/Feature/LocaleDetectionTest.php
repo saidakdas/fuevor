@@ -111,7 +111,7 @@ class LocaleDetectionTest extends TestCase
                 'terms_accepted' => true,
                 'privacy_acknowledged' => true,
             ])
-            ->assertRedirect(route('beta.show', absolute: false));
+            ->assertRedirect(route('verification.notice', absolute: false));
     }
 
     public function test_public_urls_use_english_ascii_segments_without_locale_prefixes(): void

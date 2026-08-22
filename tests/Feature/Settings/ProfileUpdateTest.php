@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Settings;
 
+use App\Mail\EmailVerificationCodeMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class ProfileUpdateTest extends TestCase
@@ -15,6 +17,7 @@ class ProfileUpdateTest extends TestCase
         parent::setUp();
 
         config(['app.user_panel_enabled' => true]);
+        Mail::fake();
     }
 
     public function test_profile_page_is_displayed()
@@ -42,7 +45,7 @@ class ProfileUpdateTest extends TestCase
 
         $response
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/settings/profile');
+            ->assertRedirect('/verify-email');
 
         $user->refresh();
 
@@ -50,6 +53,7 @@ class ProfileUpdateTest extends TestCase
         $this->assertSame('test@example.com', $user->email);
         $this->assertFalse($user->show_fu_publicly);
         $this->assertNull($user->email_verified_at);
+        Mail::assertSent(EmailVerificationCodeMail::class, 1);
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged()

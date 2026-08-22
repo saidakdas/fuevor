@@ -2,16 +2,25 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Mail\EmailVerificationCodeMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Mail::fake();
+    }
 
     public function test_early_access_registration_screen_is_public(): void
     {
@@ -34,11 +43,11 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('beta.show', absolute: false));
+        $response->assertRedirect(route('verification.notice', absolute: false));
         $this->assertDatabaseHas('users', [
             'name' => 'Test User',
             'email' => 'test@example.com',
-            'phone' => '+90 555 111 22 33',
+            'phone' => '+905551112233',
             'profession' => 'Product Designer',
             'country' => 'TR',
             'gender' => 'prefer-not-to-say',
@@ -51,6 +60,9 @@ class RegistrationTest extends TestCase
         $this->assertNotNull($user->terms_accepted_at);
         $this->assertNotNull($user->privacy_acknowledged_at);
         $this->assertSame(2, DB::table('first_builder_counters')->where('id', 1)->value('next_number'));
+        $this->assertFalse($user->hasVerifiedEmail());
+        $this->assertNotNull($user->email_verification_code_hash);
+        Mail::assertSent(EmailVerificationCodeMail::class, 1);
     }
 
     public function test_first_builder_badges_stop_after_number_one_hundred(): void
@@ -71,7 +83,7 @@ class RegistrationTest extends TestCase
             'privacy_acknowledged' => true,
         ];
 
-        $this->post('/register', $payload)->assertRedirect(route('beta.show', absolute: false));
+        $this->post('/register', $payload)->assertRedirect(route('verification.notice', absolute: false));
         $this->assertSame(100, User::query()->where('email', 'builder100@example.com')->value('first_builder_number'));
 
         Auth::logout();
@@ -80,7 +92,8 @@ class RegistrationTest extends TestCase
             ...$payload,
             'name' => 'Yüz Birinci Üye',
             'email' => 'builder101@example.com',
-        ])->assertRedirect(route('beta.show', absolute: false));
+            'phone' => '+90 555 111 22 34',
+        ])->assertRedirect(route('verification.notice', absolute: false));
 
         $this->assertNull(User::query()->where('email', 'builder101@example.com')->value('first_builder_number'));
         $this->assertSame(101, DB::table('first_builder_counters')->where('id', 1)->value('next_number'));
@@ -125,5 +138,41 @@ class RegistrationTest extends TestCase
         $this->assertGuest();
         $response->assertRedirect('/register')->assertSessionHasErrors(['terms_accepted', 'privacy_acknowledged']);
         $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_the_same_email_or_phone_cannot_register_twice(): void
+    {
+        User::factory()->create([
+            'email' => 'existing@example.com',
+            'phone' => '+90 (555) 111 22 33',
+        ]);
+
+        $payload = [
+            'name' => 'Duplicate User',
+            'email' => 'existing@example.com',
+            'phone' => '+905551112233',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'profession' => 'Designer',
+            'country' => 'TR',
+            'gender' => 'prefer-not-to-say',
+            'terms_accepted' => true,
+            'privacy_acknowledged' => true,
+        ];
+
+        $emailResponse = $this->from('/register')->post('/register', [
+            ...$payload,
+            'phone' => '+905551112234',
+        ]);
+        $emailResponse->assertRedirect('/register')->assertSessionHasErrors(['email']);
+
+        $phoneResponse = $this->from('/register')->post('/register', [
+            ...$payload,
+            'email' => 'new@example.com',
+        ]);
+
+        $phoneResponse->assertRedirect('/register')->assertSessionHasErrors(['phone']);
+        $this->assertDatabaseCount('users', 1);
+        Mail::assertNothingSent();
     }
 }

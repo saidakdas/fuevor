@@ -33,6 +33,10 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        if (! $request->user()->isAdmin() && ! $request->user()->hasVerifiedEmail()) {
+            return to_route('verification.notice');
+        }
+
         return $request->user()->isAdmin()
             ? to_route('admin.index')
             : to_route('beta.show');

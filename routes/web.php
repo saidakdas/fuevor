@@ -111,7 +111,7 @@ Route::middleware('auth')->prefix('community')->name('community.')->group(functi
     Route::post('books/sync', [CommunityInteractionController::class, 'syncDemoBooks'])->name('books.sync');
 });
 
-Route::middleware('auth')->prefix('beta')->name('beta.')->group(function () {
+Route::middleware(['auth', 'verified'])->prefix('beta')->name('beta.')->group(function () {
     Route::get('/', [BetaWorkspaceController::class, 'show'])->name('show');
     Route::delete('account', [ProfileController::class, 'destroy'])->name('account.destroy');
     Route::patch('state', [BetaWorkspaceController::class, 'update'])->name('state.update');

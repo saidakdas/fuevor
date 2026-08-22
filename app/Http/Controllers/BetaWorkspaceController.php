@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\BetaWorkspace;
 use App\Models\User;
+use App\Support\PhoneNormalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -66,12 +68,20 @@ class BetaWorkspaceController extends Controller
             'settings' => ['present', 'array'],
         ]);
 
-        $goalIds = DB::transaction(function () use ($request, $state): array {
+        $phone = PhoneNormalizer::normalize($state['profile']['phone'] ?? null);
+
+        if (PhoneNormalizer::isInUse($phone, $request->user()->getKey())) {
+            throw ValidationException::withMessages([
+                'profile.phone' => 'Bu telefon numarası başka bir hesapta kullanılıyor.',
+            ]);
+        }
+
+        $goalIds = DB::transaction(function () use ($request, $state, $phone): array {
             $request->user()->betaWorkspace()->updateOrCreate([], $state);
             $profile = $state['profile'];
             $request->user()->fill([
                 'name' => filled($profile['name'] ?? null) ? mb_substr(trim((string) $profile['name']), 0, 255) : $request->user()->name,
-                'phone' => mb_substr(trim((string) ($profile['phone'] ?? '')), 0, 30) ?: null,
+                'phone' => $phone,
                 'profession' => mb_substr(trim((string) ($profile['profession'] ?? '')), 0, 120) ?: null,
                 'country' => mb_substr(trim((string) ($profile['country'] ?? '')), 0, 100) ?: null,
                 'show_fu_publicly' => (bool) ($state['settings']['showFuPublicly'] ?? true),
