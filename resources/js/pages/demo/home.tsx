@@ -1444,7 +1444,7 @@ export default function DemoHome({
                         ) : (
                             <form onSubmit={submitCurrentStep}>
                                 <div key={step} className="demo-step-enter">
-                                    {step === 1 && <GoalStep t={t} value={goal} onChange={setGoal} />}
+                                    {step === 1 && <GoalStep t={t} value={goal} onChange={setGoal} isFirstGoal={goals.length === 0} />}
                                     {step === 2 && <CategoryStep t={t} value={category} onChange={setCategory} />}
                                     {step === 3 && <GainStep t={t} value={gain} onChange={setGain} />}
                                     {step === 4 && (
@@ -10513,15 +10513,18 @@ function StepHeading({ eyebrow, title, description }: { eyebrow: string; title: 
     );
 }
 
-function GoalStep({ t, value, onChange }: { t: Translate; value: string; onChange: (value: string) => void }) {
+function GoalStep({ t, value, onChange, isFirstGoal }: { t: Translate; value: string; onChange: (value: string) => void; isFirstGoal: boolean }) {
+    const heading = isFirstGoal ? t('İlk hedefin nedir?', 'What is your first goal?') : t('Yeni hedefin nedir?', 'What is your new goal?');
+    const label = isFirstGoal ? t('İlk hedefin', 'Your first goal') : t('Yeni hedefin', 'Your new goal');
+
     return (
         <section>
-            <StepHeading eyebrow={t('Başlangıç', 'Getting started')} title={t('İlk hedefin nedir?', 'What is your first goal?')} />
-            <label className="sr-only" htmlFor="first-goal">
-                {t('İlk hedefin', 'Your first goal')}
+            <StepHeading eyebrow={t('Başlangıç', 'Getting started')} title={heading} />
+            <label className="sr-only" htmlFor="goal-title">
+                {label}
             </label>
             <input
-                id="first-goal"
+                id="goal-title"
                 autoCapitalize="sentences"
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
