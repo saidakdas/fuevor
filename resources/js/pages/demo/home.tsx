@@ -1197,6 +1197,16 @@ export default function DemoHome({
             onClose={() => setReportOpen(false)}
         />
     ) : null;
+    const sharedLayer = (
+        <>
+            {exploreMode && <ExploreHomeLink t={t} />}
+            {profileSheet}
+            {reminderAlert}
+            {standaloneReminderDialog}
+            {goalCompletionDialog}
+            {reportDialog}
+        </>
+    );
 
     if (showPanel) {
         if (panelSection === 'overview') {
@@ -1229,11 +1239,7 @@ export default function DemoHome({
                         onAddGoalBlock={addGoalBlockToGoal}
                         onShareGoal={shareGoalInCommunity}
                     />
-                    {profileSheet}
-                    {reminderAlert}
-                    {standaloneReminderDialog}
-                    {goalCompletionDialog}
-                    {reportDialog}
+                    {sharedLayer}
                 </>
             );
         }
@@ -1262,11 +1268,7 @@ export default function DemoHome({
                         initialComposerOpen={quickCreateIntent === 'plan'}
                         onInitialComposerHandled={() => setQuickCreateIntent(null)}
                     />
-                    {profileSheet}
-                    {reminderAlert}
-                    {standaloneReminderDialog}
-                    {goalCompletionDialog}
-                    {reportDialog}
+                    {sharedLayer}
                 </>
             );
         }
@@ -1293,11 +1295,7 @@ export default function DemoHome({
                         onNavigate={navigatePanel}
                         liveGoalIds={liveGoalIds}
                     />
-                    {profileSheet}
-                    {reminderAlert}
-                    {standaloneReminderDialog}
-                    {goalCompletionDialog}
-                    {reportDialog}
+                    {sharedLayer}
                 </>
             );
         }
@@ -1318,11 +1316,7 @@ export default function DemoHome({
                         onBlockCompletionChange={syncTeamBlockWithPlan}
                         onDeleteTeam={removeDeletedTeamFromPlan}
                     />
-                    {profileSheet}
-                    {reminderAlert}
-                    {standaloneReminderDialog}
-                    {goalCompletionDialog}
-                    {reportDialog}
+                    {sharedLayer}
                 </>
             );
         }
@@ -1339,11 +1333,7 @@ export default function DemoHome({
                         posts={communityPosts}
                         onNavigate={navigatePanel}
                     />
-                    {profileSheet}
-                    {reminderAlert}
-                    {standaloneReminderDialog}
-                    {goalCompletionDialog}
-                    {reportDialog}
+                    {sharedLayer}
                 </>
             );
         }
@@ -1363,11 +1353,7 @@ export default function DemoHome({
                         initialComposerOpen={quickCreateIntent === 'note'}
                         onInitialComposerHandled={() => setQuickCreateIntent(null)}
                     />
-                    {profileSheet}
-                    {reminderAlert}
-                    {standaloneReminderDialog}
-                    {goalCompletionDialog}
-                    {reportDialog}
+                    {sharedLayer}
                 </>
             );
         }
@@ -1386,11 +1372,7 @@ export default function DemoHome({
                         onRemoveBook={removeBook}
                         onReorderBooks={reorderBooks}
                     />
-                    {profileSheet}
-                    {reminderAlert}
-                    {standaloneReminderDialog}
-                    {goalCompletionDialog}
-                    {reportDialog}
+                    {sharedLayer}
                 </>
             );
         }
@@ -1409,11 +1391,7 @@ export default function DemoHome({
                     onAddBlock={addGoalBlockToGoal}
                     onShareGoal={shareGoalInCommunity}
                 />
-                {profileSheet}
-                {reminderAlert}
-                {standaloneReminderDialog}
-                {goalCompletionDialog}
-                {reportDialog}
+                {sharedLayer}
             </>
         );
     }
@@ -1525,8 +1503,24 @@ export default function DemoHome({
                 </main>
 
                 {paretoPromptOpen && <ParetoPrompt t={t} onChoose={chooseParetoMode} />}
+                {sharedLayer}
             </div>
         </>
+    );
+}
+
+function ExploreHomeLink({ t }: { t: Translate }) {
+    return (
+        <a
+            href={route('home')}
+            className="apple-interface fixed top-[max(0.75rem,env(safe-area-inset-top))] left-3 z-[45] inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/[0.07] bg-white/88 px-3 text-[13px] font-semibold text-[#1d1d1f] shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-2xl transition hover:bg-white active:scale-95 sm:left-5 sm:px-4"
+            aria-label={t('Ana sayfaya dön', 'Return to home page')}
+            title={t('Ana sayfaya dön', 'Return to home page')}
+            data-explore-home-link
+        >
+            <ArrowLeft className="size-[18px]" strokeWidth={2.35} />
+            <span className="hidden sm:inline">{t('Ana Sayfaya Dön', 'Return Home')}</span>
+        </a>
     );
 }
 
