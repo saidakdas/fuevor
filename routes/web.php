@@ -14,6 +14,7 @@ use App\Http\Controllers\ExploreController;
 use App\Http\Controllers\GameScoreController;
 use App\Http\Controllers\GoalController;
 use App\Http\Controllers\MilestoneController;
+use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\TaskController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -112,6 +113,7 @@ Route::middleware('auth')->prefix('community')->name('community.')->group(functi
 
 Route::middleware('auth')->prefix('beta')->name('beta.')->group(function () {
     Route::get('/', [BetaWorkspaceController::class, 'show'])->name('show');
+    Route::delete('account', [ProfileController::class, 'destroy'])->name('account.destroy');
     Route::patch('state', [BetaWorkspaceController::class, 'update'])->name('state.update');
     Route::post('state', [BetaWorkspaceController::class, 'update'])->name('state.store');
     Route::post('announcement/support', [BetaEngagementController::class, 'toggleAnnouncementSupport'])

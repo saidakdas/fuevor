@@ -1,0 +1,1 @@
+import{j as e,c as n}from"./app-vGuqK1fi.js";function t({className:s,label:a="fu",...r}){return e.jsx("img",{...r,src:"/fuevor-favicon.svg?v=4",alt:a,className:n("shrink-0",s),draggable:!1})}export{t as F};

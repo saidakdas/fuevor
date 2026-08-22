@@ -60,6 +60,7 @@ import {
     Layers3,
     ListTodo,
     LockKeyhole,
+    LogOut,
     Mail,
     MessageCircle,
     Moon,
@@ -7052,6 +7053,8 @@ function ProfilePanel({
     onSave: (profile: ProfileData) => void;
     onSettingsChange: (settings: SettingsData) => void;
 }) {
+    const pageMode = usePage<{ betaMode?: boolean; [key: string]: unknown }>().props;
+    const betaMode = pageMode.betaMode === true;
     const [tab, setTab] = useState<'public' | 'personal' | 'settings'>('public');
     const [settingsSection, setSettingsSection] = useState<ProfileSettingsSection>('privacy-security');
     const [draft, setDraft] = useState(profile);
@@ -7064,6 +7067,10 @@ function ProfilePanel({
     const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
     const [resetEmail, setResetEmail] = useState(profile.email);
     const [resetSent, setResetSent] = useState(false);
+    const [accountAction, setAccountAction] = useState<'logout' | 'delete' | null>(null);
+    const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+    const [deletePassword, setDeletePassword] = useState('');
+    const [deleteAccountError, setDeleteAccountError] = useState('');
     const profileSheetGesture = useSwipeDownDismiss<HTMLElement>(onClose);
     const profileInitial = draft.name.trim().charAt(0).toLocaleUpperCase() || 'K';
     const selectedCountry = isCountryCode(draft.country) ? draft.country : null;
@@ -7077,7 +7084,19 @@ function ProfilePanel({
 
     useEffect(() => {
         const closeOnEscape = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') onClose();
+            if (event.key !== 'Escape') return;
+
+            if (deleteAccountOpen) {
+                if (accountAction !== 'delete') {
+                    setDeleteAccountOpen(false);
+                    setDeletePassword('');
+                    setDeleteAccountError('');
+                }
+
+                return;
+            }
+
+            onClose();
         };
 
         window.addEventListener('keydown', closeOnEscape);
@@ -7085,7 +7104,7 @@ function ProfilePanel({
         return () => {
             window.removeEventListener('keydown', closeOnEscape);
         };
-    }, [onClose]);
+    }, [accountAction, deleteAccountOpen, onClose]);
 
     const savePersonalInformation = (event: FormEvent) => {
         event.preventDefault();
@@ -7118,6 +7137,38 @@ function ProfilePanel({
         setPasswordConfirmation('');
         setPasswordMessage('success');
         window.setTimeout(() => setPasswordMessage(null), 2200);
+    };
+
+    const logout = () => {
+        if (accountAction) return;
+
+        router.post(
+            route('logout'),
+            {},
+            {
+                onStart: () => setAccountAction('logout'),
+                onFinish: () => setAccountAction(null),
+            },
+        );
+    };
+
+    const deleteAccount = () => {
+        if (!deletePassword || accountAction) return;
+
+        setDeleteAccountError('');
+        router.delete(route('beta.account.destroy'), {
+            data: { password: deletePassword },
+            preserveScroll: true,
+            onStart: () => setAccountAction('delete'),
+            onError: (errors) => {
+                setDeleteAccountError(
+                    typeof errors.password === 'string'
+                        ? errors.password
+                        : t('Hesabın silinemedi. Lütfen tekrar dene.', 'Your account could not be deleted. Please try again.'),
+                );
+            },
+            onFinish: () => setAccountAction(null),
+        });
     };
 
     return (
@@ -7535,6 +7586,69 @@ function ProfilePanel({
                                                         </button>
                                                     </div>
                                                 </form>
+
+                                                {betaMode && (
+                                                    <>
+                                                        <h2 className="mt-8 mb-3 px-1 text-[13px] font-semibold text-[#6e6e73]">
+                                                            {t('Oturum ve Hesap', 'Session and Account')}
+                                                        </h2>
+                                                        <div className="overflow-hidden rounded-[28px] border border-black/[0.07] bg-white shadow-[0_12px_45px_rgba(0,0,0,0.045)]">
+                                                            <div className="flex items-center gap-4 px-5 py-5 sm:px-7">
+                                                                <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#007aff]/10 text-[#007aff]">
+                                                                    <LogOut className="size-[19px]" />
+                                                                </span>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <h3 className="text-[15px] font-semibold">{t('Oturumdan çık', 'Log out')}</h3>
+                                                                    <p className="mt-1 text-[12px] leading-5 text-[#8e8e93]">
+                                                                        {t(
+                                                                            'Bu cihazdaki Fuevor oturumunu güvenli şekilde kapat.',
+                                                                            'Securely end your Fuevor session on this device.',
+                                                                        )}
+                                                                    </p>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={logout}
+                                                                    disabled={accountAction !== null}
+                                                                    className="shrink-0 rounded-full bg-black/[0.055] px-4 py-2.5 text-[13px] font-semibold text-[#3a3a3c] transition hover:bg-black/[0.09] active:scale-95 disabled:opacity-50"
+                                                                >
+                                                                    {accountAction === 'logout'
+                                                                        ? t('Çıkılıyor…', 'Logging out…')
+                                                                        : t('Çıkış Yap', 'Log Out')}
+                                                                </button>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-4 border-t border-black/[0.055] px-5 py-5 sm:px-7">
+                                                                <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#ff3b30]/10 text-[#ff3b30]">
+                                                                    <Trash2 className="size-[19px]" />
+                                                                </span>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <h3 className="text-[15px] font-semibold text-[#d70015]">
+                                                                        {t('Hesabı kalıcı olarak sil', 'Permanently delete account')}
+                                                                    </h3>
+                                                                    <p className="mt-1 text-[12px] leading-5 text-[#8e8e93]">
+                                                                        {t(
+                                                                            'Hedeflerin, planların, notların, kitaplığın ve profil verilerin geri alınamaz şekilde silinir.',
+                                                                            'Your goals, plans, notes, library, and profile data will be permanently deleted.',
+                                                                        )}
+                                                                    </p>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setDeletePassword('');
+                                                                        setDeleteAccountError('');
+                                                                        setDeleteAccountOpen(true);
+                                                                    }}
+                                                                    disabled={accountAction !== null}
+                                                                    className="shrink-0 rounded-full bg-[#ff3b30]/10 px-4 py-2.5 text-[13px] font-semibold text-[#d70015] transition hover:bg-[#ff3b30]/15 active:scale-95 disabled:opacity-50"
+                                                                >
+                                                                    {t('Hesabı Sil', 'Delete Account')}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </section>
                                         )}
                                     </div>
@@ -7565,6 +7679,26 @@ function ProfilePanel({
                     onEmailChange={setResetEmail}
                     onCancel={() => setForgotPasswordOpen(false)}
                     onSubmit={() => setResetSent(true)}
+                />
+            )}
+
+            {deleteAccountOpen && (
+                <DeleteAccountDialog
+                    t={t}
+                    password={deletePassword}
+                    error={deleteAccountError}
+                    processing={accountAction === 'delete'}
+                    onPasswordChange={(password) => {
+                        setDeletePassword(password);
+                        setDeleteAccountError('');
+                    }}
+                    onCancel={() => {
+                        if (accountAction === 'delete') return;
+                        setDeleteAccountOpen(false);
+                        setDeletePassword('');
+                        setDeleteAccountError('');
+                    }}
+                    onSubmit={deleteAccount}
                 />
             )}
         </>
@@ -7816,6 +7950,121 @@ function PublicProfileView({
                     </section>
                 )}
             </div>
+        </div>
+    );
+}
+
+function DeleteAccountDialog({
+    t,
+    password,
+    error,
+    processing,
+    onPasswordChange,
+    onCancel,
+    onSubmit,
+}: {
+    t: Translate;
+    password: string;
+    error: string;
+    processing: boolean;
+    onPasswordChange: (password: string) => void;
+    onCancel: () => void;
+    onSubmit: () => void;
+}) {
+    return (
+        <div
+            className="apple-interface fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-0 backdrop-blur-md sm:items-center sm:p-5"
+            role="presentation"
+            onMouseDown={onCancel}
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="delete-account-title"
+                aria-describedby="delete-account-description"
+                onMouseDown={(event) => event.stopPropagation()}
+                className="w-full max-w-md rounded-t-[30px] border border-black/[0.07] bg-[#f9f9fb] px-5 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_30px_90px_rgba(0,0,0,0.3)] sm:rounded-[30px] sm:px-7 sm:pb-7"
+            >
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                        <span className="grid size-11 shrink-0 place-items-center rounded-[14px] bg-[#ff3b30]/10 text-[#d70015]">
+                            <Trash2 className="size-5" />
+                        </span>
+                        <div>
+                            <p className="text-[12px] font-semibold text-[#d70015]">{t('Geri alınamaz işlem', 'Irreversible action')}</p>
+                            <h2 id="delete-account-title" className="mt-1 text-[22px] font-semibold tracking-[-0.03em]">
+                                {t('Hesabını kalıcı olarak sil', 'Permanently delete your account')}
+                            </h2>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        disabled={processing}
+                        className="grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.055] text-[#6e6e73] disabled:opacity-50"
+                        aria-label={t('Kapat', 'Close')}
+                    >
+                        <X className="size-[17px]" />
+                    </button>
+                </div>
+
+                <p id="delete-account-description" className="mt-5 text-[13px] leading-6 text-[#6e6e73]">
+                    {t(
+                        'Hedeflerin, ilerlemelerin, planların, notların, kitaplık kayıtların, topluluk paylaşımların ve profil bilgilerin kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+                        'Your goals, progress, plans, notes, library records, community posts, and profile information will be permanently deleted. This action cannot be undone.',
+                    )}
+                </p>
+
+                <form
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        onSubmit();
+                    }}
+                    className="mt-5"
+                >
+                    <label className="block">
+                        <span className="mb-2 block text-[13px] font-medium text-[#6e6e73]">
+                            {t('Onaylamak için mevcut şifreni yaz', 'Enter your current password to confirm')}
+                        </span>
+                        <span className="flex items-center gap-3 rounded-[16px] border border-black/[0.08] bg-white px-4 transition focus-within:border-[#ff3b30]/45 focus-within:ring-4 focus-within:ring-[#ff3b30]/8">
+                            <LockKeyhole className="size-[17px] text-[#8e8e93]" />
+                            <input
+                                autoFocus
+                                type="password"
+                                value={password}
+                                onChange={(event) => onPasswordChange(event.target.value)}
+                                autoComplete="current-password"
+                                disabled={processing}
+                                className="h-[52px] min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none disabled:opacity-60"
+                            />
+                        </span>
+                    </label>
+
+                    {error && (
+                        <p className="mt-3 rounded-[14px] bg-[#ff3b30]/8 px-3 py-2 text-[12px] font-medium text-[#d70015]" role="alert">
+                            {error}
+                        </p>
+                    )}
+
+                    <div className="mt-6 grid grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            disabled={processing}
+                            className="h-12 rounded-full bg-black/[0.055] text-[14px] font-semibold text-[#3a3a3c] transition active:scale-[0.98] disabled:opacity-50"
+                        >
+                            {t('Vazgeç', 'Cancel')}
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={!password || processing}
+                            className="h-12 rounded-full bg-[#d70015] text-[14px] font-semibold text-white transition active:scale-[0.98] disabled:bg-[#d1d1d6]"
+                        >
+                            {processing ? t('Siliniyor…', 'Deleting…') : t('Kalıcı Olarak Sil', 'Delete Permanently')}
+                        </button>
+                    </div>
+                </form>
+            </section>
         </div>
     );
 }

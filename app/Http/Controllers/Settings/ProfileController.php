@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -53,7 +54,20 @@ class ProfileController extends Controller
 
         Auth::logout();
 
-        $user->delete();
+        DB::transaction(function () use ($user): void {
+            // Game records intentionally use null-on-delete foreign keys so public
+            // leaderboards survive ordinary user changes. A permanent account
+            // deletion must remove the attached name and avatar as well.
+            DB::table('game_plays')->where('user_id', $user->id)->delete();
+            DB::table('game_scores')->where('user_id', $user->id)->delete();
+
+            $user->tokens()->delete();
+
+            DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+
+            $user->delete();
+        });
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
