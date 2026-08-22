@@ -22,7 +22,7 @@ class DemoHomeTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->component('welcome'));
     }
 
-    public function test_demo_preview_is_available_during_development(): void
+    public function test_demo_preview_is_available_without_changing_live_badge_numbers(): void
     {
         $demoMember = User::factory()->create(['email' => 'community.ece@fuevor.local']);
 
